@@ -13,6 +13,7 @@ const workspaceSchema = new mongoose.Schema(
         createdAt: { type: Date, default: Date.now },
       },
     ],
+    kuarter: { type: mongoose.Schema.Types.ObjectId, ref: " Kuarter" },
   },
   { timestamps: true }
 );

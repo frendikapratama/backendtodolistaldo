@@ -42,7 +42,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "member"],
+      enum: ["admin", "member", "head_dev"],
       default: "member",
     },
     resetOTP: String,
@@ -50,6 +50,9 @@ const userSchema = new mongoose.Schema(
 
     workspaces: [{ type: mongoose.Schema.Types.ObjectId, ref: "Workspace" }],
     assignedTasks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Task" }],
+    assignedSubtasks: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Subtask" },
+    ],
   },
   { timestamps: true }
 );

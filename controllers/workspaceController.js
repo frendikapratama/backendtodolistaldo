@@ -1,7 +1,10 @@
 import Project from "../models/Project.js";
+import Kuarter from "../models/Kuarter.js";
 import Group from "../models/Group.js";
 import Workspace from "../models/Workspace.js";
 import User from "../models/User.js";
+import Task from "../models/Task.js";
+import Subtask from "../models/Subtask.js";
 import {
   validateInviteToken,
   generateInviteToken,
@@ -13,10 +16,7 @@ import { handleError } from "../utils/errorHandler.js";
 
 export async function getWorkspace(req, res) {
   try {
-    const userId = req.user._id;
-    const data = await Workspace.find({
-      $or: [{ owner: userId }, { members: userId }],
-    }).populate("projects", "nama");
+    const data = await Workspace.find().populate("projects", "nama");
 
     res.status(200).json({
       success: true,
@@ -57,12 +57,25 @@ export async function getWorkspaceById(req, res) {
 
 export async function createWorkspace(req, res) {
   try {
+    const { kuarterId } = req.params;
+
+    const kuarter = await Kuarter.findById(kuarterId);
+    if (!kuarter) {
+      return res.status(404).json({
+        success: false,
+        message: "kuarter not found",
+      });
+    }
     const newWorkspace = await Workspace.create({
       nama: req.body.nama,
       owner: req.user._id,
       members: [req.user._id],
+      kuarter: kuarterId,
     });
 
+    await Kuarter.findByIdAndUpdate(kuarterId, {
+      $push: { workspace: newWorkspace._id },
+    });
     res.status(201).json({
       success: true,
       message: "Workspace created successfully",
@@ -101,9 +114,23 @@ export async function deleteWorkspace(req, res) {
     const projects = await Project.find({ workspace: workspaceId });
 
     for (const project of projects) {
+      const groups = await Group.find({ project: project._id });
+
+      for (const group of groups) {
+        const tasks = await Task.find({ groups: group._id });
+
+        for (const task of tasks) {
+          await Subtask.deleteMany({ task: task._id });
+        }
+
+        await Task.deleteMany({ groups: group._id });
+      }
+
       await Group.deleteMany({ project: project._id });
     }
+
     await Project.deleteMany({ workspace: workspaceId });
+
     const deletedWorkspace = await Workspace.findByIdAndDelete(workspaceId);
 
     if (!deletedWorkspace) {
@@ -115,7 +142,7 @@ export async function deleteWorkspace(req, res) {
 
     res.status(200).json({
       success: true,
-      message: "Workspace, project, dan group berhasil dihapus",
+      message: "Workspace, project, group, task, dan subtask berhasil dihapus",
     });
   } catch (error) {
     return handleError(res, error);

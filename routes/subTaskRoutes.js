@@ -6,14 +6,19 @@ import {
   deleteSubTask,
   positionSubTask,
   getByTask,
+  acceptSubtaskPicInvite,
+  removeSubtaskPic,
 } from "../controllers/subTaskController.js";
+import { authenticate } from "../middleware/auth.js";
 const router = express.Router();
 
-router.get("/", getSubTask);
-router.get("/ByTask", getByTask);
-router.patch("/:taskId", positionSubTask);
-router.post("/:taskId", createSubTask);
-router.put("/:subTaskId", updateSubTask);
-router.delete("/:subTaskId", deleteSubTask);
+router.get("/", authenticate, getSubTask);
+router.get("/ByTask", authenticate, getByTask);
+router.patch("/:taskId", authenticate, positionSubTask);
+router.post("/:taskId", authenticate, createSubTask);
+router.put("/:subTaskId", authenticate, updateSubTask);
+router.delete("/:subTaskId", authenticate, deleteSubTask);
+router.post("/:subTaskId/accept-pic-invite", acceptSubtaskPicInvite);
+router.delete("/:subTaskId/pic", authenticate, removeSubtaskPic);
 
 export default router;
