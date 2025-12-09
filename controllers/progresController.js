@@ -187,7 +187,9 @@ export async function getProgresByWorkspace(req, res) {
         const allTasksPlanning =
           totalTask > 0 &&
           projectTasks.every(
-            (t) => t.status === "To Do" && t.note === "Planning"
+            (t) =>
+              t.status === "To Do" &&
+              (t.note === "Planning" || t.note === "Uncomplete")
           );
 
         // Cek apakah semua task dalam project adalah status "Hold" atau "Blocked" dengan note "Planning"
@@ -196,7 +198,7 @@ export async function getProgresByWorkspace(req, res) {
           projectTasks.every(
             (t) =>
               (t.status === "Hold" || t.status === "Blocked") &&
-              t.note === "Planning"
+              (t.note === "Planning" || t.note === "Uncomplete")
           );
 
         const percent =
@@ -342,7 +344,9 @@ export async function getProgresByKuarter(req, res) {
       const allPlanning =
         totalTask > 0 &&
         projectTasks.every(
-          (t) => t.status === "To Do" && t.note === "Planning"
+          (t) =>
+            t.status === "To Do" &&
+            (t.note === "Planning" || t.note === "Uncomplete")
         );
 
       const allUndated =
@@ -350,7 +354,7 @@ export async function getProgresByKuarter(req, res) {
         projectTasks.every(
           (t) =>
             (t.status === "Hold" || t.status === "Blocked") &&
-            t.note === "Planning"
+            (t.note === "Planning" || t.note === "Uncomplete")
         );
 
       const undatedTask = projectTasks.filter(
