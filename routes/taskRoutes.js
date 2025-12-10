@@ -12,6 +12,7 @@ import {
   verifyPicInvite,
   getTasksByProjectSimple,
   getMyTasks,
+  getMyTasksWithMeetings,
 } from "../controllers/taksController.js";
 import {
   authenticate,
@@ -22,6 +23,7 @@ const router = express.Router();
 
 router.get("/", authenticate, getTask);
 router.get("/my-work", authenticate, getMyTasks);
+router.get("/my-work-agenda-meeting", authenticate, getMyTasksWithMeetings);
 router.get("/ByGroup", authenticate, getTasksByGroup);
 router.post(
   "/:groupId",
