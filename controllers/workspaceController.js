@@ -13,7 +13,7 @@ import {
 import { findOrCreateUser } from "../utils/userUtils.js";
 import { sendWorkspaceInvitationEmail } from "../utils/emailUtils.js";
 import { handleError } from "../utils/errorHandler.js";
-
+import bcrypt from "bcrypt";
 export async function getWorkspace(req, res) {
   try {
     const data = await Workspace.find().populate("projects", "nama");
@@ -238,7 +238,10 @@ export async function inviteMemberByEmail(req, res) {
       },
     });
 
-    const inviteUrl = `http://localhost:5173/accept-workspace-invite?token=${inviteToken}`;
+    const isRegistered = !!existingUser;
+
+    const frontendUrl = process.env.CLIENT_URL;
+    const inviteUrl = `${frontendUrl}/accept-workspace-invite?token=${inviteToken}&workspaceId=${workspaceId}&registered=${isRegistered}`;
 
     await sendWorkspaceInvitationEmail({
       to: email,
@@ -254,6 +257,237 @@ export async function inviteMemberByEmail(req, res) {
     });
   } catch (error) {
     return handleError(res, error);
+  }
+}
+
+export async function verifyWorkspaceInvite(req, res) {
+  try {
+    const { workspaceId } = req.params;
+    const { token } = req.query;
+
+    const workspace = await Workspace.findById(workspaceId).populate(
+      "owner",
+      "username"
+    );
+
+    if (!workspace) {
+      return res.status(404).json({
+        success: false,
+        message: "Workspace tidak ditemukan",
+      });
+    }
+
+    const invitation = workspace.pendingInvites.find(
+      (inv) => inv.token === token
+    );
+
+    if (!invitation) {
+      return res.status(400).json({
+        success: false,
+        message: "Token undangan tidak valid atau sudah kedaluwarsa",
+      });
+    }
+
+    const tokenAge = Date.now() - invitation.createdAt.getTime();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+
+    if (tokenAge > sevenDays) {
+      return res.status(400).json({
+        success: false,
+        message: "Token undangan sudah kedaluwarsa",
+      });
+    }
+
+    const existingUser = await User.findOne({ email: invitation.email });
+
+    res.json({
+      success: true,
+      data: {
+        workspaceName: workspace.nama,
+        invitedEmail: invitation.email,
+        role: invitation.role,
+        inviterName: workspace.owner?.username || "Admin",
+        isRegistered: !!existingUser,
+      },
+    });
+  } catch (error) {
+    console.error("Error verifying workspace invite:", error);
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan server",
+    });
+  }
+}
+
+export async function acceptWorkspaceInvite(req, res) {
+  try {
+    const { workspaceId } = req.params;
+    const { token } = req.query;
+    const userData = req.body;
+
+    if (!token || !workspaceId) {
+      return res.status(400).json({
+        success: false,
+        message: "Token dan workspaceId wajib disertakan",
+      });
+    }
+
+    const workspace = await Workspace.findById(workspaceId)
+      .populate("owner", "username")
+      .populate("members.user", "email");
+
+    if (!workspace) {
+      return res.status(404).json({
+        success: false,
+        message: "Workspace tidak ditemukan",
+      });
+    }
+
+    const invitation = workspace.pendingInvites.find(
+      (inv) => inv.token === token
+    );
+
+    if (!invitation) {
+      return res.status(400).json({
+        success: false,
+        message: "Token undangan tidak valid atau sudah digunakan",
+      });
+    }
+
+    const tokenAge = Date.now() - invitation.createdAt.getTime();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+
+    if (tokenAge > sevenDays) {
+      await Workspace.findByIdAndUpdate(workspaceId, {
+        $pull: { pendingInvites: { token: token } },
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: "Token undangan sudah kedaluwarsa",
+      });
+    }
+
+    let user = await User.findOne({ email: invitation.email.toLowerCase() });
+
+    if (!user) {
+      if (!userData.username || !userData.password) {
+        return res.status(400).json({
+          success: false,
+          message: "Username dan password wajib diisi untuk pendaftaran baru",
+        });
+      }
+
+      const existingUsername = await User.findOne({
+        username: userData.username,
+      });
+
+      if (existingUsername) {
+        return res.status(400).json({
+          success: false,
+          message: "Username sudah digunakan",
+        });
+      }
+
+      try {
+        const hashedPassword = await bcrypt.hash(userData.password, 10);
+        user = new User({
+          username: userData.username.trim(),
+          email: invitation.email.toLowerCase().trim(),
+          password: hashedPassword,
+          noHp: userData.noHp || "",
+          posisi: userData.posisi || "",
+          departemen: userData.departemen || "",
+          divisi: userData.divisi || "",
+        });
+
+        await user.save();
+        console.log(`✅ User baru terdaftar: ${user.email}`);
+      } catch (registerError) {
+        console.error("Registration error:", registerError);
+        return res.status(400).json({
+          success: false,
+          message: "Gagal mendaftarkan user baru",
+          error: registerError.message,
+        });
+      }
+    }
+
+    // 7. Cek apakah user sudah menjadi member
+    const memberExists = workspace.members.some(
+      (m) => m.user && m.user._id.toString() === user._id.toString()
+    );
+
+    if (!memberExists) {
+      // Tambahkan sebagai member
+      await Workspace.findByIdAndUpdate(workspaceId, {
+        $push: {
+          members: {
+            user: user._id,
+            role: invitation.role || "member",
+            joinedAt: new Date(),
+          },
+        },
+        $pull: { pendingInvites: { token: token } },
+      });
+
+      // Update user workspaces
+      await User.findByIdAndUpdate(user._id, {
+        $push: {
+          workspaces: {
+            workspace: workspace._id,
+            role: invitation.role || "member",
+          },
+        },
+      });
+
+      console.log(
+        `✅ ${user.email} berhasil ditambahkan ke workspace ${workspace.nama}`
+      );
+    } else {
+      // Jika sudah member, cukup hapus invitation
+      await Workspace.findByIdAndUpdate(workspaceId, {
+        $pull: { pendingInvites: { token: token } },
+      });
+
+      console.log(
+        `ℹ️ ${user.email} sudah menjadi member workspace ${workspace.nama}`
+      );
+    }
+
+    // 8. Berikan response sukses
+    res.json({
+      success: true,
+      message: "Berhasil bergabung ke workspace",
+      data: {
+        workspaceId: workspace._id,
+        workspaceName: workspace.nama,
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+        role: invitation.role || "member",
+        alreadyMember: memberExists,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error accepting workspace invite:", error);
+
+    let errorMessage = "Terjadi kesalahan server";
+    let statusCode = 500;
+
+    if (error.name === "ValidationError") {
+      errorMessage = "Data tidak valid";
+      statusCode = 400;
+    } else if (error.code === 11000) {
+      errorMessage = "Email atau username sudah terdaftar";
+      statusCode = 400;
+    }
+
+    res.status(statusCode).json({
+      success: false,
+      message: errorMessage,
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 }
 

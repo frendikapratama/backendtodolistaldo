@@ -33,8 +33,8 @@ const userSchema = new mongoose.Schema(
       required: [true, "no hp wajib diisi"],
       maxlength: [15, "maksimal 15 karakter"],
     },
-    departemen: { type: String, enum: departemenList },
-    divisi: { type: String, enum: divisiList },
+    departemen: { type: String },
+    divisi: { type: String },
     posisi: {
       type: String,
       required: [true, "posisi wajib diisi"],

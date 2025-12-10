@@ -6,9 +6,10 @@ import {
   deleteWorkspace,
   getWorkspaceById,
   inviteMemberByEmail,
-  acceptInvite,
   updateMemberRole,
   removeMember,
+  verifyWorkspaceInvite,
+  acceptWorkspaceInvite,
 } from "../controllers/workspaceController.js";
 import {
   authenticate,
@@ -19,8 +20,10 @@ import {
 const router = express.Router();
 
 router.get("/", authenticate, getWorkspace);
-
 router.post("/:kuarterId", authenticate, requireSystemAdmin, createWorkspace);
+
+router.get("/:workspaceId/verify-invite", verifyWorkspaceInvite);
+router.post("/:workspaceId/accept-invite", acceptWorkspaceInvite);
 
 router.get("/:workspaceId", authenticate, getWorkspaceById);
 
@@ -44,8 +47,6 @@ router.post(
   checkWorkspaceRole(["admin", "project_manager"]),
   inviteMemberByEmail
 );
-
-router.post("/invite/accept", acceptInvite);
 
 router.put(
   "/:workspaceId/members/:userId/role",
