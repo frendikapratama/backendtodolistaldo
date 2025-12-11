@@ -92,7 +92,7 @@ export async function updateProject(req, res) {
       {
         new: true,
       }
-    );
+    ).populate("groups");
 
     res.status(200).json({
       success: true,

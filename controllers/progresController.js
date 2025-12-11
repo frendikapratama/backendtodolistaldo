@@ -132,6 +132,7 @@ export async function getProgresByWorkspace(req, res) {
       });
     }
 
+    // Get projects dalam workspace
     const projects = await Project.find({
       $or: [{ workspace: workspaceId }, { otherWorkspaces: workspaceId }],
     });
@@ -144,13 +145,22 @@ export async function getProgresByWorkspace(req, res) {
         data: {
           workspaceId,
           totalProject: 0,
-          completedProject: 0,
-          inProgressProject: 0,
-          planningProject: 0,
-          undatedProject: 0,
+          totalTask: 0,
+          completedTask: 0,
+          inProgressTask: 0,
+          planningTask: 0,
           undatedTask: 0,
+          heldTask: 0,
+          rejectedTask: 0,
           progress: 0,
-          projects: [],
+          tasksByStatus: {
+            done: 0,
+            inProgress: 0,
+            toDo: 0,
+            hold: 0,
+            reject: 0,
+            blocked: 0,
+          },
         },
       });
     }
@@ -158,112 +168,318 @@ export async function getProgresByWorkspace(req, res) {
     const projectIds = projects.map((p) => p._id);
     const groups = await Group.find({ project: { $in: projectIds } });
 
-    // Hitung undated task dari semua task di workspace
+    // Get all tasks dalam workspace
     const allGroupIds = groups.map((g) => g._id);
     const allTasks = await Task.find({ groups: { $in: allGroupIds } });
 
-    // const undatedTask = allTasks.filter(
-    //   (t) => !t.due_date || t.due_date === null
-    // ).length;
+    const totalTask = allTasks.length;
 
-    const totalGroup = groups.length;
+    if (totalTask === 0) {
+      return res.json({
+        success: true,
+        data: {
+          workspaceId,
+          totalProject,
+          totalTask: 0,
+          completedTask: 0,
+          inProgressTask: 0,
+          planningTask: 0,
+          undatedTask: 0,
+          heldTask: 0,
+          rejectedTask: 0,
+          progress: 0,
+          tasksByStatus: {
+            done: 0,
+            inProgress: 0,
+            toDo: 0,
+            hold: 0,
+            reject: 0,
+            blocked: 0,
+          },
+        },
+      });
+    }
 
-    const projectsProgress = await Promise.all(
-      projects.map(async (project) => {
-        const projectGroupIds = groups
-          .filter((g) => g.project.toString() === project._id.toString())
-          .map((g) => g._id);
-
-        const projectTasks = await Task.find({
-          groups: { $in: projectGroupIds },
-        });
-
-        const totalTask = projectTasks.length;
-        const completedTask = projectTasks.filter(
-          (t) => t.status === "Done"
-        ).length;
-
-        // Cek apakah semua task dalam project adalah status "To Do" dengan note "Planning"
-        const allTasksPlanning =
-          totalTask > 0 &&
-          projectTasks.every(
-            (t) =>
-              t.status === "To Do" &&
-              (t.note === "Planning" || t.note === "Uncomplete")
-          );
-
-        // Cek apakah semua task dalam project adalah status "Hold" atau "Blocked" dengan note "Planning"
-        const allTasksUndated =
-          totalTask > 0 &&
-          projectTasks.every(
-            (t) =>
-              (t.status === "Hold" || t.status === "Blocked") &&
-              (t.note === "Planning" || t.note === "Uncomplete")
-          );
-
-        const percent =
-          totalTask === 0 ? 0 : Math.round((completedTask / totalTask) * 100);
-
-        const isOwned = project.workspace.toString() === workspaceId;
-
-        return {
-          projectId: project._id,
-          projectName: project.nama,
-          totalTask,
-          completedTask,
-          progress: percent,
-          isCompleted: percent === 100,
-          isPlanning: allTasksPlanning,
-          isUndated: allTasksUndated,
-          projectType: isOwned ? "owned" : "collaborated",
-        };
-      })
-    );
-
-    // Hitung project berdasarkan status
-    const completedProject = projectsProgress.filter(
-      (p) => p.isCompleted
+    // Count tasks by status
+    const completedTask = allTasks.filter((t) => t.status === "Done").length;
+    const inProgressTask = allTasks.filter(
+      (t) => t.status === "In Progress"
+    ).length;
+    const toDoTask = allTasks.filter((t) => t.status === "To Do").length;
+    const holdTask = allTasks.filter((t) => t.status === "Hold").length;
+    const rejectedTask = allTasks.filter((t) => t.status === "Reject").length;
+    const blockedTask = allTasks.filter((t) => t.status === "Blocked").length;
+    const holdBlockedTask = allTasks.filter(
+      (t) => t.status === "Hold" || t.status === "Blocked"
+    ).length;
+    // Count tasks by planning status
+    const planningTask = allTasks.filter(
+      (t) =>
+        t.status === "To Do" &&
+        (t.note === "Planning" || t.note === "Uncomplete")
     ).length;
 
-    const planningProject = projectsProgress.filter((p) => p.isPlanning).length;
-
-    const undatedProject = projectsProgress.filter((p) => p.isUndated).length;
-
-    const inProgressProject = projectsProgress.filter(
-      (p) => !p.isPlanning && !p.isUndated && p.progress > 0 && p.progress < 100
+    const undatedTask = allTasks.filter(
+      (t) => !t.due_date || t.due_date === null
     ).length;
 
-    const notStartedProject = projectsProgress.filter(
-      (p) => !p.isPlanning && !p.isUndated && p.progress === 0
-    ).length;
-
-    // Hitung progres workspace dengan rata-rata progres semua project
-    const totalProgress = projectsProgress.reduce(
-      (sum, project) => sum + project.progress,
-      0
-    );
-    const workspaceProgress = Math.round(totalProgress / totalProject);
+    // Calculate progress percentage based on completed tasks
+    const progress =
+      totalTask === 0 ? 0 : Math.round((completedTask / totalTask) * 100);
 
     res.json({
       success: true,
       data: {
         workspaceId,
         totalProject,
-        completedProject,
-        inProgressProject,
-        notStartedProject,
-        planned: planningProject,
-        undatedProject,
-        totalGroup,
-        // undatedTask,
-        progress: workspaceProgress,
-        projects: projectsProgress,
+        totalTask,
+        completedTask,
+        inProgressTask,
+        planningTask,
+        undatedTask,
+        holdBlockedTask,
+        heldTask: holdTask,
+        rejectedTask,
+        blockedTask,
+        progress,
+        tasksByStatus: {
+          done: completedTask,
+          inProgress: inProgressTask,
+          toDo: toDoTask,
+          hold: holdTask,
+          reject: rejectedTask,
+          blocked: blockedTask,
+        },
       },
     });
   } catch (error) {
     return handleError(res, error);
   }
 }
+
+// export async function getProgresByKuarter(req, res) {
+//   try {
+//     const { kuarterId } = req.params;
+
+//     const kuarter = await Kuarter.findById(kuarterId);
+//     if (!kuarter) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Kuarter tidak ditemukan",
+//       });
+//     }
+
+//     const workspaces = await Workspace.find({ kuarter: kuarterId });
+//     const totalWorkspace = workspaces.length;
+
+//     // Jika kosong, return 0 semua
+//     if (totalWorkspace === 0) {
+//       return res.json({
+//         success: true,
+//         data: {
+//           kuarterId: kuarter._id,
+//           kuarterName: kuarter.nama,
+//           departemen: kuarter.departemen,
+//           totalWorkspace: 0,
+//           totalProject: 0,
+//           completedProject: 0,
+//           inProgressProject: 0,
+//           planningProject: 0,
+//           undatedProject: 0,
+//           notStartedProject: 0,
+//           overdueProject: 0,
+//           undatedTask: 0,
+//           progress: 0,
+//           workspaces: [],
+//         },
+//       });
+//     }
+
+//     const workspaceIds = workspaces.map((w) => w._id);
+
+//     // Ambil seluruh project di kuarter ini
+//     const allProjects = await Project.find({
+//       $or: [
+//         { workspace: { $in: workspaceIds } },
+//         { otherWorkspaces: { $in: workspaceIds } },
+//       ],
+//     });
+
+//     const projectIds = allProjects.map((p) => p._id);
+
+//     const allGroups = await Group.find({ project: { $in: projectIds } });
+//     const allGroupIds = allGroups.map((g) => g._id);
+
+//     const allTasks = await Task.find({ groups: { $in: allGroupIds } });
+
+//     // ============================================================
+//     // HITUNG STATUS PROJECT (SESUAI getProgresByWorkspace)
+//     // TERMASUK overdueProject (Completed - Overdue)
+//     // ============================================================
+//     const projectsStatus = allProjects.map((project) => {
+//       const projectGroupIds = allGroups
+//         .filter((g) => g.project.toString() === project._id.toString())
+//         .map((g) => g._id);
+
+//       const projectTasks = allTasks.filter((t) =>
+//         projectGroupIds.some((gid) => gid.toString() === t.groups.toString())
+//       );
+
+//       const totalTask = projectTasks.length;
+//       const completedTask = projectTasks.filter(
+//         (t) => t.status === "Done"
+//       ).length;
+
+//       const percent =
+//         totalTask === 0 ? 0 : Math.round((completedTask / totalTask) * 100);
+
+//       const allPlanning =
+//         totalTask > 0 &&
+//         projectTasks.every(
+//           (t) =>
+//             t.status === "To Do" &&
+//             (t.note === "Planning" || t.note === "Uncomplete")
+//         );
+
+//       const allUndated =
+//         totalTask > 0 &&
+//         projectTasks.every(
+//           (t) =>
+//             (t.status === "Hold" || t.status === "Blocked") &&
+//             (t.note === "Planning" || t.note === "Uncomplete")
+//         );
+
+//       const undatedTask = projectTasks.filter(
+//         (t) => !t.due_date || t.due_date === null
+//       ).length;
+
+//       // ============= ADD: CHECK PROJECT TERLAMBAT =============
+//       const isOverdue = projectTasks.some(
+//         (t) => t.status === "Done" && t.note === "Completed - Overdue"
+//       );
+
+//       return {
+//         projectId: project._id,
+//         projectName: project.nama,
+
+//         progress: percent,
+//         totalTask,
+//         completedTask,
+//         undatedTask,
+
+//         isCompleted: percent === 100,
+//         isPlanning: allPlanning,
+//         isUndated: allUndated,
+//         isInProgress:
+//           percent > 0 && percent < 100 && !allPlanning && !allUndated,
+//         isNotStarted: percent === 0 && !allPlanning && !allUndated,
+
+//         // ADD:
+//         isOverdue,
+//       };
+//     });
+
+//     // ============================================================
+//     // SUMMARY PROJECT KUARTER
+//     // ============================================================
+//     const completedProject = projectsStatus.filter((p) => p.isCompleted).length;
+//     const planningProject = projectsStatus.filter((p) => p.isPlanning).length;
+//     const undatedProject = projectsStatus.filter((p) => p.isUndated).length;
+//     const inProgressProject = projectsStatus.filter(
+//       (p) => p.isInProgress
+//     ).length;
+//     const notStartedProject = projectsStatus.filter(
+//       (p) => p.isNotStarted
+//     ).length;
+
+//     // ADD: total project terlambat
+//     const overdueProject = projectsStatus.filter((p) => p.isOverdue).length;
+
+//     const totalUndatedTask = projectsStatus.reduce(
+//       (sum, p) => sum + p.undatedTask,
+//       0
+//     );
+
+//     // ============================================================
+//     // HITUNG PROGRES PER WORKSPACE
+//     // ============================================================
+//     const workspacesProgress = await Promise.all(
+//       workspaces.map(async (workspace) => {
+//         const workspaceProjects = allProjects.filter(
+//           (p) =>
+//             p.workspace.toString() === workspace._id.toString() ||
+//             (p.otherWorkspaces &&
+//               p.otherWorkspaces.some(
+//                 (ow) => ow.toString() === workspace._id.toString()
+//               ))
+//         );
+
+//         const projectProgressList = workspaceProjects.map((project) => {
+//           const projState = projectsStatus.find(
+//             (ps) => ps.projectId.toString() === project._id.toString()
+//           );
+//           return projState ? projState.progress : 0;
+//         });
+
+//         const workspaceProgress =
+//           projectProgressList.length === 0
+//             ? 0
+//             : Math.round(
+//                 projectProgressList.reduce((a, b) => a + b, 0) /
+//                   projectProgressList.length
+//               );
+
+//         return {
+//           workspaceId: workspace._id,
+//           workspaceName: workspace.nama,
+//           totalProject: workspaceProjects.length,
+//           progress: workspaceProgress,
+//         };
+//       })
+//     );
+
+//     // ============================================================
+//     // FINAL: PROGRESS KUARTER
+//     // ============================================================
+//     const totalWorkspaceProgress = workspacesProgress.reduce(
+//       (sum, ws) => sum + ws.progress,
+//       0
+//     );
+
+//     const kuarterProgress =
+//       totalWorkspace === 0
+//         ? 0
+//         : Math.round(totalWorkspaceProgress / totalWorkspace);
+
+//     // ============================================================
+//     // RESPONSE
+//     // ============================================================
+//     res.json({
+//       success: true,
+//       data: {
+//         kuarterId: kuarter._id,
+//         kuarterName: kuarter.nama,
+//         departemen: kuarter.departemen,
+
+//         totalWorkspace,
+//         totalProject: allProjects.length,
+
+//         completedProject,
+//         inProgressProject,
+//         planningProject,
+//         undatedProject,
+//         notStartedProject,
+//         overdueProject,
+//         undatedTask: totalUndatedTask,
+
+//         progress: kuarterProgress,
+//         workspaces: workspacesProgress,
+//       },
+//     });
+//   } catch (error) {
+//     return handleError(res, error);
+//   }
+// }
 
 export async function getProgresByKuarter(req, res) {
   try {
@@ -289,14 +505,12 @@ export async function getProgresByKuarter(req, res) {
           kuarterName: kuarter.nama,
           departemen: kuarter.departemen,
           totalWorkspace: 0,
-          totalProject: 0,
-          completedProject: 0,
-          inProgressProject: 0,
-          planningProject: 0,
-          undatedProject: 0,
-          notStartedProject: 0,
-          overdueProject: 0,
-          undatedTask: 0,
+          totalTask: 0,
+          doneTask: 0,
+          inProgressTask: 0,
+          blockedTask: 0,
+          holdTask: 0,
+          planningTask: 0,
           progress: 0,
           workspaces: [],
         },
@@ -305,7 +519,6 @@ export async function getProgresByKuarter(req, res) {
 
     const workspaceIds = workspaces.map((w) => w._id);
 
-    // Ambil seluruh project di kuarter ini
     const allProjects = await Project.find({
       $or: [
         { workspace: { $in: workspaceIds } },
@@ -315,101 +528,156 @@ export async function getProgresByKuarter(req, res) {
 
     const projectIds = allProjects.map((p) => p._id);
 
+    // Ambil semua groups dari semua project
     const allGroups = await Group.find({ project: { $in: projectIds } });
     const allGroupIds = allGroups.map((g) => g._id);
 
-    const allTasks = await Task.find({ groups: { $in: allGroupIds } });
+    // Ambil semua tasks dari semua groups
+    const allTasks = await Task.find({ groups: { $in: allGroupIds } }).lean();
+
+    const totalTask = allTasks.length;
+    const totalProject = allProjects.length;
+
+    // Jika tidak ada task, return 0 semua
+    if (totalTask === 0) {
+      return res.json({
+        success: true,
+        data: {
+          kuarterId: kuarter._id,
+          kuarterName: kuarter.nama,
+          departemen: kuarter.departemen,
+
+          totalWorkspace,
+          totalTask: 0,
+          doneTask: 0,
+          inProgressTask: 0,
+          blockedTask: 0,
+          holdTask: 0,
+          planningTask: 0,
+          progress: 0,
+          workspaces: workspacesProgress,
+        },
+      });
+    }
 
     // ============================================================
-    // HITUNG STATUS PROJECT (SESUAI getProgresByWorkspace)
-    // TERMASUK overdueProject (Completed - Overdue)
+    // HITUNG STATUS SETIAP TASK
     // ============================================================
-    const projectsStatus = allProjects.map((project) => {
-      const projectGroupIds = allGroups
-        .filter((g) => g.project.toString() === project._id.toString())
-        .map((g) => g._id);
+    const taskStatusList = allTasks.map((task) => {
+      // Tentukan kategori status berdasarkan status task
+      let statusCategory = "";
 
-      const projectTasks = allTasks.filter((t) =>
-        projectGroupIds.some((gid) => gid.toString() === t.groups.toString())
-      );
-
-      const totalTask = projectTasks.length;
-      const completedTask = projectTasks.filter(
-        (t) => t.status === "Done"
-      ).length;
-
-      const percent =
-        totalTask === 0 ? 0 : Math.round((completedTask / totalTask) * 100);
-
-      const allPlanning =
-        totalTask > 0 &&
-        projectTasks.every(
-          (t) =>
-            t.status === "To Do" &&
-            (t.note === "Planning" || t.note === "Uncomplete")
-        );
-
-      const allUndated =
-        totalTask > 0 &&
-        projectTasks.every(
-          (t) =>
-            (t.status === "Hold" || t.status === "Blocked") &&
-            (t.note === "Planning" || t.note === "Uncomplete")
-        );
-
-      const undatedTask = projectTasks.filter(
-        (t) => !t.due_date || t.due_date === null
-      ).length;
-
-      // ============= ADD: CHECK PROJECT TERLAMBAT =============
-      const isOverdue = projectTasks.some(
-        (t) => t.status === "Done" && t.note === "Completed - Overdue"
-      );
+      switch (task.status) {
+        case "Done":
+          statusCategory = "done";
+          break;
+        case "In Progress":
+          statusCategory = "inProgress";
+          break;
+        case "Blocked":
+          statusCategory = "blocked";
+          break;
+        case "Hold":
+          statusCategory = "hold";
+          break;
+        case "To Do":
+        case "Not Started":
+          statusCategory = "planning";
+          break;
+        default:
+          statusCategory = "planning";
+      }
 
       return {
-        projectId: project._id,
-        projectName: project.nama,
-
-        progress: percent,
-        totalTask,
-        completedTask,
-        undatedTask,
-
-        isCompleted: percent === 100,
-        isPlanning: allPlanning,
-        isUndated: allUndated,
-        isInProgress:
-          percent > 0 && percent < 100 && !allPlanning && !allUndated,
-        isNotStarted: percent === 0 && !allPlanning && !allUndated,
-
-        // ADD:
-        isOverdue,
+        taskId: task._id,
+        taskName: task.nama,
+        status: task.status,
+        statusCategory,
+        isDone: task.status === "Done",
+        workspaceId: null,
       };
     });
 
     // ============================================================
-    // SUMMARY PROJECT KUARTER
+    // MAPPING TASK KE WORKSPACE
     // ============================================================
-    const completedProject = projectsStatus.filter((p) => p.isCompleted).length;
-    const planningProject = projectsStatus.filter((p) => p.isPlanning).length;
-    const undatedProject = projectsStatus.filter((p) => p.isUndated).length;
-    const inProgressProject = projectsStatus.filter(
-      (p) => p.isInProgress
-    ).length;
-    const notStartedProject = projectsStatus.filter(
-      (p) => p.isNotStarted
-    ).length;
+    const groupWorkspaceMap = {};
 
-    // ADD: total project terlambat
-    const overdueProject = projectsStatus.filter((p) => p.isOverdue).length;
+    for (const group of allGroups) {
+      const project = allProjects.find(
+        (p) => p._id.toString() === group.project.toString()
+      );
+      if (project) {
+        const mainWorkspace = workspaces.find(
+          (w) => w._id.toString() === project.workspace.toString()
+        );
+        if (mainWorkspace) {
+          groupWorkspaceMap[group._id.toString()] =
+            mainWorkspace._id.toString();
+        }
 
-    const totalUndatedTask = projectsStatus.reduce(
-      (sum, p) => sum + p.undatedTask,
-      0
-    );
+        if (project.otherWorkspaces && project.otherWorkspaces.length > 0) {
+          project.otherWorkspaces.forEach((wsId) => {
+            const otherWorkspace = workspaces.find(
+              (w) => w._id.toString() === wsId.toString()
+            );
+            if (otherWorkspace) {
+              groupWorkspaceMap[group._id.toString()] =
+                otherWorkspace._id.toString();
+            }
+          });
+        }
+      }
+    }
+
+    // Update workspaceId pada setiap task
+    taskStatusList.forEach((taskStatus) => {
+      const task = allTasks.find(
+        (t) => t._id.toString() === taskStatus.taskId.toString()
+      );
+      if (task && task.groups && task.groups.length > 0) {
+        const groupsArray = Array.isArray(task.groups)
+          ? task.groups
+          : [task.groups];
+
+        const workspaceIds = [];
+        groupsArray.forEach((groupId) => {
+          const wsId = groupWorkspaceMap[groupId.toString()];
+          if (wsId && !workspaceIds.includes(wsId)) {
+            workspaceIds.push(wsId);
+          }
+        });
+
+        taskStatus.workspaceId =
+          workspaceIds.length > 0 ? workspaceIds[0] : null;
+      }
+    });
 
     // ============================================================
-    // HITUNG PROGRES PER WORKSPACE
+    // SUMMARY TASK PER KUARTER
+    // ============================================================
+    const doneTask = taskStatusList.filter(
+      (t) => t.statusCategory === "done"
+    ).length;
+    const inProgressTask = taskStatusList.filter(
+      (t) => t.statusCategory === "inProgress"
+    ).length;
+    const blockedTask = taskStatusList.filter(
+      (t) => t.statusCategory === "blocked"
+    ).length;
+    const holdTask = taskStatusList.filter(
+      (t) => t.statusCategory === "hold"
+    ).length;
+    const planningTask = taskStatusList.filter(
+      (t) => t.statusCategory === "planning"
+    ).length;
+
+    // Hitung progress: hanya dari task yang Done
+    const progress =
+      totalTask === 0 ? 0 : Math.round((doneTask / totalTask) * 100);
+
+    // ============================================================
+    // HITUNG PROGRESS PER WORKSPACE BERDASARKAN TASK YANG DONE
     // ============================================================
     const workspacesProgress = await Promise.all(
       workspaces.map(async (workspace) => {
@@ -418,46 +686,69 @@ export async function getProgresByKuarter(req, res) {
             p.workspace.toString() === workspace._id.toString() ||
             (p.otherWorkspaces &&
               p.otherWorkspaces.some(
-                (ow) => ow.toString() === workspace._id.toString()
+                (wsId) => wsId.toString() === workspace._id.toString()
               ))
         );
+        const totalWsProject = workspaceProjects.length;
+        // Filter task yang termasuk dalam workspace ini
+        const workspaceTasks = taskStatusList.filter(
+          (t) =>
+            t.workspaceId &&
+            t.workspaceId.toString() === workspace._id.toString()
+        );
 
-        const projectProgressList = workspaceProjects.map((project) => {
-          const projState = projectsStatus.find(
-            (ps) => ps.projectId.toString() === project._id.toString()
-          );
-          return projState ? projState.progress : 0;
-        });
+        const totalWsTask = workspaceTasks.length;
 
-        const workspaceProgress =
-          projectProgressList.length === 0
-            ? 0
-            : Math.round(
-                projectProgressList.reduce((a, b) => a + b, 0) /
-                  projectProgressList.length
-              );
+        if (totalWsTask === 0) {
+          return {
+            workspaceId: workspace._id,
+            workspaceName: workspace.nama,
+            totalProject: totalWsProject,
+            totalTask: 0,
+            progress: 0,
+            doneTask: 0,
+            inProgressTask: 0,
+            blockedTask: 0,
+            holdTask: 0,
+            planningTask: 0,
+          };
+        }
+
+        // Hitung jumlah task per status untuk workspace ini
+        const wsDoneTask = workspaceTasks.filter(
+          (t) => t.statusCategory === "done"
+        ).length;
+        const wsInProgressTask = workspaceTasks.filter(
+          (t) => t.statusCategory === "inProgress"
+        ).length;
+        const wsBlockedTask = workspaceTasks.filter(
+          (t) => t.statusCategory === "blocked"
+        ).length;
+        const wsHoldTask = workspaceTasks.filter(
+          (t) => t.statusCategory === "hold"
+        ).length;
+        const wsPlanningTask = workspaceTasks.filter(
+          (t) => t.statusCategory === "planning"
+        ).length;
+
+        // Hitung progress workspace: hanya dari task yang Done
+        const wsProgress =
+          totalWsTask === 0 ? 0 : Math.round((wsDoneTask / totalWsTask) * 100);
 
         return {
           workspaceId: workspace._id,
           workspaceName: workspace.nama,
-          totalProject: workspaceProjects.length,
-          progress: workspaceProgress,
+          totalProject: totalWsProject,
+          totalTask: totalWsTask,
+          progress: wsProgress,
+          doneTask: wsDoneTask,
+          inProgressTask: wsInProgressTask,
+          blockedTask: wsBlockedTask,
+          holdTask: wsHoldTask,
+          planningTask: wsPlanningTask,
         };
       })
     );
-
-    // ============================================================
-    // FINAL: PROGRESS KUARTER
-    // ============================================================
-    const totalWorkspaceProgress = workspacesProgress.reduce(
-      (sum, ws) => sum + ws.progress,
-      0
-    );
-
-    const kuarterProgress =
-      totalWorkspace === 0
-        ? 0
-        : Math.round(totalWorkspaceProgress / totalWorkspace);
 
     // ============================================================
     // RESPONSE
@@ -468,19 +759,17 @@ export async function getProgresByKuarter(req, res) {
         kuarterId: kuarter._id,
         kuarterName: kuarter.nama,
         departemen: kuarter.departemen,
-
+        totalProject,
         totalWorkspace,
-        totalProject: allProjects.length,
+        totalTask,
 
-        completedProject,
-        inProgressProject,
-        planningProject,
-        undatedProject,
-        notStartedProject,
-        overdueProject, // ✔ Tambahan
-        undatedTask: totalUndatedTask,
+        doneTask,
+        inProgressTask,
+        blockedTask, // Blocked terpisah
+        holdTask, // Hold terpisah
+        planningTask, // Planning
 
-        progress: kuarterProgress,
+        progress, // Progress hanya dihitung dari task yang Done
         workspaces: workspacesProgress,
       },
     });
@@ -488,10 +777,6 @@ export async function getProgresByKuarter(req, res) {
     return handleError(res, error);
   }
 }
-
-// Tambahkan function ini ke file controller Anda
-
-// Tambahkan function ini ke file controller Anda
 
 export async function getAllKuarterWithProgress(req, res) {
   try {

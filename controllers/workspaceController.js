@@ -238,7 +238,10 @@ export async function inviteMemberByEmail(req, res) {
       },
     });
 
-    const inviteUrl = `http://localhost:5173/accept-workspace-invite?token=${inviteToken}`;
+    const isRegistered = !!existingUser;
+
+    const frontendUrl = process.env.CLIENT_URL;
+    const inviteUrl = `${frontendUrl}/accept-workspace-invite?token=${inviteToken}&workspaceId=${workspaceId}&registered=${isRegistered}`;
 
     await sendWorkspaceInvitationEmail({
       to: email,
@@ -257,7 +260,66 @@ export async function inviteMemberByEmail(req, res) {
   }
 }
 
-export async function acceptInvite(req, res) {
+export async function verifyWorkspaceInvite(req, res) {
+  try {
+    const { workspaceId } = req.params;
+    const { token } = req.query;
+
+    const workspace = await Workspace.findById(workspaceId).populate(
+      "owner",
+      "username"
+    );
+
+    if (!workspace) {
+      return res.status(404).json({
+        success: false,
+        message: "Workspace tidak ditemukan",
+      });
+    }
+
+    const invitation = workspace.pendingInvites.find(
+      (inv) => inv.token === token
+    );
+
+    if (!invitation) {
+      return res.status(400).json({
+        success: false,
+        message: "Token undangan tidak valid atau sudah kedaluwarsa",
+      });
+    }
+
+    const tokenAge = Date.now() - invitation.createdAt.getTime();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+
+    if (tokenAge > sevenDays) {
+      return res.status(400).json({
+        success: false,
+        message: "Token undangan sudah kedaluwarsa",
+      });
+    }
+
+    const existingUser = await User.findOne({ email: invitation.email });
+
+    res.json({
+      success: true,
+      data: {
+        workspaceName: workspace.nama,
+        invitedEmail: invitation.email,
+        role: invitation.role,
+        inviterName: workspace.owner?.username || "Admin",
+        isRegistered: !!existingUser,
+      },
+    });
+  } catch (error) {
+    console.error("Error verifying workspace invite:", error);
+    res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan server",
+    });
+  }
+}
+
+export async function acceptWorkspaceInvite(req, res) {
   try {
     const { token } = req.query;
     const { username, password, noHp, posisi } = req.body;

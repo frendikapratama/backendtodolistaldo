@@ -903,3 +903,169 @@ export async function getMyTasks(req, res) {
     return handleError(res, error);
   }
 }
+
+export async function getMyTasksWithMeetings(req, res) {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Mendapatkan user ID dari request (sesuai dengan user yang login)
+    const userId = req.user._id; // Asumsi user data ada di req.user
+
+    // Mendapatkan semua tasks dengan meeting_date DAN pic sesuai user login
+    const tasksWithMeetings = await Task.find({
+      meeting_date: { $exists: true, $ne: null },
+      pic: userId, // Filter berdasarkan user yang login
+    })
+      .populate({
+        path: "groups",
+        select: "nama project",
+        populate: {
+          path: "project",
+          select: "nama workspace",
+          populate: {
+            path: "workspace",
+            select: "nama members",
+          },
+        },
+      })
+      .populate("pic", "username email")
+      .populate({
+        path: "subtask",
+        match: {
+          meeting_date: { $exists: true, $ne: null },
+          pic: userId, // Filter subtask juga berdasarkan user login
+        },
+        options: { sort: { position: 1 } },
+      })
+      .sort({ meeting_date: 1, due_date: 1 });
+
+    // Mendapatkan semua subtasks dengan meeting_date DAN pic sesuai user login
+    const allSubtasksWithMeetings = await Subtask.find({
+      meeting_date: { $exists: true, $ne: null },
+      pic: userId, // Filter berdasarkan user yang login
+    })
+      .populate({
+        path: "task",
+        select: "nama groups pic meeting_date",
+        populate: [
+          {
+            path: "groups",
+            select: "nama project",
+            populate: {
+              path: "project",
+              select: "nama workspace",
+              populate: {
+                path: "workspace",
+                select: "nama members",
+              },
+            },
+          },
+          {
+            path: "pic",
+            select: "username email",
+          },
+        ],
+      })
+      .sort({ meeting_date: 1 });
+
+    // Format tasks dengan meeting - property type sejajar dengan _id
+    const formattedTasks = tasksWithMeetings.map((task) => {
+      const group = Array.isArray(task.groups) ? task.groups[0] : task.groups;
+      const workspace = group?.project?.workspace;
+
+      return {
+        _id: task._id,
+        type: "task",
+        nama: task.nama,
+        status: task.status,
+        priority: task.priority,
+        start_date: task.start_date,
+        due_date: task.due_date,
+        meeting_date: task.meeting_date,
+        finish_date: task.finish_date,
+        note: task.note,
+        meeting_link: task.meeting_link,
+        description: task.description,
+        pic: task.pic,
+        workspace: workspace?.nama || "-",
+        project: group?.project?.nama || "-",
+        group: group?.nama || "-",
+        groupId: group?._id,
+        projectId: group?.project?._id,
+        workspaceId: workspace?._id,
+        createdAt: task.createdAt,
+        updatedAt: task.updatedAt,
+      };
+    });
+
+    // Format subtasks dengan meeting - property type sejajar dengan _id
+    const formattedSubtasks = allSubtasksWithMeetings.map((subtask) => {
+      const task = subtask.task;
+      const group = Array.isArray(task?.groups)
+        ? task?.groups[0]
+        : task?.groups;
+      const workspace = group?.project?.workspace;
+
+      return {
+        _id: subtask._id,
+        type: "subtask",
+        nama: subtask.nama,
+        status: subtask.status,
+        priority: subtask.priority,
+        start_date: subtask.start_date,
+        due_date: subtask.due_date,
+        meeting_date: subtask.meeting_date,
+        finish_date: subtask.finish_date,
+        note: subtask.note,
+        meeting_link: subtask.meeting_link,
+        description: subtask.description,
+        pic: subtask.pic,
+        parentTask: {
+          _id: task?._id,
+          nama: task?.nama,
+          status: task?.status,
+          meeting_date: task?.meeting_date,
+        },
+        workspace: workspace?.nama || "-",
+        project: group?.project?.nama || "-",
+        group: group?.nama || "-",
+        groupId: group?._id,
+        projectId: group?.project?._id,
+        workspaceId: workspace?._id,
+        createdAt: subtask.createdAt,
+        updatedAt: subtask.updatedAt,
+      };
+    });
+
+    // Gabungkan semua items
+    const allItems = [...formattedTasks, ...formattedSubtasks]
+      .filter((item) => item.meeting_date)
+      .sort((a, b) => new Date(a.meeting_date) - new Date(b.meeting_date));
+
+    // Kelompokkan berdasarkan tanggal meeting
+    const itemsByDate = {};
+    allItems.forEach((item) => {
+      if (item.meeting_date) {
+        const meetingDate = new Date(item.meeting_date)
+          .toISOString()
+          .split("T")[0];
+        if (!itemsByDate[meetingDate]) {
+          itemsByDate[meetingDate] = [];
+        }
+        itemsByDate[meetingDate].push(item);
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message:
+        "Berhasil mengambil data tasks dan subtasks dengan meeting milik user",
+      data: allItems,
+      // itemsByDate: itemsByDate,
+      // count: allItems.length,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
