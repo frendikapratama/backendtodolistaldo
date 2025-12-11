@@ -29,6 +29,11 @@ router.put(
   checkWorkspaceRoleFromProject(["admin", "project_manager"]),
   updateProject
 );
-router.delete("/:projectId", authenticate, requireSystemAdmin, deleteProject);
+router.delete(
+  "/:projectId",
+  authenticate,
+  checkWorkspaceRoleFromProject(["admin", "project_manager"]),
+  deleteProject
+);
 
 export default router;
