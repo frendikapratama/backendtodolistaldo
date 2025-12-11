@@ -13,7 +13,7 @@ import {
 import { findOrCreateUser } from "../utils/userUtils.js";
 import { sendWorkspaceInvitationEmail } from "../utils/emailUtils.js";
 import { handleError } from "../utils/errorHandler.js";
-import bcrypt from "bcrypt";
+
 export async function getWorkspace(req, res) {
   try {
     const data = await Workspace.find().populate("projects", "nama");
