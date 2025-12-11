@@ -424,13 +424,18 @@ export async function changePassword(req, res) {
     return handleError(res, error);
   }
 }
-
-// Get current user profile
 export async function getProfile(req, res) {
   try {
     const user = await User.findById(req.user._id).select(
       "-password -resetOTP -resetOTPExpire"
     );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -440,11 +445,19 @@ export async function getProfile(req, res) {
     return handleError(res, error);
   }
 }
-
-// Update current user profile
 export async function updateProfile(req, res) {
   try {
+    console.log("Update profile request body:", req.body);
+    console.log("User ID:", req.user._id); 
+
     const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
     const allowedFields = [
       "username",
@@ -454,12 +467,19 @@ export async function updateProfile(req, res) {
       "posisi",
     ];
     allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
+      if (req.body[field] !== undefined && req.body[field] !== null && req.body[field] !== "") {
         user[field] = req.body[field];
       }
     });
-
-    // Handle photo upload
+    if (req.body.password && req.body.password.trim() !== "") {
+      if (req.body.password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 6 characters",
+        });
+      }
+      user.password = req.body.password;
+    }
     if (req.file) {
       if (user.photo) {
         const oldPath = `uploads/users/${user.photo}`;
@@ -469,11 +489,9 @@ export async function updateProfile(req, res) {
       }
       user.photo = req.file.filename;
     }
-
-    await user.save();
-
+    await user.save({ validateBeforeSave: true });
     const userResponse = {
-      id: user._id,
+      _id: user._id,
       username: user.username,
       email: user.email,
       noHp: user.noHp,
@@ -482,6 +500,8 @@ export async function updateProfile(req, res) {
       posisi: user.posisi,
       isSystemAdmin: user.isSystemAdmin,
       photo: user.photo,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     res.status(200).json({
@@ -490,6 +510,16 @@ export async function updateProfile(req, res) {
       data: userResponse,
     });
   } catch (error) {
+    console.error("Update profile error:", error);
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: errors
+      });
+    }
+
     return handleError(res, error);
   }
 }

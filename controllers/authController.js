@@ -12,12 +12,12 @@ export  async function login (req, res) {
     const user = await User.findOne({email});
 
     if (!user) return res.status(400).json({
-      message:'email tidak di temukan'
+      message:'Email Not Found'
     }) 
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(400).json({
-      message:"password salah"
+      message:"Wrong Password"
     })
 
     const token = jwt.sign(
@@ -28,7 +28,7 @@ export  async function login (req, res) {
       // }  
     );
 
-    res.json({message:"login berhasil",token});
+    res.json({message:"Login Successfully",token});
     }catch (error) {
       res.status(500).json({message: error.message})
   }

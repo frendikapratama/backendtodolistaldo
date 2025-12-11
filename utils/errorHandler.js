@@ -10,7 +10,7 @@ export const handleError = (res, error) => {
 
   return res.status(500).json({
     success: false,
-    message: "Terjadi kesalahan pada server",
+    message: "Server Error",
     error: process.env.NODE_ENV === "development" ? error.message : undefined,
   });
 };
