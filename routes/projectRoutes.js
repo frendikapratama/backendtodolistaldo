@@ -10,6 +10,7 @@ import {
   authenticate,
   requireSystemAdmin,
   checkWorkspaceRole,
+  checkWorkspaceRoleFromProject,
 } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -25,7 +26,7 @@ router.get("/:projectId", authenticate, getProjectById);
 router.put(
   "/:projectId",
   authenticate,
-  checkWorkspaceRole(["admin", "project_manager"]),
+  checkWorkspaceRoleFromProject(["admin", "project_manager"]),
   updateProject
 );
 router.delete("/:projectId", authenticate, requireSystemAdmin, deleteProject);
