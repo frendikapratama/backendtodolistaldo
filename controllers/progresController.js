@@ -469,7 +469,7 @@ export async function getProgresByWorkspace(req, res) {
 //         planningProject,
 //         undatedProject,
 //         notStartedProject,
-//         overdueProject, // ✔ Tambahan
+//         overdueProject,
 //         undatedTask: totalUndatedTask,
 
 //         progress: kuarterProgress,
@@ -555,17 +555,7 @@ export async function getProgresByKuarter(req, res) {
           holdTask: 0,
           planningTask: 0,
           progress: 0,
-          workspaces: workspaces.map((ws) => ({
-            workspaceId: ws._id,
-            workspaceName: ws.nama,
-            totalTask: 0,
-            progress: 0,
-            doneTask: 0,
-            inProgressTask: 0,
-            blockedTask: 0,
-            holdTask: 0,
-            planningTask: 0,
-          })),
+          workspaces: workspacesProgress,
         },
       });
     }
@@ -691,6 +681,15 @@ export async function getProgresByKuarter(req, res) {
     // ============================================================
     const workspacesProgress = await Promise.all(
       workspaces.map(async (workspace) => {
+        const workspaceProjects = allProjects.filter(
+          (p) =>
+            p.workspace.toString() === workspace._id.toString() ||
+            (p.otherWorkspaces &&
+              p.otherWorkspaces.some(
+                (wsId) => wsId.toString() === workspace._id.toString()
+              ))
+        );
+        const totalWsProject = workspaceProjects.length;
         // Filter task yang termasuk dalam workspace ini
         const workspaceTasks = taskStatusList.filter(
           (t) =>
@@ -704,6 +703,7 @@ export async function getProgresByKuarter(req, res) {
           return {
             workspaceId: workspace._id,
             workspaceName: workspace.nama,
+            totalProject: totalWsProject,
             totalTask: 0,
             progress: 0,
             doneTask: 0,
@@ -738,6 +738,7 @@ export async function getProgresByKuarter(req, res) {
         return {
           workspaceId: workspace._id,
           workspaceName: workspace.nama,
+          totalProject: totalWsProject,
           totalTask: totalWsTask,
           progress: wsProgress,
           doneTask: wsDoneTask,
