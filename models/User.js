@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema(
       required: [true, "password wajib diisi"],
       minlength: [6, "Minimal 6 karakter"],
     },
+    photo: { String },
     noHp: {
       type: String,
       required: [true, "no hp wajib diisi"],
@@ -44,6 +45,7 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    photo: String,
     resetOTP: String,
     resetOTPExpire: Date,
     workspaces: [

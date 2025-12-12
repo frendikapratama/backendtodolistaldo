@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import Workspace from "../models/Workspace.js";
 import { transporter } from "../utils/sendEmail.js";
 import fs from "fs";
+import path from "path";
 import { handleError } from "../utils/errorHandler.js";
 
 export async function getUsers(req, res) {
@@ -424,6 +425,7 @@ export async function changePassword(req, res) {
     return handleError(res, error);
   }
 }
+
 export async function getProfile(req, res) {
   try {
     const user = await User.findById(req.user._id).select(
@@ -445,10 +447,11 @@ export async function getProfile(req, res) {
     return handleError(res, error);
   }
 }
+
 export async function updateProfile(req, res) {
   try {
     console.log("Update profile request body:", req.body);
-    console.log("User ID:", req.user._id); 
+    console.log("User ID:", req.user._id);
 
     const user = await User.findById(req.user._id);
 
@@ -467,7 +470,11 @@ export async function updateProfile(req, res) {
       "posisi",
     ];
     allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined && req.body[field] !== null && req.body[field] !== "") {
+      if (
+        req.body[field] !== undefined &&
+        req.body[field] !== null &&
+        req.body[field] !== ""
+      ) {
         user[field] = req.body[field];
       }
     });
@@ -481,13 +488,33 @@ export async function updateProfile(req, res) {
       user.password = req.body.password;
     }
     if (req.file) {
-      if (user.photo) {
-        const oldPath = `uploads/users/${user.photo}`;
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
+      try {
+        // Delete old photo if exists
+        if (user.photo) {
+          const oldPath = path.join(
+            process.cwd(),
+            "uploads",
+            "users",
+            user.photo
+          );
+          if (fs.existsSync(oldPath)) {
+            fs.unlinkSync(oldPath);
+          }
         }
+        // Save new photo filename
+        user.photo = req.file.filename;
+      } catch (fileError) {
+        console.error("File handling error:", fileError);
+        // Clean up uploaded file if something goes wrong
+        if (req.file && fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(400).json({
+          success: false,
+          message: "Error processing file upload",
+          error: fileError.message,
+        });
       }
-      user.photo = req.file.filename;
     }
     await user.save({ validateBeforeSave: true });
     const userResponse = {
@@ -511,12 +538,12 @@ export async function updateProfile(req, res) {
     });
   } catch (error) {
     console.error("Update profile error:", error);
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         success: false,
         message: "Validation error",
-        errors: errors
+        errors: errors,
       });
     }
 

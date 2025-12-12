@@ -8,14 +8,22 @@ import {
   updateUser,
   deleteUser,
   getProfile,
-  updateProfile
+  updateProfile,
 } from "../controllers/userController.js";
 import { authenticate } from "../middleware/auth.js";
 import multer from "multer";
+import fs from "fs";
+import path from "path";
+
+// Pastikan directory uploads/users ada
+const uploadsDir = path.join(process.cwd(), "uploads", "users");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/users/");
+    cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
