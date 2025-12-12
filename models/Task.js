@@ -27,7 +27,6 @@ const taskSchema = new mongoose.Schema(
         },
       },
     ],
-
     attachments: [
       {
         fileName: { type: String, required: true },

@@ -55,39 +55,53 @@ export async function createComment(req, res) {
     // Get io instance from app
     const io = req.app.get("io");
 
-    // Create notification dan emit socket untuk semua PIC (kecuali yang membuat comment)
-    if (task.pic && task.pic.length > 0) {
-      for (const picId of task.pic) {
-        if (picId.toString() !== userId.toString()) {
-          await createCommentNotification({
-            recipientId: picId,
-            senderId: userId,
+    // Cari semua user yang pernah komentar di task ini
+    const allCommenters = await Comment.find({ task: taskId })
+      .distinct("user")
+      .lean();
+
+    // Gabungkan PIC dan commenters, pastikan tidak ada duplikat
+    const allPicIds = task.pic.map((pic) => pic._id.toString());
+    const allCommenterIds = allCommenters.map((commenter) =>
+      commenter.toString()
+    );
+
+    // Gabungkan semua user yang perlu dikirim notifikasi
+    const uniqueUserIds = new Set([...allPicIds, ...allCommenterIds]);
+
+    // Hapus user yang membuat comment dari list notifikasi
+    uniqueUserIds.delete(userId.toString());
+
+    // Kirim notifikasi ke semua user yang relevan
+    if (uniqueUserIds.size > 0) {
+      for (const recipientId of uniqueUserIds) {
+        await createCommentNotification({
+          recipientId: recipientId,
+          senderId: userId,
+          taskId: task._id,
+          taskName: task.nama,
+          workspaceId: task.workspace,
+          projectId: group?.project,
+          senderName: sender.username,
+          commentText: text,
+        });
+
+        if (io) {
+          io.to(`user:${recipientId}`).emit("notification:comment", {
+            type: "TASK_COMMENT",
+            title: "New Comment on Task",
+            message: `${sender.username} commented on "${
+              task.nama
+            }": "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
             taskId: task._id,
             taskName: task.nama,
+            commentId: comment._id,
+            senderName: sender.username,
+            senderId: userId,
             workspaceId: task.workspace,
             projectId: group?.project,
-            senderName: sender.username,
-            commentText: text,
+            timestamp: new Date(),
           });
-
-          // Emit real-time notification via Socket.IO
-          if (io) {
-            io.to(`user:${picId}`).emit("notification:comment", {
-              type: "TASK_COMMENT",
-              title: "New Comment on Task",
-              message: `${sender.username} commented on "${
-                task.nama
-              }": "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
-              taskId: task._id,
-              taskName: task.nama,
-              commentId: comment._id,
-              senderName: sender.username,
-              senderId: userId,
-              workspaceId: task.workspace,
-              projectId: group?.project,
-              timestamp: new Date(),
-            });
-          }
         }
       }
     }
@@ -169,50 +183,34 @@ export async function replyComment(req, res) {
     // Get io instance from app
     const io = req.app.get("io");
 
-    // Create notification untuk pemilik parent comment (kecuali yang reply)
-    if (parent.user._id.toString() !== userId.toString()) {
-      await createReplyCommentNotification({
-        recipientId: parent.user._id,
-        senderId: userId,
-        taskId: task._id,
-        taskName: task.nama,
-        workspaceId: task.workspace,
-        projectId: group?.project,
-        senderName: sender.username,
-        replyText: text,
-        parentCommentId: parent._id,
-      });
+    // Cari semua user yang pernah komentar di task ini (termasuk pemilik parent comment)
+    const allCommenters = await Comment.find({ task: taskId })
+      .distinct("user")
+      .lean();
 
-      // Emit Socket.IO notification
-      if (io) {
-        io.to(`user:${parent.user._id}`).emit("notification:reply", {
-          type: "TASK_REPLY_COMMENT",
-          title: "New Reply on Comment",
-          message: `${sender.username} replied to your comment on "${
-            task.nama
-          }": "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
-          taskId: task._id,
-          taskName: task.nama,
-          replyId: reply._id,
-          parentCommentId: parent._id,
-          senderName: sender.username,
-          senderId: userId,
-          workspaceId: task.workspace,
-          projectId: group?.project,
-          timestamp: new Date(),
-        });
-      }
-    }
+    // Gabungkan PIC dan commenters
+    const allPicIds = task.pic.map((pic) => pic._id.toString());
+    const allCommenterIds = allCommenters.map((commenter) =>
+      commenter.toString()
+    );
 
-    // Create notification untuk semua PIC juga (kecuali yang reply)
-    if (task.pic && task.pic.length > 0) {
-      for (const picId of task.pic) {
-        if (
-          picId.toString() !== userId.toString() &&
-          picId.toString() !== parent.user._id.toString()
-        ) {
+    // Gabungkan semua user yang perlu dikirim notifikasi
+    const uniqueUserIds = new Set([...allPicIds, ...allCommenterIds]);
+
+    // Pastikan pemilik parent comment tetap mendapat notifikasi khusus
+    // Hapus user yang membuat reply dari list notifikasi
+    uniqueUserIds.delete(userId.toString());
+
+    // Kirim notifikasi ke semua user yang relevan
+    if (uniqueUserIds.size > 0) {
+      for (const recipientId of uniqueUserIds) {
+        // Tentukan apakah recipient adalah pemilik parent comment
+        const isParentCommenter = recipientId === parent.user._id.toString();
+
+        if (isParentCommenter) {
+          // Notifikasi khusus untuk pemilik parent comment
           await createReplyCommentNotification({
-            recipientId: picId,
+            recipientId: recipientId,
             senderId: userId,
             taskId: task._id,
             taskName: task.nama,
@@ -223,18 +221,47 @@ export async function replyComment(req, res) {
             parentCommentId: parent._id,
           });
 
-          // Emit Socket.IO notification
           if (io) {
-            io.to(`user:${picId}`).emit("notification:reply", {
+            io.to(`user:${recipientId}`).emit("notification:reply", {
               type: "TASK_REPLY_COMMENT",
-              title: "New Reply on Comment",
-              message: `${sender.username} replied on "${
+              title: "New Reply on Your Comment",
+              message: `${sender.username} replied to your comment on "${
                 task.nama
               }": "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
               taskId: task._id,
               taskName: task.nama,
               replyId: reply._id,
               parentCommentId: parent._id,
+              senderName: sender.username,
+              senderId: userId,
+              workspaceId: task.workspace,
+              projectId: group?.project,
+              timestamp: new Date(),
+            });
+          }
+        } else {
+          // Notifikasi umum untuk user lain
+          await createCommentNotification({
+            recipientId: recipientId,
+            senderId: userId,
+            taskId: task._id,
+            taskName: task.nama,
+            workspaceId: task.workspace,
+            projectId: group?.project,
+            senderName: sender.username,
+            commentText: text,
+          });
+
+          if (io) {
+            io.to(`user:${recipientId}`).emit("notification:comment", {
+              type: "TASK_COMMENT",
+              title: "New Reply on Task",
+              message: `${sender.username} replied to a comment on "${
+                task.nama
+              }": "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
+              taskId: task._id,
+              taskName: task.nama,
+              commentId: reply._id,
               senderName: sender.username,
               senderId: userId,
               workspaceId: task.workspace,
