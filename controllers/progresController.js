@@ -879,6 +879,7 @@ export async function getAllKuarterWithProgress(req, res) {
           (sum, ws) => sum + ws,
           0
         );
+
         const kuarterProgress = Math.round(
           totalWorkspaceProgress / totalWorkspace
         );

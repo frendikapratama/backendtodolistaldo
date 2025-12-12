@@ -8,11 +8,45 @@ import { handleError } from "../utils/errorHandler.js";
 
 export async function get(req, res) {
   try {
-    const data = await Kuarter.find();
+    const kuarters = await Kuarter.find();
+
+    const kuartersWithTaskStats = await Promise.all(
+      kuarters.map(async (kuarter) => {
+        const workspaces = await Workspace.find({ kuarter: kuarter._id });
+        const workspaceIds = workspaces.map((w) => w._id);
+
+        const projects = await Project.find({
+          $or: [
+            { workspace: { $in: workspaceIds } },
+            { otherWorkspaces: { $in: workspaceIds } },
+          ],
+        });
+        const projectIds = projects.map((p) => p._id);
+
+        const groups = await Group.find({ project: { $in: projectIds } });
+        const groupIds = groups.map((g) => g._id);
+
+        const tasks = await Task.find({ groups: { $in: groupIds } });
+
+        // Hitung berdasarkan status
+        const tasksByStatus = tasks.reduce((acc, task) => {
+          const status = task.status || "Unknown";
+          acc[status] = (acc[status] || 0) + 1;
+          return acc;
+        }, {});
+
+        return {
+          ...kuarter.toObject(),
+          totalTask: tasks.length,
+          ...tasksByStatus, // Spread status langsung ke object
+        };
+      })
+    );
+
     res.status(200).json({
       success: true,
       message: "berhasil mengambil data",
-      data,
+      data: kuartersWithTaskStats,
     });
   } catch (error) {
     return handleError(error, res);
