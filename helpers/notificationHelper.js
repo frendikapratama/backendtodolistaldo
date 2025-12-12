@@ -7,75 +7,6 @@ import {
 } from "../utils/emailUtils.js";
 import User from "../models/User.js";
 
-// export async function createTaskDueSoonNotification({
-//   taskId,
-//   taskName,
-//   workspaceId,
-//   workspaceName,
-//   projectId,
-//   projectName,
-//   recipients,
-//   dueDate,
-//   status,
-//   daysRemaining,
-// }) {
-//   try {
-//     // Buat pesan yang dinamis berdasarkan sisa hari
-//     let urgencyMessage = "";
-//     if (daysRemaining === 1) {
-//       urgencyMessage = "besok";
-//     } else if (daysRemaining === 7) {
-//       urgencyMessage = "dalam 1 minggu";
-//     } else {
-//       urgencyMessage = `dalam ${daysRemaining} hari`;
-//     }
-
-//     const notifications = recipients.map((recipientId) => ({
-//       recipient: recipientId,
-//       type: "TASK_DUE_SOON",
-//       title: "Task Akan Jatuh Tempo",
-//       message: `Task "${taskName}" akan jatuh tempo ${urgencyMessage} (${new Date(
-//         dueDate
-//       ).toLocaleDateString("id-ID")}) dan masih berstatus ${status}`,
-//       task: taskId,
-//       workspace: workspaceId,
-//       project: projectId,
-//       metadata: {
-//         taskName,
-//         projectName,
-//         workspaceName,
-//         dueDate,
-//         status,
-//         daysRemaining,
-//       },
-//     }));
-
-//     if (notifications.length > 0) {
-//       await Notification.insertMany(notifications);
-//       for (const user of users) {
-//         try {
-//           await sendTaskDueSoonEmail({
-//             to: user.email,
-//             taskName,
-//             projectName,
-//             workspaceName,
-//             dueDate,
-//             status,
-//             daysRemaining,
-//           });
-//         } catch (emailError) {
-//           console.error(`Failed to send email to ${user.email}:`, emailError);
-//         }
-//       }
-//     }
-//     const users = await User.find({ _id: { $in: recipients } }).select("email");
-//     return notifications;
-//   } catch (error) {
-//     console.error("Error creating task due soon notification:", error);
-//     throw error;
-//   }
-// }
-
 export async function createTaskDueSoonNotification({
   taskId,
   taskName,
@@ -148,72 +79,6 @@ export async function createTaskDueSoonNotification({
     throw error;
   }
 }
-// export async function createTaskStatusNotification({
-//   taskId,
-//   taskName,
-//   workspaceId,
-//   workspaceName,
-//   projectId,
-//   projectName,
-//   senderId,
-//   senderName,
-//   recipients,
-//   oldStatus,
-//   newStatus,
-// }) {
-//   try {
-//     const notifications = recipients
-//       .filter((recipientId) => recipientId.toString() !== senderId.toString())
-//       .map((recipientId) => ({
-//         recipient: recipientId,
-//         sender: senderId,
-//         type: "TASK_STATUS_CHANGED",
-//         title: "Status Task Diupdate",
-//         message: `${senderName} mengubah status task "${taskName}" dari ${oldStatus} menjadi ${newStatus}`,
-//         task: taskId,
-//         workspace: workspaceId,
-//         project: projectId,
-//         metadata: {
-//           oldStatus,
-//           newStatus,
-//           taskName,
-//           projectName,
-//           workspaceName,
-//         },
-//       }));
-
-//     if (notifications.length > 0) {
-//       await Notification.insertMany(notifications);
-
-//       const users = await User.find({
-//         _id: {
-//           $in: recipients.filter((id) => id.toString() !== senderId.toString()),
-//         },
-//       }).select("email");
-
-//       for (const user of users) {
-//         try {
-//           await sendTaskStatusChangedEmail({
-//             to: user.email,
-//             taskName,
-//             projectName,
-//             workspaceName,
-//             senderName,
-//             oldStatus,
-//             newStatus,
-//           });
-//         } catch (emailError) {
-//           console.error(`Failed to send email to ${user.email}:`, emailError);
-//         }
-//       }
-//     }
-
-//     return notifications;
-//   } catch (error) {
-//     console.error("Error creating task status notification:", error);
-//     throw error;
-//   }
-// }
 
 export async function createTaskStatusNotification({
   taskId,
@@ -282,56 +147,6 @@ export async function createTaskStatusNotification({
     throw error;
   }
 }
-
-// export async function createTaskAssignmentNotification({
-//   taskId,
-//   taskName,
-//   workspaceId,
-//   workspaceName,
-//   projectId,
-//   projectName,
-//   senderId,
-//   senderName,
-//   recipientId,
-// }) {
-//   try {
-//     const notification = await Notification.create({
-//       recipient: recipientId,
-//       sender: senderId,
-//       type: "TASK_ASSIGNED",
-//       title: "Task Baru Ditugaskan",
-//       message: `${senderName} menugaskan Anda pada task "${taskName}"`,
-//       task: taskId,
-//       workspace: workspaceId,
-//       project: projectId,
-//       metadata: {
-//         taskName,
-//         projectName,
-//         workspaceName,
-//       },
-//     });
-
-//     try {
-//       const user = await User.findById(recipientId).select("email");
-//       if (user) {
-//         await sendTaskAssignedEmail({
-//           to: user.email,
-//           taskName,
-//           projectName,
-//           workspaceName,
-//           assignerName: senderName,
-//         });
-//       }
-//     } catch (emailError) {
-//       console.error(`Failed to send assignment email:`, emailError);
-//     }
-
-//     return notification;
-//   } catch (error) {
-//     console.error("Error creating task assignment notification:", error);
-//     throw error;
-//   }
-// }
 
 export async function createTaskAssignmentNotification({
   taskId,
@@ -516,5 +331,117 @@ export async function createTaskOverdueNotification({
   } catch (error) {
     console.error("Error creating task overdue notification:", error);
     throw error;
+  }
+}
+
+// Notification untuk Comment
+export async function createCommentNotification({
+  recipientId,
+  senderId,
+  taskId,
+  taskName,
+  workspaceId,
+  projectId,
+  senderName,
+  commentText,
+}) {
+  try {
+    const notification = await Notification.create({
+      recipient: recipientId,
+      sender: senderId,
+      type: "TASK_COMMENT",
+      title: `New Comment on Task`,
+      message: `${senderName} commented on "${taskName}": "${commentText.substring(
+        0,
+        50
+      )}${commentText.length > 50 ? "..." : ""}"`,
+      task: taskId,
+      workspace: workspaceId,
+      project: projectId,
+      metadata: {
+        taskName,
+        senderName,
+        commentText,
+      },
+    });
+
+    return notification;
+  } catch (error) {
+    console.error("Error creating comment notification:", error);
+  }
+}
+
+// Notification untuk Reply Comment
+export async function createReplyCommentNotification({
+  recipientId,
+  senderId,
+  taskId,
+  taskName,
+  workspaceId,
+  projectId,
+  senderName,
+  replyText,
+  parentCommentId,
+}) {
+  try {
+    const notification = await Notification.create({
+      recipient: recipientId,
+      sender: senderId,
+      type: "TASK_REPLY_COMMENT",
+      title: `New Reply on Comment`,
+      message: `${senderName} replied to your comment on "${taskName}": "${replyText.substring(
+        0,
+        50
+      )}${replyText.length > 50 ? "..." : ""}"`,
+      task: taskId,
+      workspace: workspaceId,
+      project: projectId,
+      metadata: {
+        taskName,
+        senderName,
+        replyText,
+        parentCommentId,
+      },
+    });
+
+    return notification;
+  } catch (error) {
+    console.error("Error creating reply comment notification:", error);
+  }
+}
+
+// Notification untuk Attachment Upload
+export async function createAttachmentNotification({
+  recipientId,
+  senderId,
+  taskId,
+  taskName,
+  workspaceId,
+  projectId,
+  senderName,
+  fileName,
+  fileUrl,
+}) {
+  try {
+    const notification = await Notification.create({
+      recipient: recipientId,
+      sender: senderId,
+      type: "TASK_ATTACHMENT_UPLOADED",
+      title: `File Uploaded to Task`,
+      message: `${senderName} uploaded a file "${fileName}" to "${taskName}"`,
+      task: taskId,
+      workspace: workspaceId,
+      project: projectId,
+      metadata: {
+        taskName,
+        senderName,
+        fileName,
+        fileUrl,
+      },
+    });
+
+    return notification;
+  } catch (error) {
+    console.error("Error creating attachment notification:", error);
   }
 }

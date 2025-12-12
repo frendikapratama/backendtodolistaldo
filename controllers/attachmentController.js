@@ -1,9 +1,11 @@
 import Task from "../models/Task.js";
 import Group from "../models/Group.js";
+import User from "../models/User.js";
 import path from "path";
 import fs from "fs";
 import { handleError } from "../utils/errorHandler.js";
 import { createActivity } from "../helpers/activityhelper.js";
+import { createAttachmentNotification } from "../helpers/notificationHelper.js";
 
 export async function addAttachment(req, res) {
   try {
@@ -26,7 +28,10 @@ export async function addAttachment(req, res) {
       req.params.taskId,
       { $push: { attachments: attachmentData } },
       { new: true }
-    ).populate("attachments.uploadedBy", "username email");
+    )
+      .populate("attachments.uploadedBy", "username email")
+      .populate("groups")
+      .populate("pic", "username email");
 
     if (!task) {
       fs.unlinkSync(req.file.path);
@@ -37,6 +42,7 @@ export async function addAttachment(req, res) {
     }
 
     const group = await Group.findById(task.groups);
+    const sender = await User.findById(req.user._id).select("username email");
 
     await createActivity({
       user: req.user._id,
@@ -54,6 +60,48 @@ export async function addAttachment(req, res) {
         fileUrl: attachmentData.fileUrl,
       },
     });
+
+    // Get io instance from app
+    const io = req.app.get("io");
+
+    // Create notification dan emit socket untuk semua PIC (kecuali yang upload)
+    if (task.pic && task.pic.length > 0) {
+      for (const picId of task.pic) {
+        if (picId.toString() !== req.user._id.toString()) {
+          await createAttachmentNotification({
+            recipientId: picId,
+            senderId: req.user._id,
+            taskId: task._id,
+            taskName: task.nama,
+            workspaceId: task.workspace,
+            projectId: group?.project,
+            senderName: sender.username,
+            fileName: req.file.originalname,
+            fileUrl: attachmentData.fileUrl,
+          });
+
+          // Emit real-time notification via Socket.IO
+          if (io) {
+            io.to(`user:${picId}`).emit("notification:attachment", {
+              type: "TASK_ATTACHMENT_UPLOADED",
+              title: "File Uploaded to Task",
+              message: `${sender.username} uploaded a file "${req.file.originalname}" to "${task.nama}"`,
+              taskId: task._id,
+              taskName: task.nama,
+              fileName: req.file.originalname,
+              fileUrl: attachmentData.fileUrl,
+              senderName: sender.username,
+              senderId: req.user._id,
+              workspaceId: task.workspace,
+              projectId: group?.project,
+              fileSize: req.file.size,
+              fileType: req.file.mimetype,
+              timestamp: new Date(),
+            });
+          }
+        }
+      }
+    }
 
     res.status(201).json({
       success: true,

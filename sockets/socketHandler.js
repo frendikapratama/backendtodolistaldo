@@ -303,6 +303,18 @@ export const initializeSocket = (io) => {
         }
       });
     });
+
+    // task
+    socket.on("task:join", (taskId) => {
+      socket.join(`task:${taskId}`);
+      console.log(`User ${socket.userId} joined task room: ${taskId}`);
+    });
+
+    // Leave task room when user closes DialogDetail
+    socket.on("task:leave", (taskId) => {
+      socket.leave(`task:${taskId}`);
+      console.log(`User ${socket.userId} left task room: ${taskId}`);
+    });
   });
 
   return io;

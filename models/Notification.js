@@ -19,6 +19,8 @@ const notificationSchema = new mongoose.Schema(
         "TASK_STATUS_CHANGED",
         "TASK_ASSIGNED",
         "TASK_COMMENT",
+        "TASK_REPLY_COMMENT",
+        "TASK_ATTACHMENT_UPLOADED",
         "TASK_DUE_SOON",
         "MENTION",
         "TASK_OVERDUE",
