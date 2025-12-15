@@ -5,7 +5,7 @@ const subtaskSchema = new mongoose.Schema(
     nama: { type: String },
     description: { type: String },
     pic: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    status: { type: String, default: "Not Started" },
+    status: { type: String, default: "To Do" },
     meeting_date: { type: Date },
     start_date: { type: Date },
     due_date: { type: Date },
