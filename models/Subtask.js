@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const subtaskSchema = new mongoose.Schema(
   {
     nama: { type: String },
-    description: String,
+    description: { type: String },
     pic: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     status: { type: String, default: "Not Started" },
     meeting_date: { type: Date },
@@ -26,6 +26,17 @@ const subtaskSchema = new mongoose.Schema(
         },
       },
     ],
+    attachments: [
+      {
+        fileName: { type: String, required: true },
+        fileSize: { type: Number },
+        fileType: { type: String },
+        fileUrl: { type: String, required: true },
+        uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
+    meeting_link: { type: String },
   },
   { timestamps: true }
 );

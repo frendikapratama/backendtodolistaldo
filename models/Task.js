@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const taskSchema = new mongoose.Schema(
   {
     nama: { type: String },
-    description: String,
+    description: { type: String },
     pic: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     status: { type: String, default: "Not Started" },
     meeting_date: { type: Date },

@@ -613,7 +613,7 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
 
       let targetWorkspaceId;
 
-      if (req.body.fromWorkspaceId) {
+      if (req.body && req.body.fromWorkspaceId) {
         targetWorkspaceId = req.body.fromWorkspaceId;
       } else if (req.params.requestId) {
         const request = await CollaborationRequest.findById(
