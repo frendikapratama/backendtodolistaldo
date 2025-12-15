@@ -8,6 +8,7 @@ import {
 import Group from "../models/Group.js";
 import Task from "../models/Task.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 
 export async function createComment(req, res) {
   try {
@@ -330,3 +331,56 @@ export const getComments = async (req, res) => {
     return handleError(res, error);
   }
 };
+
+export async function deleteComment(req, res) {
+  try {
+    const { commentId } = req.params;
+    const userId = req.user._id;
+
+    const comment = await Comment.findById(commentId).populate("task");
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment tidak ditemukan",
+      });
+    }
+
+    // Verifikasi bahwa user adalah pembuat comment
+    if (comment.user.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Anda tidak memiliki izin untuk menghapus comment ini",
+      });
+    }
+
+    const taskId = comment.task._id;
+
+    // Hapus comment dan semua replies-nya
+    await Comment.deleteMany({
+      $or: [{ _id: commentId }, { parentComment: commentId }],
+    });
+
+    // Hapus semua notification yang terkait dengan comment ini
+    await Notification.deleteMany({
+      task: taskId,
+      type: { $in: ["TASK_COMMENT", "TASK_REPLY_COMMENT"] },
+    });
+
+    // Broadcast socket event ke semua user yang terhubung ke task ini
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`task:${taskId}`).emit("comment:deleted", {
+        commentId: commentId,
+        taskId: taskId,
+        timestamp: new Date(),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Comment dan notifikasi berhasil dihapus",
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}

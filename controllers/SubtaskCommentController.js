@@ -9,6 +9,7 @@ import Group from "../models/Group.js";
 import Subtask from "../models/Subtask.js";
 import Task from "../models/Task.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 
 export async function createSubtaskComment(req, res) {
   try {
@@ -353,7 +354,9 @@ export async function deleteSubtaskComment(req, res) {
     const { commentId } = req.params;
     const userId = req.user._id;
 
-    const comment = await SubtaskComment.findById(commentId);
+    const comment = await SubtaskComment.findById(commentId).populate(
+      "subtask"
+    );
     if (!comment) {
       return res.status(404).json({
         success: false,
@@ -369,22 +372,30 @@ export async function deleteSubtaskComment(req, res) {
       });
     }
 
+    const subtaskId = comment.subtask._id;
+
     // Hapus comment dan semua replies-nya
     await SubtaskComment.deleteMany({
       $or: [{ _id: commentId }, { parentComment: commentId }],
     });
 
+    // Hapus semua notification yang terkait dengan subtask comment ini
+    await Notification.deleteMany({
+      type: { $in: ["SUBTASK_COMMENT", "REPLY_SUBTASK_COMMENT"] },
+    });
+
     const io = req.app.get("io");
     if (io) {
-      io.to(`subtask:${comment.subtask}`).emit("subtask-comment:deleted", {
+      io.to(`subtask:${subtaskId}`).emit("subtask-comment:deleted", {
         commentId: commentId,
+        subtaskId: subtaskId,
         timestamp: new Date(),
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Comment deleted successfully",
+      message: "Comment dan notifikasi berhasil dihapus",
     });
   } catch (error) {
     return handleError(res, error);
