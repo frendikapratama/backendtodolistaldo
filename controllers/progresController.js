@@ -98,7 +98,7 @@ export async function getProgresByGroup(req, res) {
     const done = tasks.filter((t) => t.status === "Done").length;
     const to_do = tasks.filter((t) => t.status === "To Do").length;
     const Hold = tasks.filter((t) => t.status === "Hold").length;
-    const reject = tasks.filter((t) => t.status === "Reject").length;
+    const blocked = tasks.filter((t) => t.status === "Blocked").length;
     const in_progress = tasks.filter((t) => t.status === "In Progress").length;
     const progress = total === 0 ? 0 : (done / total) * 100;
 
@@ -114,7 +114,7 @@ export async function getProgresByGroup(req, res) {
         in_progress,
         to_do,
         Hold,
-        reject,
+        blocked,
       },
     });
   } catch (error) {
@@ -158,7 +158,7 @@ export async function getProgresByWorkspace(req, res) {
             inProgress: 0,
             toDo: 0,
             hold: 0,
-            reject: 0,
+
             blocked: 0,
           },
         },
@@ -186,14 +186,12 @@ export async function getProgresByWorkspace(req, res) {
           planningTask: 0,
           undatedTask: 0,
           heldTask: 0,
-          rejectedTask: 0,
           progress: 0,
           tasksByStatus: {
             done: 0,
             inProgress: 0,
             toDo: 0,
             hold: 0,
-            reject: 0,
             blocked: 0,
           },
         },
@@ -207,7 +205,6 @@ export async function getProgresByWorkspace(req, res) {
     ).length;
     const toDoTask = allTasks.filter((t) => t.status === "To Do").length;
     const holdTask = allTasks.filter((t) => t.status === "Hold").length;
-    const rejectedTask = allTasks.filter((t) => t.status === "Reject").length;
     const blockedTask = allTasks.filter((t) => t.status === "Blocked").length;
     const holdBlockedTask = allTasks.filter(
       (t) => t.status === "Hold" || t.status === "Blocked"
@@ -239,7 +236,6 @@ export async function getProgresByWorkspace(req, res) {
         undatedTask,
         holdBlockedTask,
         heldTask: holdTask,
-        rejectedTask,
         blockedTask,
         progress,
         tasksByStatus: {
@@ -247,7 +243,6 @@ export async function getProgresByWorkspace(req, res) {
           inProgress: inProgressTask,
           toDo: toDoTask,
           hold: holdTask,
-          reject: rejectedTask,
           blocked: blockedTask,
         },
       },
@@ -256,230 +251,6 @@ export async function getProgresByWorkspace(req, res) {
     return handleError(res, error);
   }
 }
-
-// export async function getProgresByKuarter(req, res) {
-//   try {
-//     const { kuarterId } = req.params;
-
-//     const kuarter = await Kuarter.findById(kuarterId);
-//     if (!kuarter) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Kuarter tidak ditemukan",
-//       });
-//     }
-
-//     const workspaces = await Workspace.find({ kuarter: kuarterId });
-//     const totalWorkspace = workspaces.length;
-
-//     // Jika kosong, return 0 semua
-//     if (totalWorkspace === 0) {
-//       return res.json({
-//         success: true,
-//         data: {
-//           kuarterId: kuarter._id,
-//           kuarterName: kuarter.nama,
-//           departemen: kuarter.departemen,
-//           totalWorkspace: 0,
-//           totalProject: 0,
-//           completedProject: 0,
-//           inProgressProject: 0,
-//           planningProject: 0,
-//           undatedProject: 0,
-//           notStartedProject: 0,
-//           overdueProject: 0,
-//           undatedTask: 0,
-//           progress: 0,
-//           workspaces: [],
-//         },
-//       });
-//     }
-
-//     const workspaceIds = workspaces.map((w) => w._id);
-
-//     // Ambil seluruh project di kuarter ini
-//     const allProjects = await Project.find({
-//       $or: [
-//         { workspace: { $in: workspaceIds } },
-//         { otherWorkspaces: { $in: workspaceIds } },
-//       ],
-//     });
-
-//     const projectIds = allProjects.map((p) => p._id);
-
-//     const allGroups = await Group.find({ project: { $in: projectIds } });
-//     const allGroupIds = allGroups.map((g) => g._id);
-
-//     const allTasks = await Task.find({ groups: { $in: allGroupIds } });
-
-//     // ============================================================
-//     // HITUNG STATUS PROJECT (SESUAI getProgresByWorkspace)
-//     // TERMASUK overdueProject (Completed - Overdue)
-//     // ============================================================
-//     const projectsStatus = allProjects.map((project) => {
-//       const projectGroupIds = allGroups
-//         .filter((g) => g.project.toString() === project._id.toString())
-//         .map((g) => g._id);
-
-//       const projectTasks = allTasks.filter((t) =>
-//         projectGroupIds.some((gid) => gid.toString() === t.groups.toString())
-//       );
-
-//       const totalTask = projectTasks.length;
-//       const completedTask = projectTasks.filter(
-//         (t) => t.status === "Done"
-//       ).length;
-
-//       const percent =
-//         totalTask === 0 ? 0 : Math.round((completedTask / totalTask) * 100);
-
-//       const allPlanning =
-//         totalTask > 0 &&
-//         projectTasks.every(
-//           (t) =>
-//             t.status === "To Do" &&
-//             (t.note === "Planning" || t.note === "Uncomplete")
-//         );
-
-//       const allUndated =
-//         totalTask > 0 &&
-//         projectTasks.every(
-//           (t) =>
-//             (t.status === "Hold" || t.status === "Blocked") &&
-//             (t.note === "Planning" || t.note === "Uncomplete")
-//         );
-
-//       const undatedTask = projectTasks.filter(
-//         (t) => !t.due_date || t.due_date === null
-//       ).length;
-
-//       // ============= ADD: CHECK PROJECT TERLAMBAT =============
-//       const isOverdue = projectTasks.some(
-//         (t) => t.status === "Done" && t.note === "Completed - Overdue"
-//       );
-
-//       return {
-//         projectId: project._id,
-//         projectName: project.nama,
-
-//         progress: percent,
-//         totalTask,
-//         completedTask,
-//         undatedTask,
-
-//         isCompleted: percent === 100,
-//         isPlanning: allPlanning,
-//         isUndated: allUndated,
-//         isInProgress:
-//           percent > 0 && percent < 100 && !allPlanning && !allUndated,
-//         isNotStarted: percent === 0 && !allPlanning && !allUndated,
-
-//         // ADD:
-//         isOverdue,
-//       };
-//     });
-
-//     // ============================================================
-//     // SUMMARY PROJECT KUARTER
-//     // ============================================================
-//     const completedProject = projectsStatus.filter((p) => p.isCompleted).length;
-//     const planningProject = projectsStatus.filter((p) => p.isPlanning).length;
-//     const undatedProject = projectsStatus.filter((p) => p.isUndated).length;
-//     const inProgressProject = projectsStatus.filter(
-//       (p) => p.isInProgress
-//     ).length;
-//     const notStartedProject = projectsStatus.filter(
-//       (p) => p.isNotStarted
-//     ).length;
-
-//     // ADD: total project terlambat
-//     const overdueProject = projectsStatus.filter((p) => p.isOverdue).length;
-
-//     const totalUndatedTask = projectsStatus.reduce(
-//       (sum, p) => sum + p.undatedTask,
-//       0
-//     );
-
-//     // ============================================================
-//     // HITUNG PROGRES PER WORKSPACE
-//     // ============================================================
-//     const workspacesProgress = await Promise.all(
-//       workspaces.map(async (workspace) => {
-//         const workspaceProjects = allProjects.filter(
-//           (p) =>
-//             p.workspace.toString() === workspace._id.toString() ||
-//             (p.otherWorkspaces &&
-//               p.otherWorkspaces.some(
-//                 (ow) => ow.toString() === workspace._id.toString()
-//               ))
-//         );
-
-//         const projectProgressList = workspaceProjects.map((project) => {
-//           const projState = projectsStatus.find(
-//             (ps) => ps.projectId.toString() === project._id.toString()
-//           );
-//           return projState ? projState.progress : 0;
-//         });
-
-//         const workspaceProgress =
-//           projectProgressList.length === 0
-//             ? 0
-//             : Math.round(
-//                 projectProgressList.reduce((a, b) => a + b, 0) /
-//                   projectProgressList.length
-//               );
-
-//         return {
-//           workspaceId: workspace._id,
-//           workspaceName: workspace.nama,
-//           totalProject: workspaceProjects.length,
-//           progress: workspaceProgress,
-//         };
-//       })
-//     );
-
-//     // ============================================================
-//     // FINAL: PROGRESS KUARTER
-//     // ============================================================
-//     const totalWorkspaceProgress = workspacesProgress.reduce(
-//       (sum, ws) => sum + ws.progress,
-//       0
-//     );
-
-//     const kuarterProgress =
-//       totalWorkspace === 0
-//         ? 0
-//         : Math.round(totalWorkspaceProgress / totalWorkspace);
-
-//     // ============================================================
-//     // RESPONSE
-//     // ============================================================
-//     res.json({
-//       success: true,
-//       data: {
-//         kuarterId: kuarter._id,
-//         kuarterName: kuarter.nama,
-//         departemen: kuarter.departemen,
-
-//         totalWorkspace,
-//         totalProject: allProjects.length,
-
-//         completedProject,
-//         inProgressProject,
-//         planningProject,
-//         undatedProject,
-//         notStartedProject,
-//         overdueProject,
-//         undatedTask: totalUndatedTask,
-
-//         progress: kuarterProgress,
-//         workspaces: workspacesProgress,
-//       },
-//     });
-//   } catch (error) {
-//     return handleError(res, error);
-//   }
-// }
 
 export async function getProgresByKuarter(req, res) {
   try {
