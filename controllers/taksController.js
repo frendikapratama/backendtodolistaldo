@@ -398,12 +398,73 @@ export async function deleteTask(req, res) {
 
 export const getTasksByGroup = async (req, res) => {
   try {
-    const { groups } = req.query;
+    const {
+      groups,
+      search,
+      status,
+      priority,
+      note,
+      picEmail,
+      startDate,
+      endDate,
+    } = req.query;
+
     if (!groups) {
       return res.status(400).json({ message: "groupId wajib disertakan" });
     }
 
-    const tasks = await Task.find({ groups })
+    // Build query filter
+    let query = { groups };
+
+    // Search filter (for task name)
+    if (search && search.trim() !== "") {
+      query.nama = { $regex: search.trim(), $options: "i" };
+    }
+
+    // Status filter
+    if (status && status.trim() !== "" && status !== "all") {
+      query.status = status;
+    }
+
+    // Priority filter
+    if (priority && priority.trim() !== "" && priority !== "all") {
+      query.priority = priority;
+    }
+
+    // Note filter
+    if (note && note.trim() !== "" && note !== "all") {
+      query.note = note;
+    }
+
+    // PIC filter
+    if (picEmail && picEmail.trim() !== "") {
+      const User = require("../models/User"); // Adjust path
+      const matchingUser = await User.findOne({
+        email: { $regex: picEmail.trim(), $options: "i" },
+      }).select("_id");
+
+      if (matchingUser) {
+        query.pic = matchingUser._id;
+      } else {
+        // If no user found, return empty result
+        return res.status(200).json({
+          success: true,
+          message: "berhasil mengambil data",
+          data: [],
+          count: 0,
+        });
+      }
+    }
+
+    // Date range filter
+    if (startDate && endDate) {
+      query.start_date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    const tasks = await Task.find(query)
       .populate({
         path: "subtask",
         options: { sort: { position: 1 } },
@@ -418,6 +479,7 @@ export const getTasksByGroup = async (req, res) => {
       success: true,
       message: "berhasil mengambil data",
       data: tasks,
+      count: tasks.length,
     });
   } catch (error) {
     return handleError(res, error);
