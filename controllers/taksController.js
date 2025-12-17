@@ -471,7 +471,7 @@ export const getTasksByGroup = async (req, res) => {
       })
       .populate({
         path: "pic",
-        select: "username email",
+        select: "username email photo",
       })
       .sort({ position: 1 });
 

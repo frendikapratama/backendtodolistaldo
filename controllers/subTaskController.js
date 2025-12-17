@@ -537,7 +537,7 @@ export async function getByTask(req, res) {
       });
     }
     const data = await Subtask.find({ task })
-      .populate("pic", "username email")
+      .populate("pic", "username email photo")
       .sort({ position: 1 });
 
     res.status(200).json({
