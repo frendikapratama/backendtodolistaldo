@@ -121,6 +121,22 @@ export async function createTask(req, res) {
   }
 }
 
+const validateStatusTransition = (oldStatus, newStatus) => {
+  const transitionRules = {
+    "Done-In The review": ["Done", "In Progress"],
+    // Tambahkan rules lainnya jika diperlukan
+    // "In Progress": ["Done", "Done-In The review", "To Do"],
+    // "Done": ["To Do", "In Progress"],
+    // "To Do": ["In Progress"]
+  };
+
+  if (transitionRules[oldStatus]) {
+    return transitionRules[oldStatus].includes(newStatus);
+  }
+
+  return true;
+};
+
 export async function updateTask(req, res) {
   try {
     const { taskId } = req.params;
@@ -135,6 +151,17 @@ export async function updateTask(req, res) {
       });
     }
 
+    if (updateData.status && updateData.status !== oldTask.status) {
+      isStatusChanged = true;
+
+      // Validasi apakah transisi diizinkan
+      if (!validateStatusTransition(oldTask.status, updateData.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Transisi status tidak diizinkan: dari "${oldTask.status}" ke "${updateData.status}"`,
+        });
+      }
+    }
     // Cek perubahan status SEBELUM update
     if (updateData.status && updateData.status !== oldTask.status) {
       isStatusChanged = true;

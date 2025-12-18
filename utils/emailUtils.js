@@ -293,3 +293,35 @@ export async function sendTaskOverdueEmail({
   await transporter.sendMail(mailOptions);
   console.log(`📨 Email overdue task terkirim ke: ${to}`);
 }
+
+export async function sendSubtaskAssignedEmail({
+  to,
+  subtaskName,
+  taskName,
+  projectName,
+  workspaceName,
+  assignerName,
+}) {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to,
+    subject: `📋 Subtask Baru Ditugaskan: ${subtaskName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #10b981;">📋 Subtask Baru Ditugaskan</h2>
+        <p>Halo,</p>
+        <p><strong>${assignerName}</strong> telah menugaskan Anda pada subtask:</p>
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <h3 style="margin: 0; color: #1f2937;">${subtaskName}</h3>
+          <p style="margin: 5px 0; color: #6b7280;">Task: ${taskName}</p>
+          <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
+          <p style="margin: 5px 0; color: #6b7280;">Workspace: ${workspaceName}</p>
+        </div>
+        <p>Silakan cek aplikasi untuk detail lebih lanjut.</p>
+      </div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+  console.log(`📨 Email subtask assignment terkirim ke: ${to}`);
+}

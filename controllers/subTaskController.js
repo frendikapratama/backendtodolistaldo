@@ -12,6 +12,8 @@ import { findOrCreateUser } from "../utils/userUtils.js";
 import { sendSubtaskPicInvitationEmail } from "../utils/emailUtils.js";
 import Workspace from "../models/Workspace.js";
 import { createActivity } from "../helpers/activityhelper.js";
+import { createSubtaskAssignmentNotification } from "../helpers/notificationHelper.js";
+import { emitNotificationToUser } from "../sockets/socketHandler.js";
 
 export async function getSubTask(req, res) {
   try {
@@ -77,6 +79,7 @@ export async function updateSubTask(req, res) {
 
     if (picEmail) {
       const emails = Array.isArray(picEmail) ? picEmail : [picEmail];
+      const io = req.app.get("io"); // Ambil io instance
 
       for (const email of emails) {
         const picResult = await handleSubtaskPicAssignment(
@@ -88,6 +91,25 @@ export async function updateSubTask(req, res) {
 
         if (!picResult.success) {
           return res.status(picResult.status || 400).json(picResult);
+        }
+
+        // EMIT notifikasi jika PIC berhasil ditambahkan (bukan invited)
+        if (picResult.notification && io) {
+          emitNotificationToUser(io, picResult.notification.recipient, {
+            _id: picResult.notification._id,
+            type: picResult.notification.type,
+            title: picResult.notification.title,
+            message: picResult.notification.message,
+            metadata: picResult.notification.metadata,
+            task: picResult.notification.task,
+            sender: picResult.notification.sender,
+            isRead: false,
+            createdAt: picResult.notification.createdAt,
+          });
+
+          console.log(
+            `Sent subtask PIC assignment notification to user ${picResult.notification.recipient}`
+          );
         }
       }
 
@@ -169,7 +191,7 @@ async function handleSubtaskPicAssignment(
       return result;
     }
 
-    const { workspace, project, task } = result;
+    const { workspace, project, task, group } = result;
 
     const targetUser = await User.findOne({ email: picEmail });
     const currentSubtask = await Subtask.findById(subTaskId);
@@ -188,7 +210,7 @@ async function handleSubtaskPicAssignment(
 
     if (targetUser) {
       const isMember = workspace.members.some(
-        (m) => m.user.toString() === targetUser._id.toString() // Bandingkan m.user, bukan m._id
+        (m) => m.user.toString() === targetUser._id.toString()
       );
 
       // Jika belum member, tambahkan ke workspace
@@ -221,14 +243,44 @@ async function handleSubtaskPicAssignment(
         $addToSet: { assignedSubtasks: subTaskId },
       });
 
-      return {
-        success: true,
-        message: `${picEmail} berhasil ditambahkan sebagai PIC${
-          !isMember ? " dan bergabung ke workspace sebagai member" : ""
-        }`,
-      };
+      // TAMBAHAN: Buat notifikasi untuk PIC yang ditambahkan
+      try {
+        const requester = await User.findById(requesterId);
+
+        const notification = await createSubtaskAssignmentNotification({
+          subtaskId: currentSubtask._id,
+          subtaskName: currentSubtask.nama,
+          taskId: task._id,
+          taskName: task.nama,
+          workspaceId: workspace._id,
+          workspaceName: workspace.nama,
+          projectId: project._id,
+          projectName: project.nama,
+          senderId: requesterId,
+          senderName: requester.username,
+          recipientId: targetUser._id,
+        });
+
+        return {
+          success: true,
+          message: `${picEmail} berhasil ditambahkan sebagai PIC${
+            !isMember ? " dan bergabung ke workspace sebagai member" : ""
+          }`,
+          notification, // Return notification untuk di-emit
+        };
+      } catch (notifError) {
+        console.error("Error sending subtask PIC notification:", notifError);
+        // Tetap return success meskipun notifikasi gagal
+        return {
+          success: true,
+          message: `${picEmail} berhasil ditambahkan sebagai PIC${
+            !isMember ? " dan bergabung ke workspace sebagai member" : ""
+          }`,
+        };
+      }
     }
 
+    // User belum terdaftar, kirim invitation
     const inviteToken = generateInviteToken();
     const inviteObject = createInviteObject(picEmail, inviteToken, {
       invitedBy: requesterId,
@@ -374,7 +426,7 @@ export async function removeSubtaskPic(req, res) {
     }
 
     const removedUser = await User.findById(userId).select("username email");
-    const picBefore = [...subtask.pic]; // Copy array
+    const picBefore = [...subtask.pic];
 
     subtask.pic = subtask.pic.filter(
       (id) => id.toString() !== userId.toString()
@@ -486,7 +538,7 @@ export async function deleteSubTask(req, res) {
         group: group._id,
         task: task._id,
         action: "DELETE_SUBTASK",
-        description: `User menghapus subtask "${subtask.nama}" dari task "${task.nama}"`, // ✅ Description yang benar
+        description: `User menghapus subtask "${subtask.nama}" dari task "${task.nama}"`,
         before: {
           nama: subtask.nama,
           task: subtask.task,

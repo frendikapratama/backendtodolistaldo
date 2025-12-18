@@ -4,6 +4,7 @@ import {
   sendTaskStatusChangedEmail,
   sendTaskAssignedEmail,
   sendTaskOverdueEmail,
+  sendSubtaskAssignedEmail, // ✅ TAMBAHAN IMPORT
 } from "../utils/emailUtils.js";
 import User from "../models/User.js";
 
@@ -52,7 +53,6 @@ export async function createTaskDueSoonNotification({
     if (notifications.length > 0) {
       await Notification.insertMany(notifications);
 
-      // UBAH: Kirim email tanpa await (fire and forget)
       User.find({ _id: { $in: recipients } })
         .select("email")
         .then((users) => {
@@ -117,7 +117,6 @@ export async function createTaskStatusNotification({
     if (notifications.length > 0) {
       await Notification.insertMany(notifications);
 
-      // UBAH: Kirim email tanpa await (fire and forget)
       const recipientIds = recipients.filter(
         (id) => id.toString() !== senderId.toString()
       );
@@ -176,7 +175,6 @@ export async function createTaskAssignmentNotification({
       },
     });
 
-    // UBAH: Kirim email tanpa await (fire and forget)
     User.findById(recipientId)
       .select("email")
       .then((user) => {
@@ -286,11 +284,10 @@ export async function createTaskOverdueNotification({
         workspaceName,
         dueDate,
         status,
-        daysOverdue, // PENTING: Pastikan ini ada
+        daysOverdue,
       },
     }));
 
-    // PERBAIKAN: Simpan notifikasi dan return hasilnya
     let savedNotifications = [];
     if (notifications.length > 0) {
       savedNotifications = await Notification.insertMany(notifications);
@@ -298,13 +295,11 @@ export async function createTaskOverdueNotification({
         `✅ Saved ${savedNotifications.length} overdue notifications to database`
       );
 
-      // Kirim email tanpa await (fire and forget)
       User.find({ _id: { $in: recipients } })
         .select("email")
         .then((users) => {
           console.log(`Sending overdue emails to ${users.length} users`);
           users.forEach((user) => {
-            // GUNAKAN FUNGSI EMAIL YANG BENAR
             sendTaskOverdueEmail({
               to: user.email,
               taskName,
@@ -326,7 +321,6 @@ export async function createTaskOverdueNotification({
         );
     }
 
-    // PENTING: Return notifications yang sudah disimpan
     return savedNotifications;
   } catch (error) {
     console.error("Error creating task overdue notification:", error);
@@ -334,7 +328,6 @@ export async function createTaskOverdueNotification({
   }
 }
 
-// Notification untuk Comment
 export async function createCommentNotification({
   recipientId,
   senderId,
@@ -371,7 +364,6 @@ export async function createCommentNotification({
   }
 }
 
-// Notification untuk Reply Comment
 export async function createReplyCommentNotification({
   recipientId,
   senderId,
@@ -410,7 +402,6 @@ export async function createReplyCommentNotification({
   }
 }
 
-// Notification untuk Attachment Upload
 export async function createAttachmentNotification({
   recipientId,
   senderId,
@@ -443,5 +434,188 @@ export async function createAttachmentNotification({
     return notification;
   } catch (error) {
     console.error("Error creating attachment notification:", error);
+  }
+}
+
+export async function createSubtaskStatusNotification({
+  subtaskId,
+  subtaskName,
+  taskId,
+  taskName,
+  workspaceId,
+  workspaceName,
+  projectId,
+  projectName,
+  senderId,
+  senderName,
+  recipients,
+  oldStatus,
+  newStatus,
+}) {
+  try {
+    const notifications = recipients
+      .filter((recipientId) => recipientId.toString() !== senderId.toString())
+      .map((recipientId) => ({
+        recipient: recipientId,
+        sender: senderId,
+        type: "TASK_STATUS_CHANGED",
+        title: "Status Subtask Diupdate",
+        message: `${senderName} updated status on subtask "${subtaskName}" to task "${taskName}" from ${oldStatus} to ${newStatus}`,
+        task: taskId,
+        workspace: workspaceId,
+        project: projectId,
+        metadata: {
+          subtaskName,
+          taskName,
+          projectName,
+          workspaceName,
+          oldStatus,
+          newStatus,
+        },
+      }));
+
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+    }
+
+    return notifications;
+  } catch (error) {
+    console.error("Error creating subtask status notification:", error);
+    throw error;
+  }
+}
+
+// ✅ UPDATED: Subtask Assignment dengan Email
+export async function createSubtaskAssignmentNotification({
+  subtaskId,
+  subtaskName,
+  taskId,
+  taskName,
+  workspaceId,
+  workspaceName,
+  projectId,
+  projectName,
+  senderId,
+  senderName,
+  recipientId,
+}) {
+  try {
+    const notification = await Notification.create({
+      recipient: recipientId,
+      sender: senderId,
+      type: "TASK_ASSIGNED",
+      title: "Subtask Baru Ditugaskan",
+      message: `${senderName} menugaskan Anda pada subtask "${subtaskName}" dari task "${taskName}"`,
+      task: taskId,
+      workspace: workspaceId,
+      project: projectId,
+      metadata: {
+        subtaskName,
+        taskName,
+        projectName,
+        workspaceName,
+      },
+    });
+
+    // ✅ TAMBAHAN: Kirim email tanpa await (fire and forget)
+    User.findById(recipientId)
+      .select("email")
+      .then((user) => {
+        if (user) {
+          sendSubtaskAssignedEmail({
+            to: user.email,
+            subtaskName,
+            taskName,
+            projectName,
+            workspaceName,
+            assignerName: senderName,
+          }).catch((err) =>
+            console.error(`Failed to send subtask assignment email:`, err)
+          );
+        }
+      })
+      .catch((err) => console.error("Error fetching user for email:", err));
+
+    return notification;
+  } catch (error) {
+    console.error("Error creating subtask assignment notification:", error);
+    throw error;
+  }
+}
+
+export async function createSubtaskCommentNotification({
+  recipientId,
+  senderId,
+  subtaskId,
+  subtaskName,
+  taskId,
+  taskName,
+  workspaceId,
+  projectId,
+  senderName,
+  commentText,
+}) {
+  try {
+    const notification = await Notification.create({
+      recipient: recipientId,
+      sender: senderId,
+      type: "SUBTASK_COMMENT",
+      title: `New Comment on Subtask`,
+      message: `${senderName} commented on subtask "${subtaskName}": "${commentText.substring(
+        0,
+        50
+      )}${commentText.length > 50 ? "..." : ""}"`,
+      task: taskId,
+      workspace: workspaceId,
+      project: projectId,
+      metadata: {
+        subtaskName,
+        taskName,
+        senderName,
+        commentText,
+      },
+    });
+
+    return notification;
+  } catch (error) {
+    console.error("Error creating subtask comment notification:", error);
+  }
+}
+
+export async function createSubtaskAttachmentNotification({
+  recipientId,
+  senderId,
+  subtaskId,
+  subtaskName,
+  taskId,
+  taskName,
+  workspaceId,
+  projectId,
+  senderName,
+  fileName,
+  fileUrl,
+}) {
+  try {
+    const notification = await Notification.create({
+      recipient: recipientId,
+      sender: senderId,
+      type: "SUBTASK_ATTACHMENT_UPLOADED",
+      title: `File Uploaded to Subtask`,
+      message: `${senderName} uploaded a file "${fileName}" to subtask "${subtaskName}"`,
+      task: taskId,
+      workspace: workspaceId,
+      project: projectId,
+      metadata: {
+        subtaskName,
+        taskName,
+        senderName,
+        fileName,
+        fileUrl,
+      },
+    });
+
+    return notification;
+  } catch (error) {
+    console.error("Error creating subtask attachment notification:", error);
   }
 }
