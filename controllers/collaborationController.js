@@ -7,25 +7,25 @@ export const sendCollaborationRequest = async (req, res) => {
     const { projectId, fromWorkspaceId, toWorkspaceId } = req.body;
 
     const project = await Project.findById(projectId);
-    if (!project)
-      return res.status(404).json({ message: "Project tidak ditemukan" });
+    if (!project) return res.status(404).json({ message: "Project not found" });
 
     const fromWorkspace = await Workspace.findById(fromWorkspaceId);
     const toWorkspace = await Workspace.findById(toWorkspaceId);
 
     if (!fromWorkspace || !toWorkspace) {
-      return res.status(404).json({ message: "Workspace tidak ditemukan" });
+      return res.status(404).json({ message: "Division not found" });
     }
 
     if (project.workspace.toString() !== fromWorkspaceId) {
       return res.status(403).json({
-        message: "Project bukan milik workspace pengirim",
+        message: "the project does not belong to the sending division",
       });
     }
 
     if (project.otherWorkspaces?.includes(toWorkspaceId)) {
       return res.status(400).json({
-        message: "Workspace sudah berkolaborasi di project ini",
+        message:
+          "This project is already collaborated with the target division",
       });
     }
 
@@ -70,7 +70,7 @@ export const approveCollaboration = async (req, res) => {
       $addToSet: { otherWorkspaces: request.toWorkspace },
     });
 
-    res.json({ success: true, message: "Kolaborasi disetujui" });
+    res.json({ success: true, message: "Collaboration approved" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -91,7 +91,7 @@ export const rejectCollaboration = async (req, res) => {
     request.status = "rejected";
     await request.save();
 
-    res.json({ success: true, message: "Kolaborasi ditolak" });
+    res.json({ success: true, message: "Collaboration rejected" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

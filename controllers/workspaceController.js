@@ -165,7 +165,8 @@ export async function deleteWorkspace(req, res) {
 
     res.status(200).json({
       success: true,
-      message: "Workspace, project, group, task, dan subtask berhasil dihapus",
+      message:
+        "Workspace, project, group, task, and subtask deleted successfully",
     });
   } catch (error) {
     return handleError(res, error);
@@ -189,7 +190,7 @@ export async function inviteMemberByEmail(req, res) {
     if (workspace.owner._id.toString() !== requesterId.toString()) {
       return res
         .status(403)
-        .json({ message: "Hanya owner yang dapat mengundang anggota" });
+        .json({ message: "Only the owner can invite members" });
     }
 
     const existingUser = await User.findOne({ email });
@@ -202,7 +203,7 @@ export async function inviteMemberByEmail(req, res) {
       if (isMember) {
         return res
           .status(400)
-          .json({ message: "User sudah menjadi anggota workspace" });
+          .json({ message: "User is already a member of this workspace" });
       }
 
       await Workspace.findByIdAndUpdate(workspaceId, {
@@ -226,7 +227,7 @@ export async function inviteMemberByEmail(req, res) {
       console.log(`✅ ${email} langsung ditambahkan sebagai ${role}`);
       return res.status(200).json({
         success: true,
-        message: "User sudah terdaftar dan ditambahkan ke workspace",
+        message: "user has been registered and added to the workspace",
       });
     }
 
@@ -253,7 +254,7 @@ export async function inviteMemberByEmail(req, res) {
 
     res.status(200).json({
       success: true,
-      message: "Undangan berhasil dikirim via email",
+      message: "Invitation email sent successfully",
     });
   } catch (error) {
     return handleError(res, error);
@@ -273,7 +274,7 @@ export async function verifyWorkspaceInvite(req, res) {
     if (!workspace) {
       return res.status(404).json({
         success: false,
-        message: "Workspace tidak ditemukan",
+        message: "Divisiion not found",
       });
     }
 
@@ -284,7 +285,7 @@ export async function verifyWorkspaceInvite(req, res) {
     if (!invitation) {
       return res.status(400).json({
         success: false,
-        message: "Token undangan tidak valid atau sudah kedaluwarsa",
+        message: "Invitation token is invalid or expired",
       });
     }
 
@@ -294,7 +295,7 @@ export async function verifyWorkspaceInvite(req, res) {
     if (tokenAge > sevenDays) {
       return res.status(400).json({
         success: false,
-        message: "Token undangan sudah kedaluwarsa",
+        message: "Token expired",
       });
     }
 
@@ -314,7 +315,7 @@ export async function verifyWorkspaceInvite(req, res) {
     console.error("Error verifying workspace invite:", error);
     res.status(500).json({
       success: false,
-      message: "Terjadi kesalahan server",
+      message: "Internal server error",
     });
   }
 }
@@ -328,8 +329,7 @@ export async function acceptWorkspaceInvite(req, res) {
       "pendingInvites.token": token,
     });
 
-    if (!workspace)
-      return res.status(404).json({ message: "Token tidak valid" });
+    if (!workspace) return res.status(404).json({ message: "Token invalid" });
 
     const validation = validateInviteToken(workspace.pendingInvites, token);
 
@@ -366,7 +366,9 @@ export async function acceptWorkspaceInvite(req, res) {
     );
 
     if (isMember) {
-      return res.status(400).json({ message: "User sudah menjadi member" });
+      return res
+        .status(400)
+        .json({ message: "User is already a member of this division" });
     }
 
     await Workspace.findByIdAndUpdate(
@@ -394,7 +396,7 @@ export async function acceptWorkspaceInvite(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: "Berhasil bergabung ke workspace",
+      message: "Successfully joined the division",
     });
   } catch (error) {
     return handleError(res, error);
@@ -410,12 +412,12 @@ export async function updateMemberRole(req, res) {
     const workspace = await Workspace.findById(workspaceId);
 
     if (!workspace)
-      return res.status(404).json({ message: "Workspace tidak ditemukan" });
+      return res.status(404).json({ message: "Division not found" });
 
     if (workspace.owner.toString() !== requesterId.toString()) {
       return res
         .status(403)
-        .json({ message: "Hanya owner yang dapat mengubah role" });
+        .json({ message: "Only the owner can change roles" });
     }
 
     await Workspace.findOneAndUpdate(
@@ -445,12 +447,12 @@ export async function removeMember(req, res) {
     const workspace = await Workspace.findById(workspaceId);
 
     if (!workspace)
-      return res.status(404).json({ message: "Workspace tidak ditemukan" });
+      return res.status(404).json({ message: "Division not found" });
 
     if (workspace.owner.toString() !== requesterId.toString()) {
       return res
         .status(403)
-        .json({ message: "Hanya owner yang dapat menghapus member" });
+        .json({ message: "Only the owner can remove members" });
     }
 
     await Workspace.findByIdAndUpdate(workspaceId, {
@@ -463,7 +465,7 @@ export async function removeMember(req, res) {
 
     res.status(200).json({
       success: true,
-      message: "Member berhasil dihapus",
+      message: "Member successfully removed",
     });
   } catch (error) {
     return handleError(res, error);
