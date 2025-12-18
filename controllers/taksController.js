@@ -123,7 +123,7 @@ export async function createTask(req, res) {
 
 const validateStatusTransition = (oldStatus, newStatus) => {
   const transitionRules = {
-    "Done-In The review": ["Done", "In Progress"],
+    "Done-In review": ["Done", "In Progress"],
     // Tambahkan rules lainnya jika diperlukan
     // "In Progress": ["Done", "Done-In The review", "To Do"],
     // "Done": ["To Do", "In Progress"],
