@@ -10,7 +10,7 @@ export async function sendTaskPicInvitationEmail({
 }) {
   const registrationText = isRegistered
     ? "Click the button below to accept the invitation:"
-    : "Before accepting the invitation, you need to create an account:";
+    : "Before accepting the invitation, you need to register first:";
 
   const buttonText = isRegistered
     ? "Accept Invitation"
@@ -19,12 +19,12 @@ export async function sendTaskPicInvitationEmail({
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `Invitation to Become PIC for Task: ${taskName}`,
+    subject: `Invitation to be PIC for Task: ${taskName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Invitation to Become Task PIC</h2>
+        <h2 style="color: #2563eb;">Invitation to be PIC Task</h2>
         <p>Hello,</p>
-        <p>You have been invited to become the PIC (Person In Charge) for the following task:</p>
+        <p>You have been invited to become the PIC (Person In Charge) for the task:</p>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
           <h3 style="margin: 0; color: #1f2937;">${taskName}</h3>
           <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
@@ -37,7 +37,7 @@ export async function sendTaskPicInvitationEmail({
                   margin: 15px 0;">
           ${buttonText}
         </a>
-        <p>Or copy the link below into your browser:</p>
+        <p>Or copy the following link to your browser:</p>
         <p style="word-break: break-all; color: #6b7280;">${inviteUrl}</p>
         <p>This invitation will expire in 7 days.</p>
       </div>
@@ -64,28 +64,28 @@ export async function sendWorkspaceInvitationEmail({
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `Invitation to Join Workspace: ${workspaceName}`,
+    subject: `Invitation to join Workspace: ${workspaceName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Workspace Invitation</h2>
         <p>Hello,</p>
         <p>You have been invited ${
-          inviterName ? `oleh <strong>${inviterName}</strong>` : ""
-        } untuk bergabung ke workspace:</p>
+          inviterName ? `by <strong>${inviterName}</strong>` : ""
+        } to join the workspace:</p>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
           <h3 style="margin: 0; color: #1f2937;">${workspaceName}</h3>
           <p style="margin: 5px 0; color: #6b7280;">Role: <strong>${
             roleText[role]
           }</strong></p>
         </div>
-        <p>Klik tombol di bawah ini untuk menerima undangan:</p>
+        <p>Click the button below to accept the invitation:</p>
         <a href="${inviteUrl}" 
            style="display: inline-block; background-color: #2563eb; color: white; 
                   padding: 12px 24px; text-decoration: none; border-radius: 6px; 
                   margin: 15px 0;">
-          Terima Undangan
+          Accept Invitation
         </a>
-        <p>Atau copy link berikut ke browser Anda:</p>
+        <p>Or copy the following link to your browser:</p>
         <p style="word-break: break-all; color: #6b7280;">${inviteUrl}</p>
         <p>This invitation will expire in 7 days.</p>
       </div>
@@ -105,39 +105,35 @@ export async function sendSubtaskPicInvitationEmail({
   inviteUrl,
   isRegistered = false,
 }) {
-  const registrationText = isRegistered
-    ? "Klik tombol di bawah ini untuk menerima undangan:"
-    : "Sebelum menerima undangan, Anda perlu melakukan registrasi terlebih dahulu:";
-
   const buttonText = isRegistered
-    ? "Terima Undangan"
-    : "Daftar dan Terima Undangan";
+    ? "Click the button below to accept the invitation:"
+    : "Before accepting the invitation, you need to register first:";
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `Undangan sebagai PIC untuk Subtask: ${subTaskName}`,
+    subject: `Invitation to be PIC for Subtask: ${subTaskName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Undangan Menjadi PIC Subtask</h2>
-        <p>Halo,</p>
-        <p>Anda telah diundang untuk menjadi PIC (Person In Charge) pada subtask:</p>
+        <h2 style="color: #2563eb;">Invitation to be PIC Subtask</h2>
+        <p>Hello,</p>
+        <p>You have been invited to become the PIC (Person In Charge) for the subtask:</p>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
           <h3 style="margin: 0; color: #1f2937;">${subTaskName}</h3>
           <p style="margin: 5px 0; color: #6b7280;">Task: ${taskName}</p>
           <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
           <p style="margin: 5px 0; color: #6b7280;">Workspace: ${workspaceName}</p>
         </div>
-        <p>${registrationText}</p>
+        <p>${buttonText}</p>
         <a href="${inviteUrl}" 
            style="display: inline-block; background-color: #2563eb; color: white; 
                   padding: 12px 24px; text-decoration: none; border-radius: 6px; 
                   margin: 15px 0;">
           ${buttonText}
         </a>
-        <p>Atau copy link berikut ke browser Anda:</p>
+        <p>Or copy the following link to your browser:</p>
         <p style="word-break: break-all; color: #6b7280;">${inviteUrl}</p>
-        <p>Undangan ini akan kedaluwarsa dalam 7 hari.</p>
+        <p>This invitation will expire in 7 days.</p>
       </div>
     `,
   };
@@ -157,33 +153,33 @@ export async function sendTaskDueSoonEmail({
 }) {
   let urgencyMessage = "";
   if (daysRemaining === 1) {
-    urgencyMessage = "besok";
+    urgencyMessage = "Tomorrow";
   } else if (daysRemaining === 7) {
-    urgencyMessage = "dalam 1 minggu";
+    urgencyMessage = "in 1 week";
   } else {
-    urgencyMessage = `dalam ${daysRemaining} hari`;
+    urgencyMessage = `in ${daysRemaining} days`;
   }
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `⏰ Reminder: Task "${taskName}" Akan Jatuh Tempo`,
+    subject: `⏰ Reminder: Task "${taskName}" is Due `,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #f59e0b;">⏰ Task Akan Jatuh Tempo</h2>
-        <p>Halo,</p>
-        <p>Ini adalah pengingat bahwa task Anda akan segera jatuh tempo:</p>
+        <h2 style="color: #f59e0b;">⏰ Task Due Soon</h2>
+        <p>Hello,</p>
+        <p>This is a reminder that your task will soon be due:</p>
         <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #f59e0b;">
           <h3 style="margin: 0; color: #1f2937;">${taskName}</h3>
           <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
           <p style="margin: 5px 0; color: #6b7280;">Workspace: ${workspaceName}</p>
-          <p style="margin: 10px 0 5px 0; color: #92400e;"><strong>Jatuh tempo: ${urgencyMessage}</strong></p>
-          <p style="margin: 5px 0; color: #6b7280;">Tanggal: ${new Date(
+          <p style="margin: 10px 0 5px 0; color: #92400e;"><strong>Due date: ${urgencyMessage}</strong></p>
+          <p style="margin: 5px 0; color: #6b7280;">Date: ${new Date(
             dueDate
           ).toLocaleDateString("id-ID")}</p>
-          <p style="margin: 5px 0; color: #6b7280;">Status saat ini: <strong>${status}</strong></p>
+          <p style="margin: 5px 0; color: #6b7280;">Current status: <strong>${status}</strong></p>
         </div>
-        <p>Segera selesaikan task ini sebelum deadline!</p>
+        <p>Complete this task before the deadline!</p>
       </div>
     `,
   };
@@ -204,12 +200,12 @@ export async function sendTaskStatusChangedEmail({
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `🔄 Status Task "${taskName}" Diupdate`,
+    subject: `🔄 Status Task "${taskName}" updated`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">🔄 Status Task Diupdate</h2>
-        <p>Halo,</p>
-        <p><strong>${senderName}</strong> telah mengubah status task:</p>
+        <h2 style="color: #2563eb;">🔄 Status Task Updated</h2>
+        <p>Hello,</p>
+        <p><strong>${senderName}</strong> has changed the task status:</p>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
           <h3 style="margin: 0; color: #1f2937;">${taskName}</h3>
           <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
@@ -236,18 +232,18 @@ export async function sendTaskAssignedEmail({
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `📋 Task Baru Ditugaskan: ${taskName}`,
+    subject: `📋 New task assigned: ${taskName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #10b981;">📋 Task Baru Ditugaskan</h2>
-        <p>Halo,</p>
-        <p><strong>${assignerName}</strong> telah menugaskan Anda pada task:</p>
+        <h2 style="color: #10b981;">📋 New task assigned</h2>
+        <p>Hello,</p>
+        <p><strong>${assignerName}</strong> has assigned you a new task:</p>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
           <h3 style="margin: 0; color: #1f2937;">${taskName}</h3>
           <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
           <p style="margin: 5px 0; color: #6b7280;">Workspace: ${workspaceName}</p>
         </div>
-        <p>Silakan cek aplikasi untuk detail lebih lanjut.</p>
+        <p>Please check the application for more details.</p>
       </div>
     `,
   };
@@ -268,23 +264,23 @@ export async function sendTaskOverdueEmail({
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `🚨 URGENT: Task "${taskName}" Sudah Terlambat ${daysOverdue} Hari`,
+    subject: `🚨 URGENT: Task "${taskName}" is overdue by ${daysOverdue} days`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #dc2626;">🚨 Task Terlambat!</h2>
-        <p>Halo,</p>
-        <p>Task Anda sudah melewati deadline dan masih belum selesai:</p>
+        <h2 style="color: #dc2626;">🚨 Task Overdue!</h2>
+        <p>Hello,</p>
+        <p>Your task has exceeded its deadline and is still incomplete:</p>
         <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #dc2626;">
           <h3 style="margin: 0; color: #1f2937;">${taskName}</h3>
           <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
           <p style="margin: 5px 0; color: #6b7280;">Workspace: ${workspaceName}</p>
-          <p style="margin: 10px 0 5px 0; color: #991b1b;"><strong>⚠️ Terlambat: ${daysOverdue} hari</strong></p>
+          <p style="margin: 10px 0 5px 0; color: #991b1b;"><strong>⚠️ Overdue: ${daysOverdue} days</strong></p>
           <p style="margin: 5px 0; color: #6b7280;">Deadline: ${new Date(
             dueDate
           ).toLocaleDateString("id-ID")}</p>
-          <p style="margin: 5px 0; color: #6b7280;">Status saat ini: <strong>${status}</strong></p>
+          <p style="margin: 5px 0; color: #6b7280;">Current status: <strong>${status}</strong></p>
         </div>
-        <p style="color: #dc2626; font-weight: bold;">⚠️ Harap segera selesaikan task ini!</p>
+        <p style="color: #dc2626; font-weight: bold;">⚠️ Please complete this task as soon as possible!</p>
       </div>
     `,
   };
@@ -304,19 +300,19 @@ export async function sendSubtaskAssignedEmail({
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `📋 Subtask Baru Ditugaskan: ${subtaskName}`,
+    subject: `📋 New subtask assigned: ${subtaskName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #10b981;">📋 Subtask Baru Ditugaskan</h2>
-        <p>Halo,</p>
-        <p><strong>${assignerName}</strong> telah menugaskan Anda pada subtask:</p>
+        <h2 style="color: #10b981;">📋 New subtask assigned</h2>
+        <p>Hello,</p>
+        <p><strong>${assignerName}</strong> has assigned you a new subtask:</p>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
           <h3 style="margin: 0; color: #1f2937;">${subtaskName}</h3>
           <p style="margin: 5px 0; color: #6b7280;">Task: ${taskName}</p>
           <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
           <p style="margin: 5px 0; color: #6b7280;">Workspace: ${workspaceName}</p>
         </div>
-        <p>Silakan cek aplikasi untuk detail lebih lanjut.</p>
+        <p>Please check the application for more details.</p>
       </div>
     `,
   };

@@ -23,11 +23,11 @@ export async function createTaskDueSoonNotification({
   try {
     let urgencyMessage = "";
     if (daysRemaining === 1) {
-      urgencyMessage = "besok";
+      urgencyMessage = "tommorow";
     } else if (daysRemaining === 7) {
-      urgencyMessage = "dalam 1 minggu";
+      urgencyMessage = "in 1 week";
     } else {
-      urgencyMessage = `dalam ${daysRemaining} hari`;
+      urgencyMessage = `in ${daysRemaining} days`;
     }
 
     const notifications = recipients.map((recipientId) => ({

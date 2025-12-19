@@ -324,7 +324,7 @@ export async function addSubtaskAttachment(req, res) {
         group: group._id,
         task: task._id,
         action: "UPLOAD_SUBTASK_FILE",
-        description: `User uploaded file "${req.file.originalname}" to subtask "${subtask.nama}"`,
+        description: `uploaded file "${req.file.originalname}" to subtask "${subtask.nama}"`,
         before: {},
         after: {
           fileName: req.file.originalname,
@@ -543,7 +543,7 @@ export async function downloadSubtaskAttachment(req, res) {
         group: group._id,
         task: task._id,
         action: "DOWNLOAD_SUBTASK_FILE",
-        description: `User downloaded file "${attachment.fileName}" from subtask "${subtask.nama}"`,
+        description: `downloaded file "${attachment.fileName}" from subtask "${subtask.nama}"`,
         before: {},
         after: {
           fileName: attachment.fileName,
