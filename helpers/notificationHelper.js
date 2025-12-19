@@ -33,10 +33,10 @@ export async function createTaskDueSoonNotification({
     const notifications = recipients.map((recipientId) => ({
       recipient: recipientId,
       type: "TASK_DUE_SOON",
-      title: "Task Akan Jatuh Tempo",
-      message: `Task "${taskName}" akan jatuh tempo ${urgencyMessage} (${new Date(
+      title: "Task is due soon",
+      message: `Task "${taskName}" will be due on ${urgencyMessage} (${new Date(
         dueDate
-      ).toLocaleDateString("id-ID")}) dan masih berstatus ${status}`,
+      ).toLocaleDateString("id-ID")}) and still has status ${status}`,
       task: taskId,
       workspace: workspaceId,
       project: projectId,
