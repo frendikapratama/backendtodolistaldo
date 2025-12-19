@@ -38,7 +38,7 @@ export const getWorkspaceMessages = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .populate("sender", "username email avatar")
+      .populate("sender", "username email photo")
       .populate("readBy.user", "username email");
 
     const total = await ChatMessage.countDocuments({
@@ -110,3 +110,39 @@ export const uploadChatFile = async (req, res) => {
     });
   }
 };
+
+export const deleteMessage = async (req, res) =>{
+  try{
+    const { messageId } = req.params;
+    const message = await ChatMessage.findById(messageId);
+    if(!message){
+      return res.status(404).json({
+        success: false,
+        message: "Message not found"
+      })
+    }
+    if(message.sender.toString() !== req.user._id.toString()){
+      return res.status(403).json({
+        success: false,
+        message: "You are not the sender!"
+      })
+    }
+    message.isDeleted = true,
+    message.deletedAt = new Date();
+    message.deletedBy = req.user._id;
+    await message.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Message deleted successfully",
+      data: message
+    })
+  }
+  catch (err){
+    res.status(500).json({
+      success: false,
+      message: "There is an error during deleting message",
+      error: err.message
+    })
+  }
+}
