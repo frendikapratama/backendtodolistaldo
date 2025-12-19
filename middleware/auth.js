@@ -14,7 +14,7 @@ export async function authenticate(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer")) {
-      return res.status(401).json({ message: "Anda Tidak Punya Akses" });
+      return res.status(401).json({ message: "Youd don't have access" });
     }
 
     const token = authHeader.split(" ")[1];
@@ -23,7 +23,7 @@ export async function authenticate(req, res, next) {
 
     const user = await User.findById(decoded.id).select("-password");
     if (!user) {
-      return res.status(401).json({ message: "User tidak ditemukan" });
+      return res.status(401).json({ message: "user not found" });
     }
 
     req.user = user;
@@ -39,12 +39,12 @@ export async function authenticate(req, res, next) {
 
 export function requireSystemAdmin(req, res, next) {
   if (!req.user) {
-    return res.status(401).json({ message: "User tidak terautentikasi" });
+    return res.status(401).json({ message: "you don't have access" });
   }
 
   if (req.user.role !== "system_admin" && req.user.isSystemAdmin !== true) {
     return res.status(403).json({
-      message: "Hanya system admin yang dapat mengakses fitur ini",
+      message: "Only System Admin can perform this action",
     });
   }
 
@@ -65,7 +65,7 @@ export function checkWorkspaceRole(allowedRoles = []) {
         if (!workspace) {
           return res.status(404).json({
             success: false,
-            message: "Workspace tidak ditemukan",
+            message: "Division not found",
           });
         }
         req.workspace = workspace;
@@ -77,7 +77,7 @@ export function checkWorkspaceRole(allowedRoles = []) {
       if (!workspace) {
         return res.status(404).json({
           success: false,
-          message: "Workspace tidak ditemukan",
+          message: "Division not found",
         });
       }
 
@@ -94,7 +94,7 @@ export function checkWorkspaceRole(allowedRoles = []) {
       if (!member) {
         return res.status(403).json({
           success: false,
-          message: "Anda bukan member workspace ini",
+          message: "you are not a member of this division",
         });
       }
 
@@ -104,9 +104,9 @@ export function checkWorkspaceRole(allowedRoles = []) {
       if (allowedRoles.length > 0 && !allowedRoles.includes(member.role)) {
         return res.status(403).json({
           success: false,
-          message: `Aksi ini memerlukan role: ${allowedRoles.join(
-            " atau "
-          )}. Role Anda: ${member.role}`,
+          message: `This action requires a role:  ${allowedRoles.join(
+            " Or "
+          )}. Your role is: ${member.role}`,
         });
       }
 
@@ -114,7 +114,7 @@ export function checkWorkspaceRole(allowedRoles = []) {
     } catch (error) {
       return res.status(500).json({
         success: false,
-        message: "Gagal memverifikasi role workspace",
+        message: "Vailed to verify division role",
         error: error.message,
       });
     }
@@ -135,7 +135,7 @@ export function checkWorkspaceRoleFromProject(allowedRoles = []) {
         if (!project || !project.workspace) {
           return res.status(404).json({
             success: false,
-            message: "Project atau Workspace tidak ditemukan",
+            message: "Project or Division not found",
           });
         }
         req.workspace = project.workspace;
@@ -148,7 +148,7 @@ export function checkWorkspaceRoleFromProject(allowedRoles = []) {
       if (!project || !project.workspace) {
         return res.status(404).json({
           success: false,
-          message: "Project atau Workspace tidak ditemukan",
+          message: "Project or Division not found",
         });
       }
 
@@ -168,7 +168,7 @@ export function checkWorkspaceRoleFromProject(allowedRoles = []) {
       if (!member) {
         return res.status(403).json({
           success: false,
-          message: "Anda bukan member workspace ini",
+          message: "Yiou are not a member of this division",
         });
       }
 
@@ -179,9 +179,9 @@ export function checkWorkspaceRoleFromProject(allowedRoles = []) {
       if (allowedRoles.length > 0 && !allowedRoles.includes(member.role)) {
         return res.status(403).json({
           success: false,
-          message: `Aksi ini memerlukan role: ${allowedRoles.join(
-            " atau "
-          )}. Role Anda: ${member.role}`,
+          message: `This action requires a role: ${allowedRoles.join(
+            " or "
+          )}. Your role is: ${member.role}`,
         });
       }
 
@@ -189,7 +189,7 @@ export function checkWorkspaceRoleFromProject(allowedRoles = []) {
     } catch (error) {
       return res.status(500).json({
         success: false,
-        message: "Gagal memverifikasi role workspace",
+        message: "Failed to verify division role",
         error: error.message,
       });
     }
@@ -210,7 +210,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
         if (!task) {
           return res.status(404).json({
             success: false,
-            message: "Task tidak ditemukan",
+            message: "task not found",
           });
         }
 
@@ -218,7 +218,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
         if (!group) {
           return res.status(404).json({
             success: false,
-            message: "Group tidak ditemukan",
+            message: "Group not found",
           });
         }
 
@@ -228,7 +228,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
         if (!project || !project.workspace) {
           return res.status(404).json({
             success: false,
-            message: "Project atau Workspace tidak ditemukan",
+            message: "Project or Division not found",
           });
         }
 
@@ -241,7 +241,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
       if (!task) {
         return res.status(404).json({
           success: false,
-          message: "Task tidak ditemukan",
+          message: "Task not found",
         });
       }
 
@@ -249,7 +249,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
       if (!group) {
         return res.status(404).json({
           success: false,
-          message: "Group tidak ditemukan",
+          message: "Group not found",
         });
       }
 
@@ -259,7 +259,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
       if (!project || !project.workspace) {
         return res.status(404).json({
           success: false,
-          message: "Project atau Workspace tidak ditemukan",
+          message: "Project or Division not found",
         });
       }
 
@@ -279,7 +279,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
       if (!member) {
         return res.status(403).json({
           success: false,
-          message: "Anda bukan member workspace ini",
+          message: "You are not a member of this division",
         });
       }
 
@@ -290,9 +290,9 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
       if (allowedRoles.length > 0 && !allowedRoles.includes(member.role)) {
         return res.status(403).json({
           success: false,
-          message: `Aksi ini memerlukan role: ${allowedRoles.join(
-            " atau "
-          )}. Role Anda: ${member.role}`,
+          message: `This action requires a role: ${allowedRoles.join(
+            " or "
+          )}. Your role is: ${member.role}`,
         });
       }
 
@@ -300,7 +300,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
     } catch (error) {
       return res.status(500).json({
         success: false,
-        message: "Gagal memverifikasi role workspace",
+        message: "Failed to verify division role",
         error: error.message,
       });
     }
@@ -321,7 +321,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
         if (!subtask) {
           return res.status(404).json({
             success: false,
-            message: "Subtask tidak ditemukan",
+            message: "Subtask not found",
           });
         }
 
@@ -329,7 +329,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
         if (!task) {
           return res.status(404).json({
             success: false,
-            message: "Task tidak ditemukan",
+            message: "Task not found",
           });
         }
 
@@ -337,7 +337,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
         if (!group) {
           return res.status(404).json({
             success: false,
-            message: "Group tidak ditemukan",
+            message: "Group not found",
           });
         }
 
@@ -347,7 +347,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
         if (!project || !project.workspace) {
           return res.status(404).json({
             success: false,
-            message: "Project atau Workspace tidak ditemukan",
+            message: "Project or Division not found",
           });
         }
 
@@ -360,7 +360,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
       if (!subtask) {
         return res.status(404).json({
           success: false,
-          message: "Subtask tidak ditemukan",
+          message: "Subtask not found",
         });
       }
 
@@ -368,7 +368,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
       if (!task) {
         return res.status(404).json({
           success: false,
-          message: "Task tidak ditemukan",
+          message: "Task not found",
         });
       }
 
@@ -386,7 +386,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
       if (!project || !project.workspace) {
         return res.status(404).json({
           success: false,
-          message: "Project atau Workspace tidak ditemukan",
+          message: "Project or Division not found",
         });
       }
 
@@ -406,7 +406,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
       if (!member) {
         return res.status(403).json({
           success: false,
-          message: "Anda bukan member workspace ini",
+          message: "You are not a member of this division",
         });
       }
 
@@ -417,9 +417,9 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
       if (allowedRoles.length > 0 && !allowedRoles.includes(member.role)) {
         return res.status(403).json({
           success: false,
-          message: `Aksi ini memerlukan role: ${allowedRoles.join(
-            " atau "
-          )}. Role Anda: ${member.role}`,
+          message: `This action requires a role: ${allowedRoles.join(
+            " or "
+          )}. Your role is: ${member.role}`,
         });
       }
 
@@ -427,7 +427,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
     } catch (error) {
       return res.status(500).json({
         success: false,
-        message: "Gagal memverifikasi role workspace",
+        message: "Failed to verify division role",
         error: error.message,
       });
     }
@@ -444,7 +444,7 @@ export async function checkWorkspaceMemberFromTask(req, res, next) {
       if (!task) {
         return res.status(404).json({
           success: false,
-          message: "Task tidak ditemukan",
+          message: "Task not found",
         });
       }
       const group = await Group.findById(task.groups);
@@ -461,27 +461,27 @@ export async function checkWorkspaceMemberFromTask(req, res, next) {
     if (!task) {
       return res.status(404).json({
         success: false,
-        message: "Task tidak ditemukan",
+        message: "Task not found",
       });
     }
     const group = await Group.findById(task.groups);
     if (!group) {
       return res.status(404).json({
         success: false,
-        message: "Group tidak ditemukan",
+        message: "Group not found",
       });
     }
     const project = await Project.findById(group.project).populate("workspace");
     if (!project) {
       return res.status(404).json({
         success: false,
-        message: "Project tidak ditemukan",
+        message: "Project not found",
       });
     }
     if (!project.workspace) {
       return res.status(404).json({
         success: false,
-        message: "Workspace tidak ditemukan",
+        message: "Division not found",
       });
     }
     const isMember = project.workspace.members.some(
@@ -490,7 +490,7 @@ export async function checkWorkspaceMemberFromTask(req, res, next) {
     if (!isMember) {
       return res.status(403).json({
         success: false,
-        message: "Anda bukan member dari workspace ini",
+        message: "You are not a member of this division",
       });
     }
     req.task = task;
@@ -499,7 +499,7 @@ export async function checkWorkspaceMemberFromTask(req, res, next) {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Gagal memverifikasi akses workspace",
+      message: "Failed to verify division access",
       error: error.message,
     });
   }
@@ -519,7 +519,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
         if (!group) {
           return res.status(404).json({
             success: false,
-            message: "Group tidak ditemukan",
+            message: "Group not found",
           });
         }
 
@@ -529,7 +529,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
         if (!project || !project.workspace) {
           return res.status(404).json({
             success: false,
-            message: "Project atau Workspace tidak ditemukan",
+            message: "Project or Division not found",
           });
         }
 
@@ -542,7 +542,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
       if (!group) {
         return res.status(404).json({
           success: false,
-          message: "Group tidak ditemukan",
+          message: "Group not found",
         });
       }
 
@@ -552,7 +552,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
       if (!project || !project.workspace) {
         return res.status(404).json({
           success: false,
-          message: "Project atau Workspace tidak ditemukan",
+          message: "Project or Division not found",
         });
       }
 
@@ -572,7 +572,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
       if (!member) {
         return res.status(403).json({
           success: false,
-          message: "Anda bukan member workspace ini",
+          message: "You are not a member of this division",
         });
       }
 
@@ -583,9 +583,9 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
       if (allowedRoles.length > 0 && !allowedRoles.includes(member.role)) {
         return res.status(403).json({
           success: false,
-          message: `Aksi ini memerlukan role: ${allowedRoles.join(
-            " atau "
-          )}. Role Anda: ${member.role}`,
+          message: `This action requires a role: ${allowedRoles.join(
+            " or "
+          )}. Your role is: ${member.role}`,
         });
       }
 
@@ -636,7 +636,7 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
       if (!targetWorkspaceId) {
         return res.status(400).json({
           success: false,
-          message: "Workspace ID tidak ditemukan",
+          message: "Division ID not found ",
         });
       }
 
@@ -644,7 +644,7 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
       if (!workspace) {
         return res.status(404).json({
           success: false,
-          message: "Workspace tidak ditemukan",
+          message: "Division not found",
         });
       }
 
@@ -661,7 +661,7 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
       if (!member) {
         return res.status(403).json({
           success: false,
-          message: "Anda bukan member workspace ini",
+          message: "You are not a member of this division",
         });
       }
 
@@ -671,9 +671,9 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
       if (allowedRoles.length > 0 && !allowedRoles.includes(member.role)) {
         return res.status(403).json({
           success: false,
-          message: `Hanya ${allowedRoles.join(
-            " atau "
-          )} yang dapat melakukan aksi ini. Role Anda: ${member.role}`,
+          message: `This action requires a role: ${allowedRoles.join(
+            " or "
+          )}. Your role is: ${member.role}`,
         });
       }
 
@@ -681,7 +681,7 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
     } catch (error) {
       return res.status(500).json({
         success: false,
-        message: "Gagal memverifikasi role workspace",
+        message: "Failed to verify division role",
         error: error.message,
       });
     }
