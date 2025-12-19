@@ -19,7 +19,7 @@ router.get("/", authenticate, getProject);
 router.post(
   "/:workspaceId",
   authenticate,
-  // checkWorkspaceRole(["admin", "project_manager"]),
+  checkWorkspaceRole(["admin", "project_manager"]),
   createProject
 );
 router.get("/:projectId", authenticate, getProjectById);

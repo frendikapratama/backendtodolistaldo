@@ -5,7 +5,7 @@ import Task from "../models/Task.js";
 import Project from "../models/Project.js";
 import Workspace from "../models/Workspace.js";
 import Subtask from "../models/Subtask.js";
-
+import CollaborationRequest from "../models/CollaborationRequest.js";
 const JWT_SECRET =
   process.env.TOKEN_SECRET ||
   "48db792b7ced19872b7109589afb94bb084acf4b5ef0879ccc5855395cb44a5e";
