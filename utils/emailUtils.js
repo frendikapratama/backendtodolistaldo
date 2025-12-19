@@ -9,22 +9,22 @@ export async function sendTaskPicInvitationEmail({
   isRegistered = false,
 }) {
   const registrationText = isRegistered
-    ? "Klik tombol di bawah ini untuk menerima undangan:"
-    : "Sebelum menerima undangan, Anda perlu melakukan registrasi terlebih dahulu:";
+    ? "Click the button below to accept the invitation:"
+    : "Before accepting the invitation, you need to create an account:";
 
   const buttonText = isRegistered
-    ? "Terima Undangan"
-    : "Daftar dan Terima Undangan";
+    ? "Accept Invitation"
+    : "Register and Accept Invitation";
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `Undangan sebagai PIC untuk Task: ${taskName}`,
+    subject: `Invitation to Become PIC for Task: ${taskName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Undangan Menjadi PIC Task</h2>
-        <p>Halo,</p>
-        <p>Anda telah diundang untuk menjadi PIC (Person In Charge) pada task:</p>
+        <h2 style="color: #2563eb;">Invitation to Become Task PIC</h2>
+        <p>Hello,</p>
+        <p>You have been invited to become the PIC (Person In Charge) for the following task:</p>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
           <h3 style="margin: 0; color: #1f2937;">${taskName}</h3>
           <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
@@ -37,15 +37,14 @@ export async function sendTaskPicInvitationEmail({
                   margin: 15px 0;">
           ${buttonText}
         </a>
-        <p>Atau copy link berikut ke browser Anda:</p>
+        <p>Or copy the link below into your browser:</p>
         <p style="word-break: break-all; color: #6b7280;">${inviteUrl}</p>
-        <p>Undangan ini akan kedaluwarsa dalam 7 hari.</p>
+        <p>This invitation will expire in 7 days.</p>
       </div>
     `,
   };
 
   await transporter.sendMail(mailOptions);
-  console.log(`📨 Email undangan PIC task terkirim ke: ${to}`);
 }
 
 export async function sendWorkspaceInvitationEmail({
@@ -65,12 +64,12 @@ export async function sendWorkspaceInvitationEmail({
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to,
-    subject: `Undangan untuk bergabung ke Workspace: ${workspaceName}`,
+    subject: `Invitation to Join Workspace: ${workspaceName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2563eb;">Undangan Workspace</h2>
-        <p>Halo,</p>
-        <p>Anda telah diundang ${
+        <h2 style="color: #2563eb;">Workspace Invitation</h2>
+        <p>Hello,</p>
+        <p>You have been invited ${
           inviterName ? `oleh <strong>${inviterName}</strong>` : ""
         } untuk bergabung ke workspace:</p>
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
@@ -88,7 +87,7 @@ export async function sendWorkspaceInvitationEmail({
         </a>
         <p>Atau copy link berikut ke browser Anda:</p>
         <p style="word-break: break-all; color: #6b7280;">${inviteUrl}</p>
-        <p>Undangan ini akan kedaluwarsa dalam 7 hari.</p>
+        <p>This invitation will expire in 7 days.</p>
       </div>
     `,
   };
