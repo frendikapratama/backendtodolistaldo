@@ -352,12 +352,12 @@ export async function sendOTP(req, res) {
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2563eb;">Reset Password</h2>
           <p>Halo ${user.username},</p>
-          <p>Kode OTP untuk reset password Anda adalah:</p>
+          <p>The OTP code to reset your password is:</p>
           <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center;">
             <h1 style="margin: 0; color: #1f2937; letter-spacing: 5px;">${otp}</h1>
           </div>
-          <p>Kode ini akan kadaluarsa dalam 5 menit.</p>
-          <p>Jika Anda tidak meminta reset password, abaikan email ini.</p>
+          <p>This code will expire in 5 minutes.</p>
+          <p>If you did not request a password reset, please ignore this email.</p>
         </div>
       `,
     });

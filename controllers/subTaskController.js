@@ -51,7 +51,7 @@ export async function createSubTask(req, res) {
       project: task.project,
       task: task._id,
       action: "CREATE_SUBTASK",
-      description: `Membuat subtask "${subtask.nama}" pada task "${task.nama}"`,
+      description: `Create a subtask "${subtask.nama}" on task "${task.nama}"`,
       before: {},
       after: { nama: subtask.nama, task: taskId },
     });
@@ -162,7 +162,7 @@ export async function updateSubTask(req, res) {
           group: group._id,
           task: task._id,
           action: "UPDATE_SUBTASK",
-          description: `User mengupdate subtask ${updatedSubTask.nama}`,
+          description: ` updated subtask ${updatedSubTask.nama}`,
           before,
           after,
         });
@@ -263,8 +263,8 @@ async function handleSubtaskPicAssignment(
 
         return {
           success: true,
-          message: `${picEmail} berhasil ditambahkan sebagai PIC${
-            !isMember ? " dan bergabung ke workspace sebagai member" : ""
+          message: `${picEmail} successfully added as PIC${
+            !isMember ? " and joined workspace as member" : ""
           }`,
           notification, // Return notification untuk di-emit
         };
@@ -273,8 +273,8 @@ async function handleSubtaskPicAssignment(
         // Tetap return success meskipun notifikasi gagal
         return {
           success: true,
-          message: `${picEmail} berhasil ditambahkan sebagai PIC${
-            !isMember ? " dan bergabung ke workspace sebagai member" : ""
+          message: `${picEmail} successfully added as PIC${
+            !isMember ? " and joined workspace as member" : ""
           }`,
         };
       }
