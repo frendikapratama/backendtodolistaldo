@@ -38,7 +38,7 @@ export const getWorkspaceMessages = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .populate("sender", "username email avatar")
+      .populate("sender", "username email photo")
       .populate("readBy.user", "username email");
 
     const total = await ChatMessage.countDocuments({
