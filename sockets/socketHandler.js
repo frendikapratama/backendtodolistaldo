@@ -138,7 +138,7 @@ export const initializeSocket = (io) => {
           fileName,
         });
 
-        await chatMessage.populate("sender", "username email avatar");
+        await chatMessage.populate("sender", "username email photo");
 
         const messageData = chatMessage.toObject();
 
@@ -201,7 +201,7 @@ export const initializeSocket = (io) => {
         message.isEdited = true;
         await message.save();
 
-        await message.populate("sender", "username email avatar");
+        await message.populate("sender", "username email photo");
 
         io.to(`workspace:${message.workspace}`).emit("chat:edited", {
           ...message.toObject(),
