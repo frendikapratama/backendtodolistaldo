@@ -45,7 +45,20 @@ const upload = multer({
 
 const router = express.Router();
 
-router.get("/me", authenticate, (req, res) => {
+router.get("/me", authenticate, async (req, res) => {
+  try {
+    const user = await req.user.populate({
+      path: "workspaces.workspace",
+      select: "nama",
+    });
+
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch user data",
+      error: error.message,
+    });
+  }
   res.json({ user: req.user });
 
   //   const user = req.user.toObject();
