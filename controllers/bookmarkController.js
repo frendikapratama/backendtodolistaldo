@@ -3,7 +3,7 @@ import Bookmark from "../models/Bookmark.js";
 
 export const addBookmark = async (req, res) => {
   try {
-    const { projectId } = req.body;
+    const { projectId } = req.params;
     const userId = req.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(projectId)) {

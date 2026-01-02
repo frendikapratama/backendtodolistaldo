@@ -9,7 +9,7 @@ import {
 const router = express.Router();
 
 router.get("/", authenticate, getBookmarks);
-router.post("/", authenticate, addBookmark);
+router.post("/:projectId", authenticate, addBookmark);
 router.delete("/:bookmarkId", authenticate, removeBookmark);
 
 export default router;
