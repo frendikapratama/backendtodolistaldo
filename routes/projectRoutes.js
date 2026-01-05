@@ -5,6 +5,7 @@ import {
   updateProject,
   deleteProject,
   getProjectById,
+  getProjectList,
 } from "../controllers/projectsController.js";
 import {
   authenticate,
@@ -16,6 +17,7 @@ import {
 const router = express.Router();
 
 router.get("/", authenticate, getProject);
+router.get("/project-list", authenticate, getProjectList)
 router.post(
   "/:workspaceId",
   authenticate,
