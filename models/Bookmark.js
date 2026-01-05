@@ -14,6 +14,17 @@ const bookmarkSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    progress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+    totalTask: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true }
 );

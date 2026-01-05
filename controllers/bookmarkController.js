@@ -1,18 +1,54 @@
 import mongoose from "mongoose";
 import Bookmark from "../models/Bookmark.js";
+import Task from "../models/Task.js";
+import { handleError } from "../utils/errorHandler.js";
+import Group from "../models/Group.js";
+import Project from "../models/Project.js";
+import Workspace from "../models/Workspace.js";
+import Kuarter from "../models/Kuarter.js";
+import { getProgresByProject } from "./progresController.js";
 
 export const addBookmark = async (req, res) => {
   try {
     const { projectId } = req.params;
     const userId = req.user._id;
+    if (!projectId || !mongoose.Types.ObjectId.isValid(projectId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid projectId"
+      });
+    }
+    const groups = await Group.find({ project: projectId });
+    const groupIds = groups.map((g) => g._id);
+    const tasks = await Task.find({ groups: { $in: groupIds } });
+    let totalTaskProject = 0;
+    let weightedProgressSum = 0;
+    if (groups.length > 0) {
+      for (let group of groups) {
+        const tasksInGroup = tasks.filter(
+          (t) => String(t.groups) === String(group._id)
+        );
+        const totalTaskGroup = tasksInGroup.length;
+        const doneTaskGroup = tasksInGroup.filter(
+          (t) => t.status === "Done"
+        ).length;
+        const progressGroup =
+          totalTaskGroup === 0 ? 0 : (doneTaskGroup / totalTaskGroup) * 100;
 
-    if (!mongoose.Types.ObjectId.isValid(projectId)) {
-      return res.status(400).json({ message: "Invalid projectId" });
+        totalTaskProject += totalTaskGroup;
+        weightedProgressSum += progressGroup * totalTaskGroup;
+      }
     }
 
+    const finalProgress =
+      totalTaskProject === 0 ? 0 : weightedProgressSum / totalTaskProject;
+
+    // Create bookmark
     const newBookmark = await Bookmark.create({
       user: userId,
       project: projectId,
+      progress: Math.round(finalProgress),
+      totalTask: totalTaskProject
     });
 
     res.status(201).json({
@@ -20,13 +56,18 @@ export const addBookmark = async (req, res) => {
       message: "Bookmark added",
       data: newBookmark,
     });
+
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({
+        success: false,
         message: "Bookmark already exists",
       });
     }
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -35,7 +76,7 @@ export const getBookmarks = async (req, res) => {
     const userId = req.user._id;
 
     const bookmarks = await Bookmark.find({ user: userId })
-      .populate("project", "nama description createdBy")
+      .populate("project", "nama description createdBy progress totalTask")
       .lean();
 
     res.status(200).json({
