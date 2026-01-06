@@ -945,10 +945,21 @@ export async function getMyTasks(req, res) {
       .populate({
         path: "subtask",
         options: { sort: { position: 1 } },
-      })
-      .sort({ due_date: 1, position: 1 });
+      });
 
-    const formattedTasks = tasks.map((task) => {
+    // memisahkan  taks yang ada due_date dan yang belum ada due_date nya
+    const tasksWithDueDate = tasks
+      .filter((task) => task.due_date)
+      .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+
+    const tasksWithoutDueDate = tasks
+      .filter((task) => !task.due_date)
+      .sort((a, b) => a.position - b.position);
+
+    // Gabungkan: yang ada due_date dulu, baru yang tidak ada
+    const sortedTasks = [...tasksWithDueDate, ...tasksWithoutDueDate];
+
+    const formattedTasks = sortedTasks.map((task) => {
       const group = Array.isArray(task.groups) ? task.groups[0] : task.groups;
 
       return {

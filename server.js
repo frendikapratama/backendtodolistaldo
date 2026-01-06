@@ -8,7 +8,6 @@ import dotenv from "dotenv";
 import path from "path";
 import workspaceRoutes from "./routes/workspaceRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
-import bookmarkRoutes from "./routes/bookmarkRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import subTaskRoutes from "./routes/subTaskRoutes.js";
@@ -32,6 +31,7 @@ import {
   startTaskDueNotificationJob,
   startTaskOverdueNotificationJob,
 } from "./jobs/taskDueNotification.js";
+import bookmarkRoutes from "./routes/bookmarkRoutes.js";
 
 dotenv.config({ debug: true, override: true });
 
@@ -59,38 +59,16 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // CORS configuration
-// app.use(
-//   cors({
-//     origin: [
-//       "http://localhost:5173",
-//       "http://127.0.0.1:5173",
-//       process.env.CLIENT_URL,
-//     ].filter(Boolean),
-//     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-//     allowedHeaders: ["Content-Type", "Authorization"],
-//     credentials: true,
-//   })
-// );
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow mobile (no origin)
-      if (!origin) return callback(null, true);
-
-      const allowedOrigins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        process.env.CLIENT_URL,
-      ];
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: false, // MATIKAN untuk mobile
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      process.env.CLIENT_URL,
+    ].filter(Boolean),
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
