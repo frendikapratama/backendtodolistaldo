@@ -74,23 +74,14 @@ connectDB();
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow mobile (no origin)
-      if (!origin) return callback(null, true);
-
-      const allowedOrigins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        process.env.CLIENT_URL,
-      ];
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: false, // MATIKAN untuk mobile
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      process.env.CLIENT_URL,
+    ].filter(Boolean),
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
