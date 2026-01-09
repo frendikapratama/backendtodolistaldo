@@ -49,9 +49,9 @@ router.get("/me", authenticate, async (req, res) => {
   try {
     const user = await req.user.populate({
       path: "workspaces.workspace",
-      select: "nama",
+      select: "nama photo",
     });
-
+``
     res.json({ user });
   } catch (error) {
     res.status(500).json({
@@ -60,7 +60,7 @@ router.get("/me", authenticate, async (req, res) => {
     });
   }
   res.json({ user: req.user });
-
+  
   //   const user = req.user.toObject();
   //   delete user.password;
   //   delete user.resetOTP;
