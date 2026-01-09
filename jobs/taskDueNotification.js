@@ -8,9 +8,9 @@ import {
 import { emitNotificationToUser } from "../sockets/socketHandler.js";
 
 export function startTaskDueNotificationJob(io) {
-  // Jalankan setiap hari jam 14:08 (2:08 PM)
+  // Jalankan setiap hari jam 08:00
   // Format: "menit jam * * *"
-  cron.schedule("08 14 * * *", async () => {
+  cron.schedule("00 08 * * *", async () => {
     try {
       console.log("Running task due date notification check...");
 
@@ -92,8 +92,8 @@ export function startTaskDueNotificationJob(io) {
 }
 
 export function startTaskOverdueNotificationJob(io) {
-  // Jalankan setiap hari jam 14:14 (2:14 PM)
-  cron.schedule("58 14 * * *", async () => {
+  // Jalankan setiap hari jam 08:00
+  cron.schedule("00 08 * * *", async () => {
     try {
       console.log("Running task overdue notification check...");
       const today = new Date();
@@ -120,8 +120,11 @@ export function startTaskOverdueNotificationJob(io) {
         const group = Array.isArray(task.groups) ? task.groups[0] : task.groups;
         if (!group?.project?.workspace) continue;
 
-        const daysOverdue = Math.floor(
-          (today - new Date(task.due_date)) / (1000 * 60 * 60 * 24)
+        const dueDate = new Date(task.due_date);
+        dueDate.setHours(0, 0, 0, 0);
+
+        const daysOverdue = Math.round(
+          (today - dueDate) / (1000 * 60 * 60 * 24)
         );
 
         // Kirim notifikasi setiap kelipatan 3 hari
