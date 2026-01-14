@@ -13,7 +13,7 @@ import {
 } from "../middleware/auth.js";
 const router = express.Router();
 
-router.get("/", authenticate, checkWorkspaceRoleFromGroup([]), getGroup);
+router.get("/", authenticate, getGroup);
 router.post(
   "/:projectId",
   authenticate,

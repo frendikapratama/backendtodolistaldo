@@ -20,6 +20,35 @@ import {
 } from "../helpers/notificationHelper.js";
 import { emitNotificationToUser } from "../sockets/socketHandler.js";
 
+async function getProjectAndWorkspaceFromGroup(groupId) {
+  try {
+    const group = await Group.findById(groupId).populate({
+      path: "project",
+      populate: {
+        path: "workspace",
+        select: "_id nama"
+      }
+    });
+    if (!group) {
+      return { success: false, message: "Group not found" };
+    }
+    if (!group.project) {
+      return { success: false, message: "Group has no project" };
+    }
+    if (!group.project.workspace) {
+      return { success: false, message: "Project has no workspace" };
+    }
+    return {
+      success: true,
+      projectId: group.project._id,
+      workspaceId: group.project.workspace._id
+    };
+  } catch (error) {
+    console.error("Error getting project/workspace from group:", error);
+    return { success: false, message: "Error getting project/workspace" };
+  }
+}
+
 export async function getTasksByProjectSimple(req, res) {
   try {
     const { projectId } = req.params;
@@ -30,14 +59,14 @@ export async function getTasksByProjectSimple(req, res) {
         message: "Project ID wajib disertakan",
       });
     }
-
     const groups = await Group.find({ project: projectId });
-
     const tasksByGroup = await Promise.all(
       groups.map(async (group) => {
         const tasks = await Task.find({ groups: group._id })
           .populate("pic", "username email")
           .populate("subtask")
+          .populate("workspace", "nama")
+          .populate("project", "nama")  
           .sort({ position: 1 });
 
         return {
@@ -48,7 +77,6 @@ export async function getTasksByProjectSimple(req, res) {
         };
       })
     );
-
     res.status(200).json({
       success: true,
       message: "Berhasil mengambil data task berdasarkan project",
@@ -61,43 +89,50 @@ export async function getTasksByProjectSimple(req, res) {
 
 export async function getTask(req, res) {
   try {
-    const data = await Task.find();
+    const data = await Task.find()
+      .populate("workspace", "nama")
+      .populate("project", "nama");
     res.status(200).json(data);
   } catch (error) {
     return handleError(res, error);
   }
 }
-
 export async function createTask(req, res) {
   try {
     const { groupId } = req.params;
-
     const group = await Group.findById(groupId);
     if (!group) {
       return res
         .status(404)
         .json({ success: false, message: "Group not found" });
     }
-
+    const relationResult = await getProjectAndWorkspaceFromGroup(groupId);
+    if (!relationResult.success) {
+      return res.status(404).json({
+        success: false,
+        message: relationResult.message
+      });
+    }
     const lastTask = await Task.findOne({ groups: groupId })
       .sort({ position: -1 })
       .limit(1);
-
     const nextPosition = lastTask ? lastTask.position + 1 : 0;
-
     const task = await Task.create({
       ...req.body,
       groups: groupId,
+      project: relationResult.projectId,      
+      workspace: relationResult.workspaceId, 
       position: nextPosition,
     });
 
     await Group.findByIdAndUpdate(groupId, {
       $push: { task: task._id },
     });
+
     await createActivity({
       user: req.user._id,
       workspace: task.workspace,
-      project: group.project,
+      project: task.project,
       group: groupId,
       task: task._id,
       action: "CREATE_TASK",
@@ -108,13 +143,19 @@ export async function createTask(req, res) {
         taskName: task.nama,
         nama: task.nama,
         groups: groupId,
+        project: task.project,
+        workspace: task.workspace,
       },
     });
+
+    const populatedTask = await Task.findById(task._id)
+      .populate("workspace", "nama")
+      .populate("project", "nama");
 
     res.status(201).json({
       success: true,
       message: "task created successfully",
-      data: task,
+      data: populatedTask,
     });
   } catch (error) {
     return handleError(res, error);
@@ -124,10 +165,6 @@ export async function createTask(req, res) {
 const validateStatusTransition = (oldStatus, newStatus) => {
   const transitionRules = {
     "Done-In review": ["Done", "In Progress"],
-    // Tambahkan rules lainnya jika diperlukan
-    // "In Progress": ["Done", "Done-In The review", "To Do"],
-    // "Done": ["To Do", "In Progress"],
-    // "To Do": ["In Progress"]
   };
 
   if (transitionRules[oldStatus]) {
@@ -154,7 +191,6 @@ export async function updateTask(req, res) {
     if (updateData.status && updateData.status !== oldTask.status) {
       isStatusChanged = true;
 
-      // Validasi apakah transisi diizinkan
       if (!validateStatusTransition(oldTask.status, updateData.status)) {
         return res.status(400).json({
           success: false,
@@ -162,14 +198,10 @@ export async function updateTask(req, res) {
         });
       }
     }
-    // Cek perubahan status SEBELUM update
-    if (updateData.status && updateData.status !== oldTask.status) {
-      isStatusChanged = true;
-    }
 
     if (picEmail) {
       const emails = Array.isArray(picEmail) ? picEmail : [picEmail];
-      const io = req.app.get("io"); //  Ambil io instance
+      const io = req.app.get("io");
 
       for (const email of emails) {
         const picResult = await handlePicAssignment(
@@ -183,7 +215,6 @@ export async function updateTask(req, res) {
           return res.status(picResult.status || 400).json(picResult);
         }
 
-        //  EMIT notifikasi jika PIC berhasil ditambahkan (bukan invited)
         if (picResult.notification && io) {
           emitNotificationToUser(io, picResult.notification.recipient, {
             _id: picResult.notification._id,
@@ -206,21 +237,22 @@ export async function updateTask(req, res) {
       const refreshedTask = await Task.findById(taskId);
       updateData.pic = refreshedTask.pic;
     }
-
     if (groupId && groupId !== String(oldTask.groups)) {
       await Group.findByIdAndUpdate(oldTask.groups, {
         $pull: { task: oldTask._id },
       });
-
       await Group.findByIdAndUpdate(groupId, {
         $push: { task: oldTask._id },
       });
-
+      const relationResult = await getProjectAndWorkspaceFromGroup(groupId);
+      if (relationResult.success) {
+        updateData.project = relationResult.projectId;
+        updateData.workspace = relationResult.workspaceId;
+      }
       if (position !== undefined && position !== null) {
         const tasksInNewGroup = await Task.find({ groups: groupId }).sort({
           position: 1,
         });
-
         const updatePromises = tasksInNewGroup
           .map((task, idx) => {
             if (idx >= position) {
@@ -231,28 +263,24 @@ export async function updateTask(req, res) {
             return null;
           })
           .filter(Boolean);
-
         await Promise.all(updatePromises);
         updateData.position = position;
       }
-
       updateData.groups = groupId;
     }
-
     const updatedTask = await Task.findByIdAndUpdate(taskId, updateData, {
       new: true,
-    }).populate("pic", "username email");
-
+    })
+      .populate("pic", "username email")
+      .populate("workspace", "nama")
+      .populate("project", "nama");
     const before = {};
     const after = {};
-
     for (const key in updateData) {
       const oldValue = oldTask[key];
       const newValue = updateData[key];
-
       const oldStr = String(oldValue);
       const newStr = String(newValue);
-
       if (oldStr !== newStr) {
         before[key] = oldValue;
         after[key] = newValue;
@@ -261,16 +289,16 @@ export async function updateTask(req, res) {
 
     if (Object.keys(before).length > 0) {
       const group = await Group.findById(updatedTask.groups);
-
       before.taskId = updatedTask._id;
       before.taskName = updatedTask.nama;
       after.taskId = updatedTask._id;
       after.taskName = updatedTask.nama;
+
       await createActivity({
         user: req.user._id,
         kuarter: updatedTask.kuarter,
         workspace: updatedTask.workspace,
-        project: group.project,
+        project: updatedTask.project,
         group: updatedTask.groups,
         task: taskId,
         action: "UPDATE_TASK",
@@ -396,11 +424,12 @@ export async function deleteTask(req, res) {
     await Group.findByIdAndUpdate(task.groups, {
       $pull: { task: task._id },
     });
+
     const group = await Group.findById(task.groups);
     await createActivity({
       user: req.user._id,
       workspace: task.workspace,
-      project: group.project,
+      project: task.project,
       group: task.groups,
       task: taskId,
       action: "DELETE_TASK",
@@ -410,9 +439,12 @@ export async function deleteTask(req, res) {
         taskName: task.nama,
         nama: task.nama,
         groups: task.groups,
+        project: task.project,
+        workspace: task.workspace,
       },
       after: {},
     });
+
     res.status(200).json({
       success: true,
       message: "Task deleted successfully",
@@ -440,32 +472,26 @@ export const getTasksByGroup = async (req, res) => {
       return res.status(400).json({ message: "groupId wajib disertakan" });
     }
 
-    // Build query filter
     let query = { groups };
 
-    // Search filter (for task name)
     if (search && search.trim() !== "") {
       query.nama = { $regex: search.trim(), $options: "i" };
     }
 
-    // Status filter
     if (status && status.trim() !== "" && status !== "all") {
       query.status = status;
     }
 
-    // Priority filter
     if (priority && priority.trim() !== "" && priority !== "all") {
       query.priority = priority;
     }
 
-    // Note filter
     if (note && note.trim() !== "" && note !== "all") {
       query.note = note;
     }
 
-    // PIC filter
     if (picEmail && picEmail.trim() !== "") {
-      const User = require("../models/User"); // Adjust path
+      const User = require("../models/User");
       const matchingUser = await User.findOne({
         email: { $regex: picEmail.trim(), $options: "i" },
       }).select("_id");
@@ -473,7 +499,6 @@ export const getTasksByGroup = async (req, res) => {
       if (matchingUser) {
         query.pic = matchingUser._id;
       } else {
-        // If no user found, return empty result
         return res.status(200).json({
           success: true,
           message: "berhasil mengambil data",
@@ -483,7 +508,6 @@ export const getTasksByGroup = async (req, res) => {
       }
     }
 
-    // Date range filter
     if (startDate && endDate) {
       query.start_date = {
         $gte: new Date(startDate),
@@ -500,6 +524,8 @@ export const getTasksByGroup = async (req, res) => {
         path: "pic",
         select: "username email photo",
       })
+      .populate("workspace", "nama") 
+      .populate("project", "nama")    
       .sort({ position: 1 });
 
     res.status(200).json({
@@ -589,18 +615,16 @@ async function handlePicAssignment(taskId, picEmail, task, requesterId) {
 
         return {
           success: true,
-          message: `${picEmail} berhasil ditambahkan sebagai PIC${
-            !isMember ? " dan bergabung ke workspace sebagai member" : ""
-          }`,
+          message: `${picEmail} berhasil ditambahkan sebagai PIC${!isMember ? " dan bergabung ke workspace sebagai member" : ""
+            }`,
           notification,
         };
       } catch (notifError) {
         console.error("Error sending PIC notification:", notifError);
         return {
           success: true,
-          message: `${picEmail} berhasil ditambahkan sebagai PIC${
-            !isMember ? " dan bergabung ke workspace sebagai member" : ""
-          }`,
+          message: `${picEmail} berhasil ditambahkan sebagai PIC${!isMember ? " dan bergabung ke workspace sebagai member" : ""
+            }`,
         };
       }
     }
@@ -783,7 +807,7 @@ export async function removePic(req, res) {
     await createActivity({
       user: req.user._id,
       workspace: task.workspace,
-      project: group.project,
+      project: task.project,
       group: task.groups,
       task: taskId,
       action: "REMOVE_PIC",
@@ -906,40 +930,14 @@ export async function getMyTasks(req, res) {
   try {
     const userId = req.user._id;
 
-    // const startOfToday = new Date();
-    // startOfToday.setHours(0, 0, 0, 0);
-
-    // const endOfToday = new Date();
-    // endOfToday.setHours(23, 59, 59, 999);
-
     const tasks = await Task.find({
       pic: userId,
-      // $or: [
-      //   {
-      //     start_date: {
-      //       $gte: startOfToday,
-      //       $lte: endOfToday,
-      //     },
-      //   },
-      //   {
-      //     due_date: {
-      //       $gte: startOfToday,
-      //       $lte: endOfToday,
-      //     },
-      //   },
-      // ],
     })
+      .populate("workspace", "nama")  
+      .populate("project", "nama")  
       .populate({
         path: "groups",
-        select: "nama project",
-        populate: {
-          path: "project",
-          select: "nama workspace",
-          populate: {
-            path: "workspace",
-            select: "nama",
-          },
-        },
+        select: "nama",
       })
       .populate("pic", "username email")
       .populate({
@@ -947,7 +945,6 @@ export async function getMyTasks(req, res) {
         options: { sort: { position: 1 } },
       });
 
-    // memisahkan  taks yang ada due_date dan yang belum ada due_date nya
     const tasksWithDueDate = tasks
       .filter((task) => task.due_date)
       .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
@@ -956,7 +953,6 @@ export async function getMyTasks(req, res) {
       .filter((task) => !task.due_date)
       .sort((a, b) => a.position - b.position);
 
-    // Gabungkan: yang ada due_date dulu, baru yang tidak ada
     const sortedTasks = [...tasksWithDueDate, ...tasksWithoutDueDate];
 
     const formattedTasks = sortedTasks.map((task) => {
@@ -976,12 +972,12 @@ export async function getMyTasks(req, res) {
         description: task.description,
         pic: task.pic,
         subtask: task.subtask,
-        workspace: group?.project?.workspace?.nama || "-",
-        project: group?.project?.nama || "-",
+        workspace: task.workspace?.nama || "-",       
+        project: task.project?.nama || "-",           
         group: group?.nama || "-",
         groupId: group?._id,
-        projectId: group?.project?._id,
-        workspaceId: group?.project?.workspace?._id,
+        projectId: task.project?._id,                 
+        workspaceId: task.workspace?._id,             
         subtaskStats: {
           total: task.subtask?.length || 0,
           completed:
@@ -992,9 +988,8 @@ export async function getMyTasks(req, res) {
 
     res.status(200).json({
       success: true,
-      message: "Berhasil mengambil data My Work hari ini",
+      message: "Berhasil mengambil data My Work",
       data: {
-        // date: new Date().toISOString().split("T")[0],
         tasks: formattedTasks,
         totalTasks: formattedTasks.length,
       },
@@ -1009,57 +1004,48 @@ export async function getMyTasksWithMeetings(req, res) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Mendapatkan user ID dari request (sesuai dengan user yang login)
-    const userId = req.user._id; // Asumsi user data ada di req.user
+    const userId = req.user._id;
 
-    // Mendapatkan semua tasks dengan meeting_date DAN pic sesuai user login
     const tasksWithMeetings = await Task.find({
       meeting_date: { $exists: true, $ne: null },
-      pic: userId, // Filter berdasarkan user yang login
+      pic: userId,
     })
+      .populate("workspace", "nama")  
+      .populate("project", "nama")    
       .populate({
         path: "groups",
-        select: "nama project",
-        populate: {
-          path: "project",
-          select: "nama workspace",
-          populate: {
-            path: "workspace",
-            select: "nama members",
-          },
-        },
+        select: "nama",
       })
       .populate("pic", "username email")
       .populate({
         path: "subtask",
         match: {
           meeting_date: { $exists: true, $ne: null },
-          pic: userId, // Filter subtask juga berdasarkan user login
+          pic: userId,
         },
         options: { sort: { position: 1 } },
       })
       .sort({ meeting_date: 1, due_date: 1 });
 
-    // Mendapatkan semua subtasks dengan meeting_date DAN pic sesuai user login
     const allSubtasksWithMeetings = await Subtask.find({
       meeting_date: { $exists: true, $ne: null },
-      pic: userId, // Filter berdasarkan user yang login
+      pic: userId,
     })
       .populate({
         path: "task",
-        select: "nama groups pic meeting_date",
+        select: "nama groups pic meeting_date workspace project",
         populate: [
           {
+            path: "workspace",
+            select: "nama",
+          },
+          {
+            path: "project",
+            select: "nama",
+          },
+          {
             path: "groups",
-            select: "nama project",
-            populate: {
-              path: "project",
-              select: "nama workspace",
-              populate: {
-                path: "workspace",
-                select: "nama members",
-              },
-            },
+            select: "nama",
           },
           {
             path: "pic",
@@ -1069,10 +1055,8 @@ export async function getMyTasksWithMeetings(req, res) {
       })
       .sort({ meeting_date: 1 });
 
-    // Format tasks dengan meeting - property type sejajar dengan _id
     const formattedTasks = tasksWithMeetings.map((task) => {
       const group = Array.isArray(task.groups) ? task.groups[0] : task.groups;
-      const workspace = group?.project?.workspace;
 
       return {
         _id: task._id,
@@ -1088,24 +1072,22 @@ export async function getMyTasksWithMeetings(req, res) {
         meeting_link: task.meeting_link,
         description: task.description,
         pic: task.pic,
-        workspace: workspace?.nama || "-",
-        project: group?.project?.nama || "-",
+        workspace: task.workspace?.nama || "-",  
+        project: task.project?.nama || "-",        
         group: group?.nama || "-",
         groupId: group?._id,
-        projectId: group?.project?._id,
-        workspaceId: workspace?._id,
+        projectId: task.project?._id,         
+        workspaceId: task.workspace?._id,    
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
       };
     });
 
-    // Format subtasks dengan meeting - property type sejajar dengan _id
     const formattedSubtasks = allSubtasksWithMeetings.map((subtask) => {
       const task = subtask.task;
       const group = Array.isArray(task?.groups)
         ? task?.groups[0]
         : task?.groups;
-      const workspace = group?.project?.workspace;
 
       return {
         _id: subtask._id,
@@ -1127,43 +1109,26 @@ export async function getMyTasksWithMeetings(req, res) {
           status: task?.status,
           meeting_date: task?.meeting_date,
         },
-        workspace: workspace?.nama || "-",
-        project: group?.project?.nama || "-",
+        workspace: task?.workspace?.nama || "-",   
+        project: task?.project?.nama || "-",  
         group: group?.nama || "-",
         groupId: group?._id,
-        projectId: group?.project?._id,
-        workspaceId: workspace?._id,
+        projectId: task?.project?._id,         
+        workspaceId: task?.workspace?._id,      
         createdAt: subtask.createdAt,
         updatedAt: subtask.updatedAt,
       };
     });
 
-    // Gabungkan semua items
     const allItems = [...formattedTasks, ...formattedSubtasks]
       .filter((item) => item.meeting_date)
       .sort((a, b) => new Date(a.meeting_date) - new Date(b.meeting_date));
-
-    // Kelompokkan berdasarkan tanggal meeting
-    const itemsByDate = {};
-    allItems.forEach((item) => {
-      if (item.meeting_date) {
-        const meetingDate = new Date(item.meeting_date)
-          .toISOString()
-          .split("T")[0];
-        if (!itemsByDate[meetingDate]) {
-          itemsByDate[meetingDate] = [];
-        }
-        itemsByDate[meetingDate].push(item);
-      }
-    });
 
     res.status(200).json({
       success: true,
       message:
         "Berhasil mengambil data tasks dan subtasks dengan meeting milik user",
       data: allItems,
-      // itemsByDate: itemsByDate,
-      // count: allItems.length,
     });
   } catch (error) {
     return handleError(res, error);

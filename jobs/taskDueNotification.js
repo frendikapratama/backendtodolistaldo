@@ -10,7 +10,7 @@ import { emitNotificationToUser } from "../sockets/socketHandler.js";
 export function startTaskDueNotificationJob(io) {
   // Jalankan setiap hari jam 14:08 (2:08 PM)
   // Format: "menit jam * * *"
-  cron.schedule("08 14 * * *", async () => {
+  cron.schedule("31 14 * * *", async () => {
     try {
       console.log("Running task due date notification check...");
 
