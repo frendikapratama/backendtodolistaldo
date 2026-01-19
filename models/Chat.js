@@ -46,14 +46,15 @@ const chatMessageSchema = new mongoose.Schema(
     },
     deletedAt: Date,
     deletedBy: {
-      type: mongoose.Schema.Types.ObjectId, ref: "User",
-    }
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   {
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 // Index untuk query yang sering digunakan

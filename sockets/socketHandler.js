@@ -8,6 +8,8 @@ const userSockets = new Map();
 const socketUsers = new Map();
 const workspaceRooms = new Map();
 
+const workspaceActiveUsers = new Map();
+
 const authenticateSocket = async (socket, next) => {
   try {
     const token = socket.handshake.auth.token || socket.handshake.headers.token;
@@ -57,6 +59,24 @@ const isWorkspaceMember = async (userId, workspaceId) => {
   }
 };
 
+const broadcastUnreadCount = async (io, workspaceId, userId) => {
+  try {
+    const unreadCount = await ChatMessage.countDocuments({
+      workspace: workspaceId,
+      isDeleted: false,
+      sender: { $ne: userId },
+      "readBy.user": { $ne: userId },
+    });
+
+    io.to(`user:${userId}`).emit("chat:unread-count", {
+      workspaceId,
+      unreadCount,
+    });
+  } catch (error) {
+    console.error("Error broadcasting unread count:", error);
+  }
+};
+
 export const initializeSocket = (io) => {
   io.use(authenticateSocket);
 
@@ -71,6 +91,41 @@ export const initializeSocket = (io) => {
     socketUsers.set(socket.id, userId);
 
     socket.join(`user:${userId}`);
+
+    // yang sebelum nya
+    // socket.on("join:workspace", async (workspaceId) => {
+    //   try {
+    //     const isMember = await isWorkspaceMember(userId, workspaceId);
+
+    //     if (!isMember) {
+    //       socket.emit("error", {
+    //         message: "You are not a member of this workspace",
+    //       });
+    //       return;
+    //     }
+
+    //     socket.join(`workspace:${workspaceId}`);
+
+    //     if (!workspaceRooms.has(workspaceId)) {
+    //       workspaceRooms.set(workspaceId, new Set());
+    //     }
+    //     workspaceRooms.get(workspaceId).add(socket.id);
+
+    //     socket.emit("joined:workspace", { workspaceId });
+
+    //     socket.to(`workspace:${workspaceId}`).emit("user:joined", {
+    //       userId,
+    //       username: socket.user.username,
+    //     });
+
+    //     console.log(`User ${userId} joined workspace ${workspaceId}`);
+    //   } catch (error) {
+    //     console.error("Error joining workspace:", error);
+    //     socket.emit("error", { message: "Failed to join workspace" });
+    //   }
+    // });
+
+    //yang baru
 
     socket.on("join:workspace", async (workspaceId) => {
       try {
@@ -90,11 +145,21 @@ export const initializeSocket = (io) => {
         }
         workspaceRooms.get(workspaceId).add(socket.id);
 
+        // TAMBAHKAN INI - Track active users
+        if (!workspaceActiveUsers.has(workspaceId)) {
+          workspaceActiveUsers.set(workspaceId, new Set());
+        }
+        workspaceActiveUsers.get(workspaceId).add(userId);
+
         socket.emit("joined:workspace", { workspaceId });
 
-        socket.to(`workspace:${workspaceId}`).emit("user:joined", {
-          userId,
-          username: socket.user.username,
+        // UBAH INI - Emit ke semua user di workspace tentang active users
+        const activeUsers = Array.from(
+          workspaceActiveUsers.get(workspaceId) || []
+        );
+        io.to(`workspace:${workspaceId}`).emit("workspace:active-users", {
+          activeCount: activeUsers.length,
+          activeUserIds: activeUsers,
         });
 
         console.log(`User ${userId} joined workspace ${workspaceId}`);
@@ -104,11 +169,42 @@ export const initializeSocket = (io) => {
       }
     });
 
+    // yang sebelum nya
+    // socket.on("leave:workspace", (workspaceId) => {
+    //   socket.leave(`workspace:${workspaceId}`);
+
+    //   if (workspaceRooms.has(workspaceId)) {
+    //     workspaceRooms.get(workspaceId).delete(socket.id);
+    //   }
+
+    //   socket.to(`workspace:${workspaceId}`).emit("user:left", {
+    //     userId,
+    //     username: socket.user.username,
+    //   });
+
+    //   console.log(`User ${userId} left workspace ${workspaceId}`);
+    // });
+
+    // yang baru
     socket.on("leave:workspace", (workspaceId) => {
       socket.leave(`workspace:${workspaceId}`);
 
       if (workspaceRooms.has(workspaceId)) {
         workspaceRooms.get(workspaceId).delete(socket.id);
+      }
+
+      //  Remove dari active users
+      if (workspaceActiveUsers.has(workspaceId)) {
+        workspaceActiveUsers.get(workspaceId).delete(userId);
+
+        // Emit update ke semua user yang masih di workspace
+        const activeUsers = Array.from(
+          workspaceActiveUsers.get(workspaceId) || []
+        );
+        io.to(`workspace:${workspaceId}`).emit("workspace:active-users", {
+          activeCount: activeUsers.length,
+          activeUserIds: activeUsers,
+        });
       }
 
       socket.to(`workspace:${workspaceId}`).emit("user:left", {
@@ -118,7 +214,87 @@ export const initializeSocket = (io) => {
 
       console.log(`User ${userId} left workspace ${workspaceId}`);
     });
+    // yang lama sebelum mobile
+    // socket.on("chat:send", async (data) => {
+    //   try {
+    //     const { workspaceId, message, type = "text", fileUrl, fileName } = data;
 
+    //     const isMember = await isWorkspaceMember(userId, workspaceId);
+    //     if (!isMember) {
+    //       socket.emit("error", { message: "Not authorized" });
+    //       return;
+    //     }
+
+    //     const chatMessage = await ChatMessage.create({
+    //       workspace: workspaceId,
+    //       sender: userId,
+    //       message,
+    //       type,
+    //       fileUrl,
+    //       fileName,
+    //     });
+
+    //     await chatMessage.populate("sender", "username email photo");
+
+    //     const messageData = chatMessage.toObject();
+
+    //     io.to(`workspace:${workspaceId}`).emit("chat:message", messageData);
+
+    //     console.log(`Message sent in workspace ${workspaceId} by ${userId}`);
+    //   } catch (error) {
+    //     console.error("Error sending message:", error);
+    //     socket.emit("error", { message: "Failed to send message" });
+    //   }
+    // });
+
+    // yang bar setelah ada mobile
+
+    // socket.on("chat:send", async (data) => {
+    //   try {
+    //     const { workspaceId, message, type = "text", fileUrl, fileName } = data;
+
+    //     const isMember = await isWorkspaceMember(userId, workspaceId);
+    //     if (!isMember) {
+    //       socket.emit("error", { message: "Not authorized" });
+    //       return;
+    //     }
+
+    //     const chatMessage = await ChatMessage.create({
+    //       workspace: workspaceId,
+    //       sender: userId,
+    //       message,
+    //       type,
+    //       fileUrl,
+    //       fileName,
+    //     });
+
+    //     await chatMessage.populate("sender", "username email photo");
+
+    //     const messageData = chatMessage.toObject();
+
+    //     io.to(`workspace:${workspaceId}`).emit("chat:message", messageData);
+
+    //     // TAMBAHKAN INI - Broadcast unread count ke semua member workspace kecuali sender
+    //     const workspace = await Workspace.findById(workspaceId);
+    //     if (workspace) {
+    //       const allMembers = [
+    //         workspace.owner.toString(),
+    //         ...workspace.members.map((m) => m.user.toString()),
+    //       ];
+
+    //       allMembers.forEach((memberId) => {
+    //         if (memberId !== userId) {
+    //           broadcastUnreadCount(io, workspaceId, memberId);
+    //         }
+    //       });
+    //     }
+
+    //     console.log(`Message sent in workspace ${workspaceId} by ${userId}`);
+    //   } catch (error) {
+    //     console.error("Error sending message:", error);
+    //     socket.emit("error", { message: "Failed to send message" });
+    //   }
+    // });
     socket.on("chat:send", async (data) => {
       try {
         const { workspaceId, message, type = "text", fileUrl, fileName } = data;
@@ -143,6 +319,36 @@ export const initializeSocket = (io) => {
         const messageData = chatMessage.toObject();
 
         io.to(`workspace:${workspaceId}`).emit("chat:message", messageData);
+
+        const workspace = await Workspace.findById(workspaceId);
+        if (workspace) {
+          const allMembers = [
+            workspace.owner.toString(),
+            ...workspace.members.map((m) => m.user.toString()),
+          ];
+
+          allMembers.forEach((memberId) => {
+            if (memberId !== userId) {
+              broadcastUnreadCount(io, workspaceId, memberId);
+
+              io.to(`user:${memberId}`).emit("notification:new", {
+                type: "chat",
+                title: `New message in ${workspace.nama}`,
+                message: `${socket.user.username}: ${message.substring(0, 50)}${
+                  message.length > 50 ? "..." : ""
+                }`,
+                data: {
+                  workspaceId,
+                  workspaceName: workspace.nama,
+                  senderId: userId,
+                  senderName: socket.user.username,
+                  messageId: chatMessage._id,
+                },
+                createdAt: new Date(),
+              });
+            }
+          });
+        }
 
         console.log(`Message sent in workspace ${workspaceId} by ${userId}`);
       } catch (error) {
@@ -239,6 +445,76 @@ export const initializeSocket = (io) => {
       }
     });
 
+    // yang lama sebelum mobile
+    // socket.on("chat:read-all", async ({ workspaceId }) => {
+    //   try {
+    //     const isMember = await isWorkspaceMember(userId, workspaceId);
+    //     if (!isMember) {
+    //       socket.emit("error", { message: "Not authorized" });
+    //       return;
+    //     }
+
+    //     // Update semua pesan yang belum dibaca oleh user ini
+    //     await ChatMessage.updateMany(
+    //       {
+    //         workspace: workspaceId,
+    //         isDeleted: false,
+    //         "readBy.user": { $ne: userId },
+    //       },
+    //       {
+    //         $push: {
+    //           readBy: {
+    //             user: userId,
+    //             readAt: new Date(),
+    //           },
+    //         },
+    //       }
+    //     );
+
+    //     console.log(
+    //       `User ${userId} marked all messages as read in workspace ${workspaceId}`
+    //     );
+    //   } catch (error) {
+    //     console.error("Error marking all messages as read:", error);
+    //   }
+    // });
+
+    // yang baru setelah ada mobile
+    socket.on("chat:read-all", async ({ workspaceId }) => {
+      try {
+        const isMember = await isWorkspaceMember(userId, workspaceId);
+        if (!isMember) {
+          socket.emit("error", { message: "Not authorized" });
+          return;
+        }
+
+        await ChatMessage.updateMany(
+          {
+            workspace: workspaceId,
+            isDeleted: false,
+            "readBy.user": { $ne: userId },
+          },
+          {
+            $push: {
+              readBy: {
+                user: userId,
+                readAt: new Date(),
+              },
+            },
+          }
+        );
+
+        // TAMBAHKAN INI - Emit updated unread count
+        broadcastUnreadCount(io, workspaceId, userId);
+
+        console.log(
+          `User ${userId} marked all messages as read in workspace ${workspaceId}`
+        );
+      } catch (error) {
+        console.error("Error marking all messages as read:", error);
+      }
+    });
+
     // ===== NOTIFICATION EVENTS =====
 
     // Mark notification as read
@@ -281,7 +557,30 @@ export const initializeSocket = (io) => {
         });
       }
     });
+    // yang sebelum nya
+    // socket.on("disconnect", () => {
+    //   console.log(`User disconnected: ${userId} (${socket.id})`);
 
+    //   if (userSockets.has(userId)) {
+    //     userSockets.get(userId).delete(socket.id);
+    //     if (userSockets.get(userId).size === 0) {
+    //       userSockets.delete(userId);
+    //     }
+    //   }
+    //   socketUsers.delete(socket.id);
+
+    //   workspaceRooms.forEach((sockets, workspaceId) => {
+    //     if (sockets.has(socket.id)) {
+    //       sockets.delete(socket.id);
+    //       socket.to(`workspace:${workspaceId}`).emit("user:left", {
+    //         userId,
+    //         username: socket.user.username,
+    //       });
+    //     }
+    //   });
+    // });
+
+    // yang baru
     socket.on("disconnect", () => {
       console.log(`User disconnected: ${userId} (${socket.id})`);
 
@@ -296,6 +595,20 @@ export const initializeSocket = (io) => {
       workspaceRooms.forEach((sockets, workspaceId) => {
         if (sockets.has(socket.id)) {
           sockets.delete(socket.id);
+
+          //  Remove dari active users saat disconnect
+          if (workspaceActiveUsers.has(workspaceId)) {
+            workspaceActiveUsers.get(workspaceId).delete(userId);
+
+            const activeUsers = Array.from(
+              workspaceActiveUsers.get(workspaceId) || []
+            );
+            io.to(`workspace:${workspaceId}`).emit("workspace:active-users", {
+              activeCount: activeUsers.length,
+              activeUserIds: activeUsers,
+            });
+          }
+
           socket.to(`workspace:${workspaceId}`).emit("user:left", {
             userId,
             username: socket.user.username,

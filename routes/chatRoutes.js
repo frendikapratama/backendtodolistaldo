@@ -4,7 +4,8 @@ import { authenticate } from "../middleware/auth.js";
 import {
   getWorkspaceMessages,
   uploadChatFile,
-  deleteMessage
+  deleteMessage,
+  getUnreadCount,
 } from "../controllers/chatController.js";
 import multer from "multer";
 import path from "path";
@@ -48,7 +49,7 @@ const upload = multer({
 // Get workspace chat history
 router.get("/workspace/:workspaceId", authenticate, getWorkspaceMessages);
 router.delete("/:messageId", authenticate, deleteMessage);
-
+router.get("/workspace/:workspaceId/unread", authenticate, getUnreadCount);
 // Upload file for chat
 router.post(
   "/upload/:workspaceId",

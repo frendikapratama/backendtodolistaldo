@@ -1,4 +1,3 @@
-// controllers/chatController.js
 import ChatMessage from "../models/Chat.js";
 import Workspace from "../models/Workspace.js";
 
@@ -13,17 +12,72 @@ const isWorkspaceMember = async (userId, workspaceId) => {
 };
 
 // Get workspace messages
+
+// code lama
+// export const getWorkspaceMessages = async (req, res) => {
+//   try {
+//     const { workspaceId } = req.params;
+//     const { page = 1, limit = 5 } = req.query;
+
+//     // Check membership
+//     const isMember = await isWorkspaceMember(
+//       req.user._id.toString(),
+//       workspaceId
+//     );
+
+//     if (!isMember) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "You are not a member of this workspace",
+//       });
+//     }
+
+//     const messages = await ChatMessage.find({
+//       workspace: workspaceId,
+//       isDeleted: false,
+//     })
+//       .sort({ createdAt: -1 })
+//       .limit(limit * 1)
+//       .skip((page - 1) * limit)
+//       .populate("sender", "username email photo")
+//       .populate("readBy.user", "username email");
+
+//     const total = await ChatMessage.countDocuments({
+//       workspace: workspaceId,
+//       isDeleted: false,
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       data: messages.reverse(), // Reverse to show oldest first
+//       pagination: {
+//         total,
+//         page: parseInt(page),
+//         pages: Math.ceil(total / limit),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching messages:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch messages",
+//       error: error.message,
+//     });
+//   }
+// };
+
+// Upload chat file
+
+// code baru saat mobile
 export const getWorkspaceMessages = async (req, res) => {
   try {
     const { workspaceId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { page = 1, limit = 20 } = req.query;
 
-    // Check membership
     const isMember = await isWorkspaceMember(
       req.user._id.toString(),
       workspaceId
     );
-
     if (!isMember) {
       return res.status(403).json({
         success: false,
@@ -48,7 +102,7 @@ export const getWorkspaceMessages = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      data: messages.reverse(), // Reverse to show oldest first
+      data: messages, // HILANGKAN .reverse()
       pagination: {
         total,
         page: parseInt(page),
@@ -65,7 +119,6 @@ export const getWorkspaceMessages = async (req, res) => {
   }
 };
 
-// Upload chat file
 export const uploadChatFile = async (req, res) => {
   try {
     const { workspaceId } = req.params;
@@ -111,38 +164,70 @@ export const uploadChatFile = async (req, res) => {
   }
 };
 
-export const deleteMessage = async (req, res) =>{
-  try{
+export const deleteMessage = async (req, res) => {
+  try {
     const { messageId } = req.params;
     const message = await ChatMessage.findById(messageId);
-    if(!message){
+    if (!message) {
       return res.status(404).json({
         success: false,
-        message: "Message not found"
-      })
+        message: "Message not found",
+      });
     }
-    if(message.sender.toString() !== req.user._id.toString()){
+    if (message.sender.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
-        message: "You are not the sender!"
-      })
+        message: "You are not the sender!",
+      });
     }
-    message.isDeleted = true,
-    message.deletedAt = new Date();
+    (message.isDeleted = true), (message.deletedAt = new Date());
     message.deletedBy = req.user._id;
     await message.save();
 
     res.status(200).json({
       success: true,
       message: "Message deleted successfully",
-      data: message
-    })
-  }
-  catch (err){
+      data: message,
+    });
+  } catch (err) {
     res.status(500).json({
       success: false,
       message: "There is an error during deleting message",
-      error: err.message
-    })
+      error: err.message,
+    });
   }
-}
+};
+
+export const getUnreadCount = async (req, res) => {
+  try {
+    const { workspaceId } = req.params;
+    const userId = req.user._id.toString();
+
+    const isMember = await isWorkspaceMember(userId, workspaceId);
+    if (!isMember) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not a member of this workspace",
+      });
+    }
+
+    const unreadCount = await ChatMessage.countDocuments({
+      workspace: workspaceId,
+      isDeleted: false,
+      sender: { $ne: userId }, // Bukan pesan dari diri sendiri
+      "readBy.user": { $ne: userId }, // Belum dibaca oleh user ini
+    });
+
+    res.status(200).json({
+      success: true,
+      data: { unreadCount },
+    });
+  } catch (error) {
+    console.error("Error getting unread count:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get unread count",
+      error: error.message,
+    });
+  }
+};

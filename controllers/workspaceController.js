@@ -471,3 +471,41 @@ export async function removeMember(req, res) {
     return handleError(res, error);
   }
 }
+
+export async function getMyworkspace(req, res) {
+  try {
+    const userId = req.user._id;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID tidak valid",
+      });
+    }
+
+    // Mencari user dengan ID yang sesuai dan populate workspace
+    const user = await User.findById(userId).populate({
+      path: "workspaces.workspace",
+      select: "nama",
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User tidak ditemukan",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: { workspaces: user.workspaces || [] },
+    });
+  } catch (error) {
+    console.error("Error fetching workspaces:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan server",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+}
