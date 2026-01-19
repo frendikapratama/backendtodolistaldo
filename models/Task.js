@@ -14,6 +14,8 @@ const taskSchema = new mongoose.Schema(
     priority: { type: String },
     position: { type: Number, default: 0 },
     groups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Group" }],
+    project: { type: mongoose.Schema.Types.ObjectId, ref: "Project" },
+    workspace: { type: mongoose.Schema.Types.ObjectId, ref: "Workspace" },
     subtask: [{ type: mongoose.Schema.Types.ObjectId, ref: "Subtask" }],
     pendingPicInvites: [
       {
@@ -41,4 +43,8 @@ const taskSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+taskSchema.index({ workspace: 1 });
+taskSchema.index({ project: 1 });
+taskSchema.index({ workspace: 1, status: 1 });
+taskSchema.index({ project: 1, status: 1 });
 export default mongoose.model("Task", taskSchema);

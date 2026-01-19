@@ -124,13 +124,13 @@ export function startTaskOverdueNotificationJob(io) {
         dueDate.setHours(0, 0, 0, 0);
 
         const daysOverdue = Math.round(
-          (today - dueDate) / (1000 * 60 * 60 * 24)
+          (today - dueDate) / (1000 * 60 * 60 * 24),
         );
 
         // Kirim notifikasi setiap kelipatan 3 hari
         if (daysOverdue > 0 && daysOverdue % 3 === 0) {
           console.log(
-            `Processing overdue task: ${task.nama} (${daysOverdue} days overdue)`
+            `Processing overdue task: ${task.nama} (${daysOverdue} days overdue)`,
           );
 
           const notifications = await createTaskOverdueNotification({
@@ -162,7 +162,7 @@ export function startTaskOverdueNotificationJob(io) {
             });
 
             console.log(
-              `✅ Sent ${notifications.length} overdue notifications for task "${task.nama}" (${daysOverdue} days overdue)`
+              `✅ Sent ${notifications.length} overdue notifications for task "${task.nama}" (${daysOverdue} days overdue)`,
             );
           }
         }
