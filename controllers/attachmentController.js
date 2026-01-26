@@ -29,7 +29,7 @@ export async function addAttachment(req, res) {
     const task = await Task.findByIdAndUpdate(
       req.params.taskId,
       { $push: { attachments: attachmentData } },
-      { new: true }
+      { new: true },
     )
       .populate("attachments.uploadedBy", "username email")
       .populate("groups")
@@ -142,7 +142,12 @@ export async function deleteAttachment(req, res) {
         message: "Attachment not found",
       });
     }
-
+    if (attachment.uploadedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have permission to delete this attachment",
+      });
+    }
     const deletedFileData = {
       fileName: attachment.fileName,
       fileSize: attachment.fileSize,
@@ -154,7 +159,7 @@ export async function deleteAttachment(req, res) {
       process.cwd(),
       "uploads",
       "attachments",
-      path.basename(attachment.fileUrl)
+      path.basename(attachment.fileUrl),
     );
 
     if (fs.existsSync(filePath)) {
@@ -234,7 +239,7 @@ export async function downloadAttachment(req, res) {
       process.cwd(),
       "uploads",
       "attachments",
-      path.basename(attachment.fileUrl)
+      path.basename(attachment.fileUrl),
     );
 
     if (!fs.existsSync(filePath)) {
@@ -265,7 +270,7 @@ export async function downloadAttachment(req, res) {
     res.setHeader("Content-Type", attachment.fileType);
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${attachment.fileName}"`
+      `attachment; filename="${attachment.fileName}"`,
     );
 
     const fileStream = fs.createReadStream(filePath);
@@ -306,7 +311,7 @@ export async function addSubtaskAttachment(req, res) {
     const updatedSubtask = await Subtask.findByIdAndUpdate(
       subTaskId,
       { $push: { attachments: attachmentData } },
-      { new: true }
+      { new: true },
     )
       .populate("attachments.uploadedBy", "username email")
       .populate("pic", "username email");
@@ -423,7 +428,12 @@ export async function deleteSubtaskAttachment(req, res) {
         message: "Attachment not found",
       });
     }
-
+    if (attachment.uploadedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have permission to delete this attachment",
+      });
+    }
     const deletedFileData = {
       fileName: attachment.fileName,
       fileSize: attachment.fileSize,
@@ -435,7 +445,7 @@ export async function deleteSubtaskAttachment(req, res) {
       process.cwd(),
       "uploads",
       "attachments",
-      path.basename(attachment.fileUrl)
+      path.basename(attachment.fileUrl),
     );
 
     if (fs.existsSync(filePath)) {
@@ -521,7 +531,7 @@ export async function downloadSubtaskAttachment(req, res) {
       process.cwd(),
       "uploads",
       "attachments",
-      path.basename(attachment.fileUrl)
+      path.basename(attachment.fileUrl),
     );
 
     if (!fs.existsSync(filePath)) {
@@ -556,7 +566,7 @@ export async function downloadSubtaskAttachment(req, res) {
     res.setHeader("Content-Type", attachment.fileType);
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${attachment.fileName}"`
+      `attachment; filename="${attachment.fileName}"`,
     );
 
     const fileStream = fs.createReadStream(filePath);

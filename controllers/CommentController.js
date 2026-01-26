@@ -64,7 +64,7 @@ export async function createComment(req, res) {
     // Gabungkan PIC dan commenters, pastikan tidak ada duplikat
     const allPicIds = task.pic.map((pic) => pic._id.toString());
     const allCommenterIds = allCommenters.map((commenter) =>
-      commenter.toString()
+      commenter.toString(),
     );
 
     // Gabungkan semua user yang perlu dikirim notifikasi
@@ -111,7 +111,7 @@ export async function createComment(req, res) {
       // Populate comment dengan user info untuk ditampilkan
       const populatedComment = await Comment.findById(comment._id).populate(
         "user",
-        "username email"
+        "username email",
       );
 
       io.to(`task:${taskId}`).emit("comment:created", {
@@ -192,7 +192,7 @@ export async function replyComment(req, res) {
     // Gabungkan PIC dan commenters
     const allPicIds = task.pic.map((pic) => pic._id.toString());
     const allCommenterIds = allCommenters.map((commenter) =>
-      commenter.toString()
+      commenter.toString(),
     );
 
     // Gabungkan semua user yang perlu dikirim notifikasi
@@ -277,7 +277,7 @@ export async function replyComment(req, res) {
     if (io) {
       const populatedReply = await Comment.findById(reply._id).populate(
         "user",
-        "username email"
+        "username email",
       );
 
       io.to(`task:${taskId}`).emit("reply:created", {
@@ -349,7 +349,7 @@ export async function deleteComment(req, res) {
     if (comment.user.toString() !== userId.toString()) {
       return res.status(403).json({
         success: false,
-        message: "Anda tidak memiliki izin untuk menghapus comment ini",
+        message: "You don't have permission to delete this comment",
       });
     }
 
