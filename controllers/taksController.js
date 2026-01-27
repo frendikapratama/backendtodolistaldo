@@ -91,6 +91,7 @@ export async function getTask(req, res) {
   try {
     const data = await Task.find()
       .populate("workspace", "nama")
+      .populate("groups", "nama")
       .populate("project", "nama");
     res.status(200).json(data);
   } catch (error) {
