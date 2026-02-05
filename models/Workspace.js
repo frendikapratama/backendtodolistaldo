@@ -10,7 +10,7 @@ const workspaceSchema = new mongoose.Schema(
         user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         role: {
           type: String,
-          enum: ["admin", "project_manager", "member", "viewer"],
+          enum: ["admin", "project_manager", "member", "viewer", "management"],
           default: "member",
         },
         addedAt: { type: Date, default: Date.now },
@@ -22,7 +22,7 @@ const workspaceSchema = new mongoose.Schema(
         token: { type: String },
         role: {
           type: String,
-          enum: ["admin", "project_manager", "member", "viewer"],
+          enum: ["admin", "project_manager", "member", "viewer", "management"],
           default: "member",
         },
         createdAt: { type: Date, default: Date.now },
@@ -31,7 +31,7 @@ const workspaceSchema = new mongoose.Schema(
     ],
     kuarter: { type: mongoose.Schema.Types.ObjectId, ref: "Kuarter" },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.model("Workspace", workspaceSchema);
