@@ -111,7 +111,7 @@ export async function updateWorkspace(req, res) {
     const updatedWorkspaces = await Workspace.findByIdAndUpdate(
       workspaceId,
       { nama },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     res.status(200).json({
@@ -151,7 +151,7 @@ export async function deleteWorkspace(req, res) {
     // Hapus workspace dari user's workspaces array
     await User.updateMany(
       { "workspaces.workspace": workspaceId },
-      { $pull: { workspaces: { workspace: workspaceId } } }
+      { $pull: { workspaces: { workspace: workspaceId } } },
     );
 
     const deletedWorkspace = await Workspace.findByIdAndDelete(workspaceId);
@@ -181,7 +181,7 @@ export async function inviteMemberByEmail(req, res) {
 
     const workspace = await Workspace.findById(workspaceId).populate(
       "owner",
-      "username"
+      "username",
     );
 
     if (!workspace)
@@ -197,7 +197,7 @@ export async function inviteMemberByEmail(req, res) {
 
     if (existingUser) {
       const isMember = workspace.members.some(
-        (m) => m.user.toString() === existingUser._id.toString()
+        (m) => m.user.toString() === existingUser._id.toString(),
       );
 
       if (isMember) {
@@ -268,7 +268,7 @@ export async function verifyWorkspaceInvite(req, res) {
 
     const workspace = await Workspace.findById(workspaceId).populate(
       "owner",
-      "username"
+      "username",
     );
 
     if (!workspace) {
@@ -279,7 +279,7 @@ export async function verifyWorkspaceInvite(req, res) {
     }
 
     const invitation = workspace.pendingInvites.find(
-      (inv) => inv.token === token
+      (inv) => inv.token === token,
     );
 
     if (!invitation) {
@@ -323,7 +323,7 @@ export async function verifyWorkspaceInvite(req, res) {
 export async function acceptWorkspaceInvite(req, res) {
   try {
     const { token } = req.query;
-    const { username, password, noHp, posisi } = req.body;
+    const { username, password, noHp, posisi, departemen, divisi } = req.body;
 
     const workspace = await Workspace.findOne({
       "pendingInvites.token": token,
@@ -336,7 +336,7 @@ export async function acceptWorkspaceInvite(req, res) {
     if (!validation.valid) {
       if (validation.expired) {
         workspace.pendingInvites = workspace.pendingInvites.filter(
-          (inv) => inv.token !== token
+          (inv) => inv.token !== token,
         );
         await workspace.save();
       }
@@ -353,6 +353,8 @@ export async function acceptWorkspaceInvite(req, res) {
       password,
       noHp,
       posisi,
+      departemen,
+      divisi,
     });
 
     if (!userResult.success) {
@@ -362,7 +364,7 @@ export async function acceptWorkspaceInvite(req, res) {
     const userId = userResult.user._id;
 
     const isMember = workspace.members.some(
-      (m) => m.user.toString() === userId.toString()
+      (m) => m.user.toString() === userId.toString(),
     );
 
     if (isMember) {
@@ -382,7 +384,7 @@ export async function acceptWorkspaceInvite(req, res) {
         },
         $pull: { pendingInvites: { token: token } },
       },
-      { new: true }
+      { new: true },
     );
 
     await User.findByIdAndUpdate(userId, {
@@ -422,12 +424,12 @@ export async function updateMemberRole(req, res) {
 
     await Workspace.findOneAndUpdate(
       { _id: workspaceId, "members.user": userId },
-      { $set: { "members.$.role": role } }
+      { $set: { "members.$.role": role } },
     );
 
     await User.findOneAndUpdate(
       { _id: userId, "workspaces.workspace": workspaceId },
-      { $set: { "workspaces.$.role": role } }
+      { $set: { "workspaces.$.role": role } },
     );
 
     res.status(200).json({
