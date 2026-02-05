@@ -29,37 +29,37 @@ router.post(
   "/:groupId",
   authenticate,
   checkWorkspaceRoleFromGroup(["admin", "project_manager", "member"]),
-  createTask
+  createTask,
 );
 router.put(
   "/positions/:groupId",
   authenticate,
   checkWorkspaceRoleFromGroup(["admin", "project_manager", "member"]),
-  updateTaskPositions
+  updateTaskPositions,
 );
 router.put(
   "/:taskId",
   authenticate,
   checkWorkspaceRoleFromTask(["admin", "project_manager", "member"]),
-  updateTask
+  updateTask,
 );
 router.delete(
   "/:taskId",
   authenticate,
   checkWorkspaceRoleFromTask(["admin", "project_manager"]),
-  deleteTask
+  deleteTask,
 );
 router.delete(
   "/:taskId/pic",
   authenticate,
   checkWorkspaceRoleFromTask(["admin", "project_manager"]),
-  removePic
+  removePic,
 );
 router.delete(
   "/:taskId/pic/all",
   authenticate,
   checkWorkspaceRoleFromTask(["admin", "project_manager"]),
-  removeAllPics
+  removeAllPics,
 );
 router.post("/:taskId/accept-pic-invite", acceptPicInvite);
 router.get("/:taskId/verify-invite", verifyPicInvite);

@@ -26,8 +26,8 @@ async function getProjectAndWorkspaceFromGroup(groupId) {
       path: "project",
       populate: {
         path: "workspace",
-        select: "_id nama"
-      }
+        select: "_id nama",
+      },
     });
     if (!group) {
       return { success: false, message: "Group not found" };
@@ -41,7 +41,7 @@ async function getProjectAndWorkspaceFromGroup(groupId) {
     return {
       success: true,
       projectId: group.project._id,
-      workspaceId: group.project.workspace._id
+      workspaceId: group.project.workspace._id,
     };
   } catch (error) {
     console.error("Error getting project/workspace from group:", error);
@@ -66,7 +66,7 @@ export async function getTasksByProjectSimple(req, res) {
           .populate("pic", "username email")
           .populate("subtask")
           .populate("workspace", "nama")
-          .populate("project", "nama")  
+          .populate("project", "nama")
           .sort({ position: 1 });
 
         return {
@@ -75,7 +75,7 @@ export async function getTasksByProjectSimple(req, res) {
           groupDescription: group.description,
           tasks: tasks,
         };
-      })
+      }),
     );
     res.status(200).json({
       success: true,
@@ -90,6 +90,7 @@ export async function getTasksByProjectSimple(req, res) {
 export async function getTask(req, res) {
   try {
     const data = await Task.find()
+      .sort({ createdAt: -1 })
       .populate("workspace", "nama")
       .populate("groups", "nama")
       .populate("project", "nama");
@@ -111,7 +112,7 @@ export async function createTask(req, res) {
     if (!relationResult.success) {
       return res.status(404).json({
         success: false,
-        message: relationResult.message
+        message: relationResult.message,
       });
     }
     const lastTask = await Task.findOne({ groups: groupId })
@@ -121,8 +122,8 @@ export async function createTask(req, res) {
     const task = await Task.create({
       ...req.body,
       groups: groupId,
-      project: relationResult.projectId,      
-      workspace: relationResult.workspaceId, 
+      project: relationResult.projectId,
+      workspace: relationResult.workspaceId,
       position: nextPosition,
     });
 
@@ -209,7 +210,7 @@ export async function updateTask(req, res) {
           taskId,
           email,
           oldTask,
-          req.user._id
+          req.user._id,
         );
 
         if (!picResult.success) {
@@ -230,7 +231,7 @@ export async function updateTask(req, res) {
           });
 
           console.log(
-            `Sent PIC assignment notification to user ${picResult.notification.recipient}`
+            `Sent PIC assignment notification to user ${picResult.notification.recipient}`,
           );
         }
       }
@@ -353,7 +354,7 @@ export async function updateTask(req, res) {
         });
 
         console.log(
-          `Sent ${notifications.length} status change notifications to all workspace members`
+          `Sent ${notifications.length} status change notifications to all workspace members`,
         );
       } catch (notifError) {
         console.error("Error sending notifications:", notifError);
@@ -395,7 +396,7 @@ export async function updateTaskPositions(req, res) {
     }
 
     const updatePromises = taskIds.map((id, index) =>
-      Task.findByIdAndUpdate(id, { position: index }, { new: true })
+      Task.findByIdAndUpdate(id, { position: index }, { new: true }),
     );
 
     const updatedTasks = await Promise.all(updatePromises);
@@ -525,8 +526,8 @@ export const getTasksByGroup = async (req, res) => {
         path: "pic",
         select: "username email photo",
       })
-      .populate("workspace", "nama") 
-      .populate("project", "nama")    
+      .populate("workspace", "nama")
+      .populate("project", "nama")
       .sort({ position: 1 });
 
     res.status(200).json({
@@ -555,7 +556,7 @@ async function handlePicAssignment(taskId, picEmail, task, requesterId) {
     if (
       currentTask.pic &&
       currentTask.pic.some(
-        (id) => targetUser && id.toString() === targetUser._id.toString()
+        (id) => targetUser && id.toString() === targetUser._id.toString(),
       )
     ) {
       return {
@@ -566,7 +567,7 @@ async function handlePicAssignment(taskId, picEmail, task, requesterId) {
 
     if (targetUser) {
       const isMember = workspace.members.some(
-        (m) => m.user.toString() === targetUser._id.toString()
+        (m) => m.user.toString() === targetUser._id.toString(),
       );
 
       if (!isMember) {
@@ -616,16 +617,18 @@ async function handlePicAssignment(taskId, picEmail, task, requesterId) {
 
         return {
           success: true,
-          message: `${picEmail} berhasil ditambahkan sebagai PIC${!isMember ? " dan bergabung ke workspace sebagai member" : ""
-            }`,
+          message: `${picEmail} berhasil ditambahkan sebagai PIC${
+            !isMember ? " dan bergabung ke workspace sebagai member" : ""
+          }`,
           notification,
         };
       } catch (notifError) {
         console.error("Error sending PIC notification:", notifError);
         return {
           success: true,
-          message: `${picEmail} berhasil ditambahkan sebagai PIC${!isMember ? " dan bergabung ke workspace sebagai member" : ""
-            }`,
+          message: `${picEmail} berhasil ditambahkan sebagai PIC${
+            !isMember ? " dan bergabung ke workspace sebagai member" : ""
+          }`,
         };
       }
     }
@@ -713,7 +716,7 @@ export async function acceptPicInvite(req, res) {
     const userId = userResult.user._id;
 
     const isMember = workspace.members.some(
-      (m) => m.user.toString() === userId.toString()
+      (m) => m.user.toString() === userId.toString(),
     );
 
     if (!isMember) {
@@ -784,7 +787,7 @@ export async function removePic(req, res) {
     }
 
     const wasRemoved = task.pic.some(
-      (id) => id.toString() === userId.toString()
+      (id) => id.toString() === userId.toString(),
     );
 
     if (!wasRemoved) {
@@ -908,7 +911,7 @@ export async function updateMeetingLink(req, res) {
     const task = await Task.findByIdAndUpdate(
       taskId,
       { meetingLink },
-      { new: true }
+      { new: true },
     );
 
     if (!task) {
@@ -934,8 +937,8 @@ export async function getMyTasks(req, res) {
     const tasks = await Task.find({
       pic: userId,
     })
-      .populate("workspace", "nama")  
-      .populate("project", "nama")  
+      .populate("workspace", "nama")
+      .populate("project", "nama")
       .populate({
         path: "groups",
         select: "nama",
@@ -973,12 +976,12 @@ export async function getMyTasks(req, res) {
         description: task.description,
         pic: task.pic,
         subtask: task.subtask,
-        workspace: task.workspace?.nama || "-",       
-        project: task.project?.nama || "-",           
+        workspace: task.workspace?.nama || "-",
+        project: task.project?.nama || "-",
         group: group?.nama || "-",
         groupId: group?._id,
-        projectId: task.project?._id,                 
-        workspaceId: task.workspace?._id,             
+        projectId: task.project?._id,
+        workspaceId: task.workspace?._id,
         subtaskStats: {
           total: task.subtask?.length || 0,
           completed:
@@ -1011,8 +1014,8 @@ export async function getMyTasksWithMeetings(req, res) {
       meeting_date: { $exists: true, $ne: null },
       pic: userId,
     })
-      .populate("workspace", "nama")  
-      .populate("project", "nama")    
+      .populate("workspace", "nama")
+      .populate("project", "nama")
       .populate({
         path: "groups",
         select: "nama",
@@ -1073,12 +1076,12 @@ export async function getMyTasksWithMeetings(req, res) {
         meeting_link: task.meeting_link,
         description: task.description,
         pic: task.pic,
-        workspace: task.workspace?.nama || "-",  
-        project: task.project?.nama || "-",        
+        workspace: task.workspace?.nama || "-",
+        project: task.project?.nama || "-",
         group: group?.nama || "-",
         groupId: group?._id,
-        projectId: task.project?._id,         
-        workspaceId: task.workspace?._id,    
+        projectId: task.project?._id,
+        workspaceId: task.workspace?._id,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,
       };
@@ -1110,12 +1113,12 @@ export async function getMyTasksWithMeetings(req, res) {
           status: task?.status,
           meeting_date: task?.meeting_date,
         },
-        workspace: task?.workspace?.nama || "-",   
-        project: task?.project?.nama || "-",  
+        workspace: task?.workspace?.nama || "-",
+        project: task?.project?.nama || "-",
         group: group?.nama || "-",
         groupId: group?._id,
-        projectId: task?.project?._id,         
-        workspaceId: task?.workspace?._id,      
+        projectId: task?.project?._id,
+        workspaceId: task?.workspace?._id,
         createdAt: subtask.createdAt,
         updatedAt: subtask.updatedAt,
       };

@@ -33,35 +33,35 @@ router.put(
   "/:workspaceId",
   authenticate,
   checkWorkspaceRole(["admin", "project_manager"]),
-  updateWorkspace
+  updateWorkspace,
 );
 
 router.delete(
   "/:workspaceId",
   authenticate,
   requireSystemAdmin,
-  deleteWorkspace
+  deleteWorkspace,
 );
 
 router.post(
   "/:workspaceId/invite",
   authenticate,
   checkWorkspaceRole(["admin", "project_manager"]),
-  inviteMemberByEmail
+  inviteMemberByEmail,
 );
 
 router.put(
   "/:workspaceId/members/:userId/role",
   authenticate,
   checkWorkspaceRole(["admin"]),
-  updateMemberRole
+  updateMemberRole,
 );
 
 router.delete(
   "/:workspaceId/members/:userId",
   authenticate,
   checkWorkspaceRole(["admin"]),
-  removeMember
+  removeMember,
 );
 
 export default router;

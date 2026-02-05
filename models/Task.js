@@ -12,6 +12,7 @@ const taskSchema = new mongoose.Schema(
     finish_date: { type: Date },
     note: { type: String, default: "Planning" },
     priority: { type: String },
+    type: { type: String, default: "Minor" },
     position: { type: Number, default: 0 },
     groups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Group" }],
     project: { type: mongoose.Schema.Types.ObjectId, ref: "Project" },
@@ -41,7 +42,7 @@ const taskSchema = new mongoose.Schema(
     ],
     meeting_link: { type: String },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 taskSchema.index({ workspace: 1 });
 taskSchema.index({ project: 1 });
