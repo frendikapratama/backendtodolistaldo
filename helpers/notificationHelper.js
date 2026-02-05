@@ -35,7 +35,7 @@ export async function createTaskDueSoonNotification({
       type: "TASK_DUE_SOON",
       title: "Task is due soon",
       message: `Task "${taskName}" will be due on ${urgencyMessage} (${new Date(
-        dueDate
+        dueDate,
       ).toLocaleDateString("id-ID")}) and still has status ${status}`,
       task: taskId,
       workspace: workspaceId,
@@ -66,7 +66,7 @@ export async function createTaskDueSoonNotification({
               status,
               daysRemaining,
             }).catch((err) =>
-              console.error(`Failed to send email to ${user.email}:`, err)
+              console.error(`Failed to send email to ${user.email}:`, err),
             );
           });
         })
@@ -114,31 +114,31 @@ export async function createTaskStatusNotification({
         },
       }));
 
-    if (notifications.length > 0) {
-      await Notification.insertMany(notifications);
+    // if (notifications.length > 0) {
+    //   await Notification.insertMany(notifications);
 
-      const recipientIds = recipients.filter(
-        (id) => id.toString() !== senderId.toString()
-      );
-      User.find({ _id: { $in: recipientIds } })
-        .select("email")
-        .then((users) => {
-          users.forEach((user) => {
-            sendTaskStatusChangedEmail({
-              to: user.email,
-              taskName,
-              projectName,
-              workspaceName,
-              senderName,
-              oldStatus,
-              newStatus,
-            }).catch((err) =>
-              console.error(`Failed to send email to ${user.email}:`, err)
-            );
-          });
-        })
-        .catch((err) => console.error("Error fetching users for email:", err));
-    }
+    //   const recipientIds = recipients.filter(
+    //     (id) => id.toString() !== senderId.toString()
+    //   );
+    //   User.find({ _id: { $in: recipientIds } })
+    //     .select("email")
+    //     .then((users) => {
+    //       users.forEach((user) => {
+    //         sendTaskStatusChangedEmail({
+    //           to: user.email,
+    //           taskName,
+    //           projectName,
+    //           workspaceName,
+    //           senderName,
+    //           oldStatus,
+    //           newStatus,
+    //         }).catch((err) =>
+    //           console.error(`Failed to send email to ${user.email}:`, err)
+    //         );
+    //       });
+    //     })
+    //     .catch((err) => console.error("Error fetching users for email:", err));
+    // }
 
     return notifications;
   } catch (error) {
@@ -186,7 +186,7 @@ export async function createTaskAssignmentNotification({
             workspaceName,
             assignerName: senderName,
           }).catch((err) =>
-            console.error(`Failed to send assignment email:`, err)
+            console.error(`Failed to send assignment email:`, err),
           );
         }
       })
@@ -223,7 +223,7 @@ export async function markAsRead(notificationId, userId) {
         isRead: true,
         readAt: new Date(),
       },
-      { new: true }
+      { new: true },
     );
     return notification;
   } catch (error) {
@@ -242,7 +242,7 @@ export async function markAllAsRead(userId) {
       {
         isRead: true,
         readAt: new Date(),
-      }
+      },
     );
     return result;
   } catch (error) {
@@ -265,7 +265,7 @@ export async function createTaskOverdueNotification({
 }) {
   try {
     console.log(
-      `Creating overdue notifications for ${recipients.length} recipients`
+      `Creating overdue notifications for ${recipients.length} recipients`,
     );
 
     const notifications = recipients.map((recipientId) => ({
@@ -273,7 +273,7 @@ export async function createTaskOverdueNotification({
       type: "TASK_OVERDUE",
       title: "Task is overdue",
       message: `Task "${taskName}" is overdue by ${daysOverdue} days. (deadline: ${new Date(
-        dueDate
+        dueDate,
       ).toLocaleDateString("id-ID")}), Current status ${status}`,
       task: taskId,
       workspace: workspaceId,
@@ -292,7 +292,7 @@ export async function createTaskOverdueNotification({
     if (notifications.length > 0) {
       savedNotifications = await Notification.insertMany(notifications);
       console.log(
-        `✅ Saved ${savedNotifications.length} overdue notifications to database`
+        `✅ Saved ${savedNotifications.length} overdue notifications to database`,
       );
 
       User.find({ _id: { $in: recipients } })
@@ -311,13 +311,13 @@ export async function createTaskOverdueNotification({
             }).catch((err) =>
               console.error(
                 `Failed to send overdue email to ${user.email}:`,
-                err
-              )
+                err,
+              ),
             );
           });
         })
         .catch((err) =>
-          console.error("Error fetching users for overdue email:", err)
+          console.error("Error fetching users for overdue email:", err),
         );
     }
 
@@ -346,7 +346,7 @@ export async function createCommentNotification({
       title: `New Comment on Task`,
       message: `${senderName} commented on "${taskName}": "${commentText.substring(
         0,
-        50
+        50,
       )}${commentText.length > 50 ? "..." : ""}"`,
       task: taskId,
       workspace: workspaceId,
@@ -383,7 +383,7 @@ export async function createReplyCommentNotification({
       title: `New Reply on Comment`,
       message: `${senderName} replied to your comment on "${taskName}": "${replyText.substring(
         0,
-        50
+        50,
       )}${replyText.length > 50 ? "..." : ""}"`,
       task: taskId,
       workspace: workspaceId,
@@ -485,7 +485,6 @@ export async function createSubtaskStatusNotification({
   }
 }
 
-// ✅ UPDATED: Subtask Assignment dengan Email
 export async function createSubtaskAssignmentNotification({
   subtaskId,
   subtaskName,
@@ -530,7 +529,7 @@ export async function createSubtaskAssignmentNotification({
             workspaceName,
             assignerName: senderName,
           }).catch((err) =>
-            console.error(`Failed to send subtask assignment email:`, err)
+            console.error(`Failed to send subtask assignment email:`, err),
           );
         }
       })
@@ -563,7 +562,7 @@ export async function createSubtaskCommentNotification({
       title: `New Comment on Subtask`,
       message: `${senderName} commented on subtask "${subtaskName}": "${commentText.substring(
         0,
-        50
+        50,
       )}${commentText.length > 50 ? "..." : ""}"`,
       task: taskId,
       workspace: workspaceId,
