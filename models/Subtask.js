@@ -12,6 +12,7 @@ const subtaskSchema = new mongoose.Schema(
     finish_date: { type: Date },
     note: { type: String, default: "Planning" },
     priority: { type: String },
+    type: { type: String, default: "Minor" }, 
     position: { type: Number, default: 0 },
     task: { type: mongoose.Schema.Types.ObjectId, ref: "Task" },
     pendingPicInvites: [

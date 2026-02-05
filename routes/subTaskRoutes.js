@@ -14,6 +14,7 @@ import {
   authenticate,
   checkWorkspaceRoleFromSubtask,
   checkWorkspaceRoleFromTask,
+  checkSubtaskTypeAccess,
 } from "../middleware/auth.js";
 const router = express.Router();
 
@@ -22,32 +23,34 @@ router.get("/ByTask", authenticate, getByTask);
 router.patch(
   "/:taskId",
   authenticate,
-  checkWorkspaceRoleFromTask(["admin", "project_manager", "member"]),
+  checkWorkspaceRoleFromTask(["admin", "project_manager", "member", "management"]),
   positionSubTask
 );
 router.post(
   "/:taskId",
   authenticate,
-  checkWorkspaceRoleFromTask(["admin", "project_manager", "member"]),
+  checkWorkspaceRoleFromTask(["admin", "project_manager", "member", "management"]),
   createSubTask
 );
 router.put(
   "/:subTaskId",
   authenticate,
-  checkWorkspaceRoleFromSubtask(["admin", "project_manager", "member"]),
+  checkWorkspaceRoleFromSubtask(["admin", "project_manager", "member", "management"]),
+  checkSubtaskTypeAccess("edit"),
   updateSubTask
 );
 router.delete(
   "/:subTaskId",
   authenticate,
-  checkWorkspaceRoleFromSubtask(["admin", "project_manager", "member"]),
+  checkWorkspaceRoleFromSubtask(["admin", "project_manager", "member", "management"]),
+  checkSubtaskTypeAccess("edit"),
   deleteSubTask
 );
 
 router.delete(
   "/:subTaskId/pic",
   authenticate,
-  checkWorkspaceRoleFromSubtask(["admin", "project_manager", "member"]),
+  checkWorkspaceRoleFromSubtask(["admin", "project_manager", "member", "management"]),
   removeSubtaskPic
 );
 router.post("/:subTaskId/accept-pic-invite", acceptSubtaskPicInvite);

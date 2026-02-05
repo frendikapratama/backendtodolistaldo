@@ -13,6 +13,7 @@ import { sendTaskPicInvitationEmail } from "../utils/emailUtils.js";
 import { handleError } from "../utils/errorHandler.js";
 import Workspace from "../models/Workspace.js";
 import { createActivity } from "../helpers/activityhelper.js";
+import { filterTasksByRole } from "../utils/roleTaskUtils.js";
 
 import {
   createTaskStatusNotification,
@@ -60,15 +61,28 @@ export async function getTasksByProjectSimple(req, res) {
       });
     }
     const groups = await Group.find({ project: projectId });
+    const project = await Project.findById(projectId).populate("workspace");
     const tasksByGroup = await Promise.all(
       groups.map(async (group) => {
-        const tasks = await Task.find({ groups: group._id })
+        let tasks = await Task.find({ groups: group._id })
           .populate("pic", "username email")
           .populate("subtask")
           .populate("workspace", "nama")
           .populate("project", "nama")
           .sort({ position: 1 });
-
+        if (!req.user.isSystemAdmin && project && project.workspace) {
+          const workspace = project.workspace;
+          const userId = req.user._id;
+          const isOwner = workspace.owner.toString() === userId.toString();
+          if (!isOwner) {
+            const member = workspace.members.find(
+              (m) => m.user.toString() === userId.toString()
+            );
+            if (member) {
+              tasks = filterTasksByRole(tasks, member.role);
+            }
+          }
+        }
         return {
           groupId: group._id,
           groupName: group.nama,
@@ -529,12 +543,39 @@ export const getTasksByGroup = async (req, res) => {
       .populate("workspace", "nama")
       .populate("project", "nama")
       .sort({ position: 1 });
+    let filteredTasks = tasks;
+    try {
+      const group = await Group.findById(groups).populate({
+        path: "project",
+        populate: {
+          path: "workspace",
+          select: "_id nama owner members",
+        },
+      });
+      if (group && group.project && group.project.workspace) {
+        const workspace = group.project.workspace;
+        const userId = req.user._id;
+        const isAdmin =
+          req.user.isSystemAdmin === true ||
+          workspace.owner.toString() === userId.toString();
+        if (!isAdmin) {
+          const member = workspace.members.find(
+            (m) => m.user.toString() === userId.toString()
+          );
+          if (member) {
+            filteredTasks = filterTasksByRole(tasks, member.role);
+          }
+        }
+      }
+    } catch (filterError) {
+      console.warn("Warning: Failed to apply role filtering", filterError);
+    }
 
     res.status(200).json({
       success: true,
       message: "berhasil mengambil data",
-      data: tasks,
-      count: tasks.length,
+      data: filteredTasks,
+      count: filteredTasks.length,
     });
   } catch (error) {
     return handleError(res, error);
@@ -948,20 +989,37 @@ export async function getMyTasks(req, res) {
         path: "subtask",
         options: { sort: { position: 1 } },
       });
-
-    const tasksWithDueDate = tasks
+    let filteredTasks = tasks;
+    if (!req.user.isSystemAdmin) {
+      try {
+        const workspacesOfUser = await Workspace.find({
+          "members.user": userId,
+        }).select("_id members");
+        filteredTasks = tasks.filter((task) => {
+          if (!task.workspace) return true;
+          const userMembership = workspacesOfUser.find(
+            (ws) => ws._id.toString() === task.workspace._id.toString()
+          );
+          if (!userMembership) return true;
+          const member = userMembership.members.find(
+            (m) => m.user.toString() === userId.toString()
+          );
+          if (!member) return true;
+          return canAccessTaskType(member.role, task.type || "Minor", 'view');
+        });
+      } catch (filterError) {
+        console.warn("Warning: Failed to apply role filtering in getMyTasks", filterError);
+      }
+    }
+    const tasksWithDueDate = filteredTasks
       .filter((task) => task.due_date)
       .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
-
-    const tasksWithoutDueDate = tasks
+    const tasksWithoutDueDate = filteredTasks
       .filter((task) => !task.due_date)
       .sort((a, b) => a.position - b.position);
-
     const sortedTasks = [...tasksWithDueDate, ...tasksWithoutDueDate];
-
     const formattedTasks = sortedTasks.map((task) => {
       const group = Array.isArray(task.groups) ? task.groups[0] : task.groups;
-
       return {
         _id: task._id,
         nama: task.nama,
@@ -1007,9 +1065,7 @@ export async function getMyTasksWithMeetings(req, res) {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const userId = req.user._id;
-
     const tasksWithMeetings = await Task.find({
       meeting_date: { $exists: true, $ne: null },
       pic: userId,
@@ -1037,7 +1093,7 @@ export async function getMyTasksWithMeetings(req, res) {
     })
       .populate({
         path: "task",
-        select: "nama groups pic meeting_date workspace project",
+        select: "nama groups pic meeting_date workspace project type",
         populate: [
           {
             path: "workspace",
@@ -1058,8 +1114,48 @@ export async function getMyTasksWithMeetings(req, res) {
         ],
       })
       .sort({ meeting_date: 1 });
+    let filteredTasks = tasksWithMeetings;
+    let filteredSubtasks = allSubtasksWithMeetings;
 
-    const formattedTasks = tasksWithMeetings.map((task) => {
+    if (!req.user.isSystemAdmin) {
+      try {
+        const workspacesOfUser = await Workspace.find({
+          "members.user": userId,
+        }).select("_id members");
+        filteredTasks = tasksWithMeetings.filter((task) => {
+          if (!task.workspace) return true;
+          const userMembership = workspacesOfUser.find(
+            (ws) => ws._id.toString() === task.workspace._id.toString()
+          );
+          if (!userMembership) return true;
+          const member = userMembership.members.find(
+            (m) => m.user.toString() === userId.toString()
+          );
+          if (!member) return true;
+          return canAccessTaskType(member.role, task.type || "Minor", 'view');
+        });
+        filteredSubtasks = allSubtasksWithMeetings.filter((subtask) => {
+          if (!subtask.task || !subtask.task.workspace) return true;
+          const userMembership = workspacesOfUser.find(
+            (ws) =>
+              ws._id.toString() === subtask.task.workspace._id.toString()
+          );
+          if (!userMembership) return true;
+          const member = userMembership.members.find(
+            (m) => m.user.toString() === userId.toString()
+          );
+          if (!member) return true;
+          return canAccessTaskType(member.role, subtask.task.type || "Minor", 'view');
+        });
+      } catch (filterError) {
+        console.warn(
+          "Warning: Failed to apply role filtering in getMyTasksWithMeetings",
+          filterError
+        );
+      }
+    }
+
+    const formattedTasks = filteredTasks.map((task) => {
       const group = Array.isArray(task.groups) ? task.groups[0] : task.groups;
 
       return {
@@ -1087,7 +1183,7 @@ export async function getMyTasksWithMeetings(req, res) {
       };
     });
 
-    const formattedSubtasks = allSubtasksWithMeetings.map((subtask) => {
+    const formattedSubtasks = filteredSubtasks.map((subtask) => {
       const task = subtask.task;
       const group = Array.isArray(task?.groups)
         ? task?.groups[0]

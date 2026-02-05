@@ -6,6 +6,11 @@ import Project from "../models/Project.js";
 import Workspace from "../models/Workspace.js";
 import Subtask from "../models/Subtask.js";
 import CollaborationRequest from "../models/CollaborationRequest.js";
+import {
+  canAccessTaskType,
+  getAllowedTaskTypes,
+  getRoleDescription,
+} from "../utils/roleTaskUtils.js";
 const JWT_SECRET =
   process.env.TOKEN_SECRET ||
   "48db792b7ced19872b7109589afb94bb084acf4b5ef0879ccc5855395cb44a5e";
@@ -682,6 +687,145 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
       return res.status(500).json({
         success: false,
         message: "Failed to verify division role",
+        error: error.message,
+      });
+    }
+  };
+}
+export function checkTaskTypeAccess() {
+  return async (req, res, next) => {
+    try {
+      const { taskId } = req.params;
+      const userId = req.user._id;
+      if (req.user.isSystemAdmin === true) {
+        return next();
+      }
+      const task = await Task.findById(taskId);
+      if (!task) {
+        return res.status(404).json({
+          success: false,
+          message: "Task not found",
+        });
+      }
+      const group = await Group.findById(task.groups);
+      if (!group) {
+        return res.status(404).json({
+          success: false,
+          message: "Group not found",
+        });
+      }
+      const project = await Project.findById(group.project).populate(
+        "workspace"
+      );
+      if (!project || !project.workspace) {
+        return res.status(404).json({
+          success: false,
+          message: "Project or Division not found",
+        });
+      }
+      const workspace = project.workspace;
+      if (workspace.owner.toString() === userId.toString()) {
+        return next();
+      }
+      const member = workspace.members.find(
+        (m) => m.user.toString() === userId.toString()
+      );
+      if (!member) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not a member of this division",
+        });
+      }
+      const taskType = task.type || "Major";
+      const userRole = member.role;
+      if (!canAccessTaskType(userRole, taskType, 'edit')) {
+        const allowedEditTypes = getAllowedTaskTypes(userRole, 'edit');
+        const allowedViewTypes = getAllowedTaskTypes(userRole, 'view');
+        
+        return res.status(403).json({
+          message: `Role "${userRole}" cannot edit task with type "${taskType}". Only can edit: ${allowedEditTypes.join(", ")}`,
+        });
+      }
+      req.task = task;
+      next();
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to verify task type access",
+        error: error.message,
+      });
+    }
+  };
+}
+
+export function checkSubtaskTypeAccess(operation = 'edit') {
+  return async (req, res, next) => {
+    try {
+      const { subTaskId } = req.params;
+      const userId = req.user._id;
+      
+      if (req.user.isSystemAdmin === true) {
+        return next();
+      }
+      const subtask = await Subtask.findById(subTaskId).populate('task');
+      if (!subtask || !subtask.task) {
+        return res.status(404).json({
+          success: false,
+          message: "Subtask or parent task not found",
+        });
+      }
+      
+      const task = subtask.task;
+      const group = await Group.findById(task.groups);
+      if (!group) {
+        return res.status(404).json({
+          success: false,
+          message: "Group not found",
+        });
+      }
+      
+      const project = await Project.findById(group.project).populate('workspace');
+      if (!project || !project.workspace) {
+        return res.status(404).json({
+          success: false,
+          message: "Project or Division not found",
+        });
+      }
+      
+      const workspace = project.workspace;
+      if (workspace.owner.toString() === userId.toString()) {
+        return next();
+      }
+      
+      const member = workspace.members.find(
+        (m) => m.user.toString() === userId.toString()
+      );
+      if (!member) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not a member of this division",
+        });
+      }
+      
+      const taskType = task.type || "Major";
+      const userRole = member.role;
+      
+      if (!canAccessTaskType(userRole, taskType, operation)) {
+        const allowedEditTypes = getAllowedTaskTypes(userRole, 'edit');
+        const allowedViewTypes = getAllowedTaskTypes(userRole, 'view');
+        
+        return res.status(403).json({
+          message: `Role "${userRole}" cannot ${operation} subtask with type "${taskType}". Only can ${operation}: ${getAllowedTaskTypes(userRole, operation).join(", ")}`,
+        });
+      }
+      
+      req.task = task;
+      req.subtask = subtask;
+      next();
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to verify subtask type access",
         error: error.message,
       });
     }
