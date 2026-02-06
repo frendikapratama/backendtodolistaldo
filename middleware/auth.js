@@ -758,7 +758,7 @@ export function checkTaskTypeAccess() {
   };
 }
 
-export function checkSubtaskTypeAccess(operation = 'edit') {
+export function checkSubtaskTypeAccess() {
   return async (req, res, next) => {
     try {
       const { subTaskId } = req.params;
@@ -807,16 +807,15 @@ export function checkSubtaskTypeAccess(operation = 'edit') {
         });
       }
       
-      const taskType = task.type || "Major";
+      const taskType = subtask.type || "Major";
       const userRole = member.role;
       
-      if (!canAccessTaskType(userRole, taskType, operation)) {
+      if (!canAccessTaskType(userRole, taskType, 'edit')) {
         const allowedEditTypes = getAllowedTaskTypes(userRole, 'edit');
         const allowedViewTypes = getAllowedTaskTypes(userRole, 'view');
         
         return res.status(403).json({
-          message: `Role "${userRole}" cannot ${operation} subtask with type "${taskType}". Only can ${operation}: ${getAllowedTaskTypes(userRole, operation).join(", ")}`,
-        });
+          message: `Role "${userRole}" cannot edit task with type "${taskType}". Only can edit: ${allowedEditTypes.join(", ")}`,        });
       }
       
       req.task = task;

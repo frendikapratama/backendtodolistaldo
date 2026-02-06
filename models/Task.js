@@ -12,6 +12,7 @@ const taskSchema = new mongoose.Schema(
     finish_date: { type: Date },
     note: { type: String, default: "Planning" },
     priority: { type: String },
+    scale: { type: String },
     type: { type: String, default: "Minor" },
     position: { type: Number, default: 0 },
     groups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Group" }],
@@ -41,6 +42,16 @@ const taskSchema = new mongoose.Schema(
       },
     ],
     meeting_link: { type: String },
+    fibonacci_score: { 
+      type: Number, 
+      default: 0,
+      index: true 
+    },
+    // priority_level: { 
+    //   type: String, 
+    //   enum: ["Low", "Medium", "High", "Urgent"],
+    //   default: "Low" 
+    // },
   },
   { timestamps: true },
 );

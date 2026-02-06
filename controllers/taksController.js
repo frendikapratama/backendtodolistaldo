@@ -1,6 +1,7 @@
 import Task from "../models/Task.js";
 import Group from "../models/Group.js";
 import Subtask from "../models/Subtask.js";
+import Project from "../models/Project.js";
 import User from "../models/User.js";
 import { getWorkspaceFromTask } from "../utils/workspaceUtils.js";
 import {
@@ -14,6 +15,7 @@ import { handleError } from "../utils/errorHandler.js";
 import Workspace from "../models/Workspace.js";
 import { createActivity } from "../helpers/activityhelper.js";
 import { filterTasksByRole } from "../utils/roleTaskUtils.js";
+import { calculateFibonacciScore, getPriorityLevelFromScore } from "../helpers/fibonacciPriority.js";
 
 import {
   createTaskStatusNotification,
@@ -70,19 +72,19 @@ export async function getTasksByProjectSimple(req, res) {
           .populate("workspace", "nama")
           .populate("project", "nama")
           .sort({ position: 1 });
-        if (!req.user.isSystemAdmin && project && project.workspace) {
-          const workspace = project.workspace;
-          const userId = req.user._id;
-          const isOwner = workspace.owner.toString() === userId.toString();
-          if (!isOwner) {
-            const member = workspace.members.find(
-              (m) => m.user.toString() === userId.toString()
-            );
-            if (member) {
-              tasks = filterTasksByRole(tasks, member.role);
-            }
-          }
-        }
+        // if (!req.user.isSystemAdmin && project && project.workspace) {
+        //   const workspace = project.workspace;
+        //   const userId = req.user._id;
+        //   const isOwner = workspace.owner.toString() === userId.toString();
+        //   if (!isOwner) {
+        //     const member = workspace.members.find(
+        //       (m) => m.user.toString() === userId.toString()
+        //     );
+        //     if (member) {
+        //       tasks = filterTasksByRole(tasks, member.role);
+        //     }
+        //   }
+        // }
         return {
           groupId: group._id,
           groupName: group.nama,
@@ -133,13 +135,24 @@ export async function createTask(req, res) {
       .sort({ position: -1 })
       .limit(1);
     const nextPosition = lastTask ? lastTask.position + 1 : 0;
-    const task = await Task.create({
+
+    let taskData = {
       ...req.body,
       groups: groupId,
       project: relationResult.projectId,
       workspace: relationResult.workspaceId,
       position: nextPosition,
-    });
+    };
+
+    if (taskData.scale && taskData.due_date) {
+      const fibonacciScore = calculateFibonacciScore(taskData.scale, 0, taskData.due_date); 
+      const priorityData = getPriorityLevelFromScore(fibonacciScore);
+      
+      taskData.fibonacci_score = fibonacciScore;
+      taskData.priority = priorityData.level;
+    }
+
+    const task = await Task.create(taskData);
 
     await Group.findByIdAndUpdate(groupId, {
       $push: { task: task._id },
@@ -253,6 +266,21 @@ export async function updateTask(req, res) {
       const refreshedTask = await Task.findById(taskId);
       updateData.pic = refreshedTask.pic;
     }
+
+    if (updateData.scale || updateData.due_date || picEmail) {
+      const scale = updateData.scale || oldTask.scale;
+      const dueDate = updateData.due_date || oldTask.due_date;
+      const picLength = updateData.pic ? updateData.pic.length : (oldTask.pic?.length || 0);
+
+      if (scale && dueDate) {
+        const fibonacciScore = calculateFibonacciScore(scale, picLength, dueDate);
+        updateData.fibonacci_score = fibonacciScore;
+        const priorityData = getPriorityLevelFromScore(fibonacciScore);
+        updateData.priority = priorityData.level;
+        console.log(`Task ${taskId} - Score: ${fibonacciScore}, Priority: ${priorityData.level}`);
+      }
+    }
+
     if (groupId && groupId !== String(oldTask.groups)) {
       await Group.findByIdAndUpdate(oldTask.groups, {
         $pull: { task: oldTask._id },
@@ -640,6 +668,22 @@ async function handlePicAssignment(taskId, picEmail, task, requesterId) {
         await targetUser.save();
       }
 
+      const updatedTask = await Task.findById(taskId).populate("pic");
+      if (updatedTask.scale && updatedTask.due_date) {
+        const fibonacciScore = calculateFibonacciScore(
+          updatedTask.scale,
+          updatedTask.pic.length,
+          updatedTask.due_date
+        );
+        const priorityData = getPriorityLevelFromScore(fibonacciScore);
+        
+        await Task.findByIdAndUpdate(taskId, {
+          fibonacci_score: fibonacciScore,
+          priority: priorityData.level,
+        });
+        console.log(`Task ${taskId} PIC updated - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`);
+      }
+
       try {
         const group = await Group.findById(currentTask.groups);
         const requester = await User.findById(requesterId);
@@ -843,6 +887,21 @@ export async function removePic(req, res) {
 
     task.pic = task.pic.filter((id) => id.toString() !== userId.toString());
     await task.save();
+
+    if (task.scale && task.due_date) {
+      const fibonacciScore = calculateFibonacciScore(
+        task.scale,
+        task.pic.length, 
+        task.due_date
+      );
+      const priorityData = getPriorityLevelFromScore(fibonacciScore);
+      
+      await Task.findByIdAndUpdate(taskId, {
+        fibonacci_score: fibonacciScore,
+        priority: priorityData.level,
+      });
+      console.log(`Task ${taskId} PIC removed - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`);
+    }
 
     await User.findByIdAndUpdate(userId, {
       $pull: { assignedTasks: task._id },

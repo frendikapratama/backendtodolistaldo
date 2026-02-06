@@ -2,7 +2,7 @@
 const ROLE_RESTRICTIONS = {
     management: {
         viewTypes: ["Minor", "Major"],  
-        editTypes: ["Major"],            
+        editTypes: ["Major", "Minor"],            
         description: "Can view all types but only edit Major type",
     },
     member: {
@@ -58,7 +58,6 @@ export function filterTasksByRole(tasks, userRole) {
     if (allowedTypes.includes("Minor") && allowedTypes.includes("Major")) {
         return tasks; 
     }
-    
     return tasks.filter((task) => allowedTypes.includes(task.type || "Minor"));
 }
 
