@@ -105,15 +105,15 @@ function calculateFibonacciScore(userScale, piclength, dueDate) {
  * @returns {Object} { level }
  */
 function getPriorityLevelFromScore(score) {
-    if (score >= 50) {
+    if (score >= 43) {
         return {
             level: "Urgent"
         };
-    } else if (score >= 30 && score <= 49) {
+    } else if (score >= 25 && score <= 42) {
         return {
             level: "High"
         };
-    } else if (score >= 15 && score <= 29) {
+    } else if (score >= 12 && score <= 24) {
         return {
             level: "Medium"
         };
