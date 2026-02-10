@@ -12,7 +12,9 @@ import {
   verifyPicInvite,
   getTasksByProjectSimple,
   getMyTasks,
+  getMajorTasksByProject,
   getMyTasksWithMeetings,
+  getProjectsWithMajorTask,
 } from "../controllers/taksController.js";
 import {
   authenticate,
@@ -29,20 +31,35 @@ router.get("/ByGroup", authenticate, getTasksByGroup);
 router.post(
   "/:groupId",
   authenticate,
-  checkWorkspaceRoleFromGroup(["admin", "project_manager", "member", "management"]),
+  checkWorkspaceRoleFromGroup([
+    "admin",
+    "project_manager",
+    "member",
+    "management",
+  ]),
   createTask,
 );
 router.put(
   "/positions/:groupId",
   authenticate,
-  checkWorkspaceRoleFromGroup(["admin", "project_manager", "member", "management"]),
+  checkWorkspaceRoleFromGroup([
+    "admin",
+    "project_manager",
+    "member",
+    "management",
+  ]),
   updateTaskPositions,
 );
 router.put(
   "/:taskId",
   authenticate,
   checkTaskTypeAccess(),
-  checkWorkspaceRoleFromTask(["admin", "project_manager", "member", "management"]),
+  checkWorkspaceRoleFromTask([
+    "admin",
+    "project_manager",
+    "member",
+    "management",
+  ]),
   updateTask,
 );
 router.delete(
@@ -69,6 +86,9 @@ router.delete(
 router.post("/:taskId/accept-pic-invite", acceptPicInvite);
 router.get("/:taskId/verify-invite", verifyPicInvite);
 router.get("/:projectId", getTasksByProjectSimple);
+router.get("/major/:projectId/tasks", getMajorTasksByProject);
+router.get("/major/projects", getProjectsWithMajorTask);
+
 // Attachment routes
 // router.post(
 //   "/:taskId/attachments",
