@@ -15,7 +15,10 @@ import { handleError } from "../utils/errorHandler.js";
 import Workspace from "../models/Workspace.js";
 import { createActivity } from "../helpers/activityhelper.js";
 import { filterTasksByRole } from "../utils/roleTaskUtils.js";
-import { calculateFibonacciScore, getPriorityLevelFromScore } from "../helpers/fibonacciPriority.js";
+import {
+  calculateFibonacciScore,
+  getPriorityLevelFromScore,
+} from "../helpers/fibonacciPriority.js";
 
 import {
   createTaskStatusNotification,
@@ -145,9 +148,13 @@ export async function createTask(req, res) {
     };
 
     if (taskData.scale && taskData.due_date) {
-      const fibonacciScore = calculateFibonacciScore(taskData.scale, 0, taskData.due_date); 
+      const fibonacciScore = calculateFibonacciScore(
+        taskData.scale,
+        0,
+        taskData.due_date,
+      );
       const priorityData = getPriorityLevelFromScore(fibonacciScore);
-      
+
       taskData.fibonacci_score = fibonacciScore;
       taskData.priority = priorityData.level;
     }
@@ -270,14 +277,22 @@ export async function updateTask(req, res) {
     if (updateData.scale || updateData.due_date || picEmail) {
       const scale = updateData.scale || oldTask.scale;
       const dueDate = updateData.due_date || oldTask.due_date;
-      const picLength = updateData.pic ? updateData.pic.length : (oldTask.pic?.length || 0);
+      const picLength = updateData.pic
+        ? updateData.pic.length
+        : oldTask.pic?.length || 0;
 
       if (scale && dueDate) {
-        const fibonacciScore = calculateFibonacciScore(scale, picLength, dueDate);
+        const fibonacciScore = calculateFibonacciScore(
+          scale,
+          picLength,
+          dueDate,
+        );
         updateData.fibonacci_score = fibonacciScore;
         const priorityData = getPriorityLevelFromScore(fibonacciScore);
         updateData.priority = priorityData.level;
-        console.log(`Task ${taskId} - Score: ${fibonacciScore}, Priority: ${priorityData.level}`);
+        console.log(
+          `Task ${taskId} - Score: ${fibonacciScore}, Priority: ${priorityData.level}`,
+        );
       }
     }
 
@@ -588,7 +603,7 @@ export const getTasksByGroup = async (req, res) => {
           workspace.owner.toString() === userId.toString();
         if (!isAdmin) {
           const member = workspace.members.find(
-            (m) => m.user.toString() === userId.toString()
+            (m) => m.user.toString() === userId.toString(),
           );
           if (member) {
             filteredTasks = filterTasksByRole(tasks, member.role);
@@ -673,15 +688,17 @@ async function handlePicAssignment(taskId, picEmail, task, requesterId) {
         const fibonacciScore = calculateFibonacciScore(
           updatedTask.scale,
           updatedTask.pic.length,
-          updatedTask.due_date
+          updatedTask.due_date,
         );
         const priorityData = getPriorityLevelFromScore(fibonacciScore);
-        
+
         await Task.findByIdAndUpdate(taskId, {
           fibonacci_score: fibonacciScore,
           priority: priorityData.level,
         });
-        console.log(`Task ${taskId} PIC updated - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`);
+        console.log(
+          `Task ${taskId} PIC updated - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`,
+        );
       }
 
       try {
@@ -891,16 +908,18 @@ export async function removePic(req, res) {
     if (task.scale && task.due_date) {
       const fibonacciScore = calculateFibonacciScore(
         task.scale,
-        task.pic.length, 
-        task.due_date
+        task.pic.length,
+        task.due_date,
       );
       const priorityData = getPriorityLevelFromScore(fibonacciScore);
-      
+
       await Task.findByIdAndUpdate(taskId, {
         fibonacci_score: fibonacciScore,
         priority: priorityData.level,
       });
-      console.log(`Task ${taskId} PIC removed - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`);
+      console.log(
+        `Task ${taskId} PIC removed - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`,
+      );
     }
 
     await User.findByIdAndUpdate(userId, {
@@ -1057,17 +1076,20 @@ export async function getMyTasks(req, res) {
         filteredTasks = tasks.filter((task) => {
           if (!task.workspace) return true;
           const userMembership = workspacesOfUser.find(
-            (ws) => ws._id.toString() === task.workspace._id.toString()
+            (ws) => ws._id.toString() === task.workspace._id.toString(),
           );
           if (!userMembership) return true;
           const member = userMembership.members.find(
-            (m) => m.user.toString() === userId.toString()
+            (m) => m.user.toString() === userId.toString(),
           );
           if (!member) return true;
-          return canAccessTaskType(member.role, task.type || "Minor", 'view');
+          return canAccessTaskType(member.role, task.type || "Minor", "view");
         });
       } catch (filterError) {
-        console.warn("Warning: Failed to apply role filtering in getMyTasks", filterError);
+        console.warn(
+          "Warning: Failed to apply role filtering in getMyTasks",
+          filterError,
+        );
       }
     }
     const tasksWithDueDate = filteredTasks
@@ -1184,32 +1206,35 @@ export async function getMyTasksWithMeetings(req, res) {
         filteredTasks = tasksWithMeetings.filter((task) => {
           if (!task.workspace) return true;
           const userMembership = workspacesOfUser.find(
-            (ws) => ws._id.toString() === task.workspace._id.toString()
+            (ws) => ws._id.toString() === task.workspace._id.toString(),
           );
           if (!userMembership) return true;
           const member = userMembership.members.find(
-            (m) => m.user.toString() === userId.toString()
+            (m) => m.user.toString() === userId.toString(),
           );
           if (!member) return true;
-          return canAccessTaskType(member.role, task.type || "Minor", 'view');
+          return canAccessTaskType(member.role, task.type || "Minor", "view");
         });
         filteredSubtasks = allSubtasksWithMeetings.filter((subtask) => {
           if (!subtask.task || !subtask.task.workspace) return true;
           const userMembership = workspacesOfUser.find(
-            (ws) =>
-              ws._id.toString() === subtask.task.workspace._id.toString()
+            (ws) => ws._id.toString() === subtask.task.workspace._id.toString(),
           );
           if (!userMembership) return true;
           const member = userMembership.members.find(
-            (m) => m.user.toString() === userId.toString()
+            (m) => m.user.toString() === userId.toString(),
           );
           if (!member) return true;
-          return canAccessTaskType(member.role, subtask.task.type || "Minor", 'view');
+          return canAccessTaskType(
+            member.role,
+            subtask.task.type || "Minor",
+            "view",
+          );
         });
       } catch (filterError) {
         console.warn(
           "Warning: Failed to apply role filtering in getMyTasksWithMeetings",
-          filterError
+          filterError,
         );
       }
     }
@@ -1288,6 +1313,137 @@ export async function getMyTasksWithMeetings(req, res) {
       message:
         "Berhasil mengambil data tasks dan subtasks dengan meeting milik user",
       data: allItems,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function getMajorTasksByProject(req, res) {
+  try {
+    const { projectId } = req.params;
+    const { search, status, priority, note, picEmail, startDate, endDate } =
+      req.query;
+
+    if (!projectId) {
+      return res.status(400).json({
+        success: false,
+        message: "Project ID wajib disertakan",
+      });
+    }
+
+    let query = {
+      project: projectId,
+      type: "Major",
+    };
+
+    if (search && search.trim() !== "") {
+      query.nama = { $regex: search.trim(), $options: "i" };
+    }
+
+    if (status && status !== "all") {
+      query.status = status;
+    }
+
+    if (priority && priority !== "all") {
+      query.priority = priority;
+    }
+
+    if (note && note !== "all") {
+      query.note = note;
+    }
+
+    if (startDate && endDate) {
+      query.start_date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    if (picEmail && picEmail.trim() !== "") {
+      const User = require("../models/User");
+      const matchingUser = await User.findOne({
+        email: { $regex: picEmail.trim(), $options: "i" },
+      }).select("_id");
+
+      if (!matchingUser) {
+        return res.status(200).json({
+          success: true,
+          message: "berhasil mengambil data",
+          data: [],
+          count: 0,
+        });
+      }
+
+      query.pic = matchingUser._id;
+    }
+
+    const tasks = await Task.find(query)
+      .populate({
+        path: "subtask",
+        options: { sort: { position: 1 } },
+      })
+      .populate("pic", "username email photo")
+      .populate("workspace", "nama")
+      .populate("project", "nama")
+      .populate("groups", "nama")
+      .sort({ position: 1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Berhasil mengambil task major berdasarkan project",
+      data: tasks,
+      count: tasks.length,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function getProjectsWithMajorTask(req, res) {
+  try {
+    const result = await Task.aggregate([
+      {
+        $match: { type: "Major" },
+      },
+      {
+        $group: {
+          _id: "$project",
+        },
+      },
+      {
+        $lookup: {
+          from: "projects",
+          localField: "_id",
+          foreignField: "_id",
+          as: "project",
+        },
+      },
+      { $unwind: "$project" },
+
+      {
+        $lookup: {
+          from: "workspaces",
+          localField: "project.workspace",
+          foreignField: "_id",
+          as: "workspace",
+        },
+      },
+      { $unwind: "$workspace" },
+
+      {
+        $project: {
+          _id: "$project._id",
+          nama: "$project.nama",
+          workspaceNama: "$workspace.nama",
+        },
+      },
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      count: result.length,
+      data: result,
     });
   } catch (error) {
     return handleError(res, error);
