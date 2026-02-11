@@ -1,4 +1,4 @@
-name: Build & Push Backend
+name: Build & Push Backend Planify
 
 on:
   push:
