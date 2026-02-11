@@ -26,5 +26,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/cell2116/planify-backend:${{ github.sha }}
-            ghcr.io/cell2116/planify-backend:stable
+            ghcr.io/frendikapratama/backendtodolistaldo:${{ github.sha }}
+            ghcr.io/frendikapratama/backendtodolistaldo:stable
