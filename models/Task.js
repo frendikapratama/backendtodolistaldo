@@ -11,6 +11,7 @@ const taskSchema = new mongoose.Schema(
     due_date: { type: Date },
     finish_date: { type: Date },
     note: { type: String, default: "Planning" },
+    reason: { type: String },
     priority: { type: String },
     scale: { type: String },
     type: { type: String, default: "Minor" },

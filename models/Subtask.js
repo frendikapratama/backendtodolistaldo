@@ -12,6 +12,7 @@ const subtaskSchema = new mongoose.Schema(
     finish_date: { type: Date },
     note: { type: String, default: "Planning" },
     priority: { type: String },
+    reason: { type: String },
     scale: { type: String },
     type: { type: String, default: "Minor" },
     fibonacci_score: { 
