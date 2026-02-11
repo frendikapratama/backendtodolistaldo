@@ -2,7 +2,7 @@ name: Build & Push Backend
 
 on:
   push:
-    branches: [main]
+    branches: [staging]
 
 permissions:
   contents: read
