@@ -5,10 +5,12 @@ import User from "../models/User.js";
 
 // Store active connections
 const userSockets = new Map();
-const socketUsers = new Map();
+// const socketUsers = new Map();
 const workspaceRooms = new Map();
+// const onlineUsers = new Map();
 
 const workspaceActiveUsers = new Map();
+const lastActivityMap = new Map(); 
 
 const authenticateSocket = async (socket, next) => {
   try {
@@ -83,14 +85,18 @@ export const initializeSocket = (io) => {
   io.on("connection", (socket) => {
     const userId = socket.userId;
     console.log(`User connected: ${userId} (${socket.id})`);
+    lastActivityMap.set(userId, Date.now())
 
     if (!userSockets.has(userId)) {
       userSockets.set(userId, new Set());
     }
     userSockets.get(userId).add(socket.id);
-    socketUsers.set(socket.id, userId);
-
+    io.emit("onlineUsers", Array.from(userSockets.keys()));
     socket.join(`user:${userId}`);
+
+    socket.on("heartbeat", () => {
+      lastActivityMap.set(userId, Date.now())
+    })
 
     // yang sebelum nya
     // socket.on("join:workspace", async (workspaceId) => {
@@ -581,22 +587,24 @@ export const initializeSocket = (io) => {
     // });
 
     // yang baru
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async() => {
       console.log(`User disconnected: ${userId} (${socket.id})`);
-
-      if (userSockets.has(userId)) {
-        userSockets.get(userId).delete(socket.id);
-        if (userSockets.get(userId).size === 0) {
-          userSockets.delete(userId);
-        }
+      const sockets = userSockets.get(userId);
+      if (!sockets) return;
+      sockets.delete(socket.id);
+      if (sockets.size === 0) {
+        userSockets.delete(userId);
+        lastActivityMap.delete(userId);
+        await User.findByIdAndUpdate(userId, {
+          lastSeen: new Date()
+        });
+        io.emit("onlineUsers", Array.from(userSockets.keys()));
       }
-      socketUsers.delete(socket.id);
+      // socketUsers.delete(socket.id);
 
       workspaceRooms.forEach((sockets, workspaceId) => {
         if (sockets.has(socket.id)) {
           sockets.delete(socket.id);
-
-          //  Remove dari active users saat disconnect
           if (workspaceActiveUsers.has(workspaceId)) {
             workspaceActiveUsers.get(workspaceId).delete(userId);
 
@@ -629,13 +637,10 @@ export const initializeSocket = (io) => {
       console.log(`User ${socket.userId} left task room: ${taskId}`);
     });
   });
-
-  return io;
-};
-
+}
 // Utility function untuk emit notification ke user tertentu
 export const emitNotificationToUser = (io, userId, notification) => {
   io.to(`user:${userId}`).emit("notification:new", notification);
 };
 
-export { userSockets, socketUsers, workspaceRooms };
+export { userSockets, workspaceRooms };

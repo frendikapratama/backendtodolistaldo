@@ -51,7 +51,6 @@ router.get("/me", authenticate, async (req, res) => {
       path: "workspaces.workspace",
       select: "nama photo",
     });
-``
     res.json({ user });
   } catch (error) {
     res.status(500).json({
@@ -69,6 +68,7 @@ router.get("/me", authenticate, async (req, res) => {
 
   //  res.json({ user });
 });
+// router.get("/me", authenticate, getProfile);
 router.put("/me", authenticate, upload.single("photo"), updateProfile);
 
 router.post("/", createUser);

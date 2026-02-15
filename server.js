@@ -32,6 +32,8 @@ import {
   startTaskOverdueNotificationJob,
 } from "./jobs/taskDueNotification.js";
 import bookmarkRoutes from "./routes/bookmarkRoutes.js";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken"
 
 dotenv.config({ debug: true, override: true });
 
@@ -76,6 +78,7 @@ app.use(
 app.use(morgan("combined"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Make io accessible to routes
@@ -123,6 +126,20 @@ app.use((error, req, res, next) => {
     message: "Something went wrong!",
     error: process.env.NODE_ENV === "development" ? error.message : undefined,
   });
+});
+
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error("Unauthorized"));
+
+  try {
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+    socket.user = decoded;
+    next();
+  } catch {
+    next(new Error("Unauthorized"));
+  }
 });
 
 // Initialize Socket.IO handlers

@@ -7,8 +7,10 @@ RUN npm ci --omit=dev
 
 COPY . .
 
-# Create non-root user
+RUN mkdir -p /app/uploads
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN chown -R appuser:appgroup /app
+
 USER appuser
 
 EXPOSE 5000

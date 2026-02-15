@@ -53,7 +53,7 @@ const userSchema = new mongoose.Schema(
         workspace: { type: mongoose.Schema.Types.ObjectId, ref: "Workspace" },
         role: {
           type: String,
-          enum: ["admin", "project_manager", "member", "viewer"],
+          enum: ["admin", "project_manager", "member", "viewer", "management"],
           default: "member",
         },
       },
@@ -62,6 +62,10 @@ const userSchema = new mongoose.Schema(
     assignedSubtasks: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Subtask" },
     ],
+    lastLogin: {
+      type: Date
+    },
+    lastSeen: Date,
   },
   { timestamps: true }
 );

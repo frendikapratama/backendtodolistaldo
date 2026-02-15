@@ -15,33 +15,88 @@ const JWT_SECRET =
   process.env.TOKEN_SECRET ||
   "48db792b7ced19872b7109589afb94bb084acf4b5ef0879ccc5855395cb44a5e";
 
+// export async function authenticate(req, res, next) {
+//   try {
+//     const authHeader = req.headers.authorization;
+//     if (!authHeader || !authHeader.startsWith("Bearer")) {
+//       return res.status(401).json({ message: "Youd don't have access" });
+//     }
+
+//     const token = authHeader.split(" ")[1];
+
+//     const decoded = jwt.verify(token, JWT_SECRET);
+
+//     const user = await User.findById(decoded.id).select("-password");
+//     if (!user) {
+//       return res.status(401).json({ message: "user not found" });
+//     }
+
+//     req.user = user;
+//     next();
+//   } catch (error) {
+//     console.error("Authentication error:", error.message);
+//     res.status(401).json({
+//       message: "Autentikasi gagal",
+//       error: error.message,
+//     });
+//   }
+// }
+
+
 export async function authenticate(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
+
     if (!authHeader || !authHeader.startsWith("Bearer")) {
-      return res.status(401).json({ message: "Youd don't have access" });
+      return res.status(401).json({
+        message: "No authorization token provided"
+      });
     }
-
     const token = authHeader.split(" ")[1];
-
-    const decoded = jwt.verify(token, JWT_SECRET);
-
+    if (!token || token === "undefined" || token === "null") {
+      return res.status(401).json({
+        message: "Invalid token format"
+      });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (jwtError) {
+      console.error("JWT verification error:", jwtError.message);
+      if (jwtError.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          message: "Token expired",
+          expired: true
+        });
+      }
+      if (jwtError.name === 'JsonWebTokenError') {
+        return res.status(401).json({
+          message: "Invalid token",
+          error: jwtError.message
+        });
+      }
+      return res.status(401).json({
+        message: "Token verification failed",
+        error: jwtError.message
+      });
+    }
     const user = await User.findById(decoded.id).select("-password");
     if (!user) {
-      return res.status(401).json({ message: "user not found" });
+      return res.status(401).json({
+        message: "User not found"
+      });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    console.error("Authentication error:", error.message);
-    res.status(401).json({
-      message: "Autentikasi gagal",
+    console.error("Authentication error:", error);
+    res.status(500).json({
+      message: "Authentication failed",
       error: error.message,
     });
   }
 }
-
 export function requireSystemAdmin(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ message: "you don't have access" });
