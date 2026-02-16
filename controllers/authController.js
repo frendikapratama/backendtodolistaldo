@@ -49,8 +49,10 @@ export async function login(req, res) {
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-      expires: expiresAt
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      // sameSite: "strict",
+      expires: expiresAt,
+      path: '/'
     })
     res.json({ message: "Login Successfully", accessToken: token });
     }catch (error) {
