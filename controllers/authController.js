@@ -49,7 +49,7 @@ export async function login(req, res) {
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "none",
       expires: expiresAt
     })
     res.json({ message: "Login Successfully", accessToken: token });
