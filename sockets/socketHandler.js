@@ -84,23 +84,14 @@ export const initializeSocket = (io) => {
 
   io.on("connection", (socket) => {
     const userId = socket.userId;
-    console.log("=== NEW CONNECTION ===");
-    console.log("Socket ID:", socket.id);
-    console.log("User ID:", socket.user?.userId);
-    console.log(`User connected: ${userId} (${socket.id})`);
     lastActivityMap.set(userId, Date.now())
-    console.log("ONLINE USERS AFTER CONNECT:");
-    console.log(Array.from(userSockets.entries()));
-
-
     if (!userSockets.has(userId)) {
       userSockets.set(userId, new Set());
     }
     userSockets.get(userId).add(socket.id);
-    console.log("EMITTING ONLINE USERS:", Array.from(userSockets.keys()));
     io.emit("onlineUsers", Array.from(userSockets.keys()));
+    // socket.emit("onlineUsers", Array.from(userSockets.keys()));
     socket.join(`user:${userId}`);
-
     socket.on("heartbeat", () => {
       lastActivityMap.set(userId, Date.now())
     })
