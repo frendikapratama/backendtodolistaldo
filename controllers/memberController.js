@@ -7,10 +7,10 @@ export async function getMemberWorkspace(req, res) {
     const { workspaceId } = req.params;
 
     const workspace = await Workspace.findById(workspaceId)
-      .populate("owner", "username email role photo")
+      .populate("owner", "username email role photo lastLogin lastSeen")
       .populate(
         "members.user",
-        "username email departemen divisi posisi photo"
+        "username email departemen divisi posisi photo lastLogin lastSeen",
       );
 
     if (!workspace) {
