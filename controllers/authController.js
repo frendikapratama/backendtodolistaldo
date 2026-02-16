@@ -29,7 +29,7 @@ export async function login(req, res) {
       { id: user._id, role: user.role },
       TOKEN_SECRET,
       {
-        expiresIn:"15m"
+        expiresIn:"3h"
       }
     );
     const refreshToken = crypto.randomBytes(64).toString("hex")
@@ -49,8 +49,10 @@ export async function login(req, res) {
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      expires: expiresAt
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      // sameSite: "strict",
+      expires: expiresAt,
+      path: '/'
     })
     res.json({ message: "Login Successfully", accessToken: token });
     }catch (error) {

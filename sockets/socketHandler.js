@@ -84,16 +84,14 @@ export const initializeSocket = (io) => {
 
   io.on("connection", (socket) => {
     const userId = socket.userId;
-    console.log(`User connected: ${userId} (${socket.id})`);
     lastActivityMap.set(userId, Date.now())
-
     if (!userSockets.has(userId)) {
       userSockets.set(userId, new Set());
     }
     userSockets.get(userId).add(socket.id);
     io.emit("onlineUsers", Array.from(userSockets.keys()));
+    // socket.emit("onlineUsers", Array.from(userSockets.keys()));
     socket.join(`user:${userId}`);
-
     socket.on("heartbeat", () => {
       lastActivityMap.set(userId, Date.now())
     })
@@ -589,6 +587,11 @@ export const initializeSocket = (io) => {
     // yang baru
     socket.on("disconnect", async() => {
       console.log(`User disconnected: ${userId} (${socket.id})`);
+      console.log("=== DISCONNECT ===");
+      console.log("Socket ID:", socket.id);
+      console.log("User ID:", userId);
+      console.log("Reason:", socket.disconnected);
+
       const sockets = userSockets.get(userId);
       if (!sockets) return;
       sockets.delete(socket.id);
@@ -601,6 +604,8 @@ export const initializeSocket = (io) => {
         io.emit("onlineUsers", Array.from(userSockets.keys()));
       }
       // socketUsers.delete(socket.id);
+      console.log("ONLINE USERS AFTER DISCONNECT:");
+      console.log(Array.from(userSockets.entries()));
 
       workspaceRooms.forEach((sockets, workspaceId) => {
         if (sockets.has(socket.id)) {
