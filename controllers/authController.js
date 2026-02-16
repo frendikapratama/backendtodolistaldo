@@ -29,7 +29,7 @@ export async function login(req, res) {
       { id: user._id, role: user.role },
       TOKEN_SECRET,
       {
-        expiresIn:"15m"
+        expiresIn:"3h"
       }
     );
     const refreshToken = crypto.randomBytes(64).toString("hex")
