@@ -586,11 +586,11 @@ export const initializeSocket = (io) => {
 
     // yang baru
     socket.on("disconnect", async() => {
-      console.log(`User disconnected: ${userId} (${socket.id})`);
-      console.log("=== DISCONNECT ===");
-      console.log("Socket ID:", socket.id);
-      console.log("User ID:", userId);
-      console.log("Reason:", socket.disconnected);
+      // console.log(`User disconnected: ${userId} (${socket.id})`);
+      // console.log("=== DISCONNECT ===");
+      // console.log("Socket ID:", socket.id);
+      // console.log("User ID:", userId);
+      // console.log("Reason:", socket.disconnected);
 
       const sockets = userSockets.get(userId);
       if (!sockets) return;
@@ -598,10 +598,13 @@ export const initializeSocket = (io) => {
       if (sockets.size === 0) {
         userSockets.delete(userId);
         lastActivityMap.delete(userId);
-        await User.findByIdAndUpdate(userId, {
-          lastSeen: new Date()
-        });
+        const now = new Date();
+        await User.findByIdAndUpdate(userId, { lastSeen: now });
+        // await User.findByIdAndUpdate(userId, {
+        //   lastSeen: new Date()
+        // });
         io.emit("onlineUsers", Array.from(userSockets.keys()));
+        io.emit("user:offline", { userId, lastSeen: now });
       }
       // socketUsers.delete(socket.id);
       console.log("ONLINE USERS AFTER DISCONNECT:");
