@@ -10,7 +10,7 @@ export async function getMemberWorkspace(req, res) {
       .populate("owner", "username email role photo lastSeen lastLogin")
       .populate(
         "members.user",
-        "username email departemen divisi posisi photo lastSeen lastLogin"
+        "username email departemen divisi posisi photo lastSeen lastLogin",
       );
 
     if (!workspace) {

@@ -4,13 +4,13 @@ export async function findOrCreateUser(email, userData = {}) {
   let user = await User.findOne({ email });
 
   if (!user) {
-    const { username, password, noHp, posisi, departemen, divisi } = userData;
+    const { username, password, noHp, departemen, divisi } = userData;
 
-    if (!username || !password || !noHp || !posisi) {
+    if (!username || !password || !noHp) {
       return {
         success: false,
         message:
-          "Data registrasi tidak lengkap (username, password, noHp, posisi wajib diisi)",
+          "Data registrasi tidak lengkap (username, password, noHp, departemen, divisi wajib diisi)",
       };
     }
 
@@ -19,7 +19,7 @@ export async function findOrCreateUser(email, userData = {}) {
       email,
       password,
       noHp,
-      posisi,
+
       departemen,
       divisi,
     });

@@ -38,6 +38,7 @@ const userSchema = new mongoose.Schema(
     divisi: { type: String },
     posisi: {
       type: String,
+      default: "User",
       required: [true, "posisi wajib diisi"],
       maxlength: [50, "maksimal 50 karakter"],
     },
@@ -63,11 +64,11 @@ const userSchema = new mongoose.Schema(
       { type: mongoose.Schema.Types.ObjectId, ref: "Subtask" },
     ],
     lastLogin: {
-      type: Date
+      type: Date,
     },
     lastSeen: Date,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 userSchema.pre("save", async function (next) {
