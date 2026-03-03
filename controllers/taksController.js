@@ -187,6 +187,14 @@ export async function createTask(req, res) {
     const populatedTask = await Task.findById(task._id)
       .populate("workspace", "nama")
       .populate("project", "nama");
+      const io = req.app.get("io");
+      if (io) {
+        io.to(`workspace:${populatedTask.workspace._id}`).emit("task:created", {
+          task: populatedTask,
+          groupId,
+          createdBy: req.user._id,
+        });
+      }
 
     res.status(201).json({
       success: true,
@@ -333,6 +341,21 @@ export async function updateTask(req, res) {
       .populate("pic", "username email")
       .populate("workspace", "nama")
       .populate("project", "nama");
+    
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`task:${taskId}`).emit("task:updated", {
+        taskId: updatedTask._id,
+        task: updatedTask,
+        updatedBy: req.user._id,
+        updatedFields: Object.keys(updateData),
+      });
+    
+      io.to(`workspace:${updatedTask.workspace._id}`).emit("task:updated", {
+        taskId: updatedTask._id,
+        task: updatedTask,
+      });
+    }
     const before = {};
     const after = {};
     for (const key in updateData) {
@@ -503,7 +526,14 @@ export async function deleteTask(req, res) {
       },
       after: {},
     });
-
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`workspace:${task.workspace}`).emit("task:deleted", {
+        taskId,
+        groupId: task.groups,
+        deletedBy: req.user._id,
+      });
+    }
     res.status(200).json({
       success: true,
       message: "Task deleted successfully",
