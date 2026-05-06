@@ -5,6 +5,61 @@ import fs from "fs";
 import path from "path";
 import { handleError } from "../utils/errorHandler.js";
 
+// export async function getUsers(req, res) {
+//   try {
+//     const {
+//       page = 1,
+//       limit = 10,
+//       search,
+//       isSystemAdmin,
+//       departemen,
+//       divisi,
+//     } = req.query;
+
+//     const skip = (parseInt(page) - 1) * parseInt(limit);
+
+//     const filter = {};
+
+//     // Filter system admin
+//     if (isSystemAdmin && isSystemAdmin !== "all") {
+//       filter.isSystemAdmin = isSystemAdmin === "true";
+//     }
+
+//     // Filter departemen & divisi
+//     if (departemen && departemen !== "all") {
+//       filter.departemen = departemen;
+//     }
+//     if (divisi && divisi !== "all") {
+//       filter.divisi = divisi;
+//     }
+
+//     // Search filter
+//     if (search) {
+//       const regex = new RegExp(search, "i");
+//       filter.$or = [{ username: regex }, { email: regex }, { posisi: regex }];
+//     }
+
+//     const users = await User.find(filter)
+//       .select("-__v -password -resetOTP -resetOTPExpire")
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(parseInt(limit));
+
+//     const total = await User.countDocuments(filter);
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Get users success",
+//       data: users,
+//       total,
+//       page: parseInt(page),
+//       totalPages: Math.ceil(total / parseInt(limit)),
+//     });
+//   } catch (error) {
+//     return handleError(res, error);
+//   }
+// }
+
 export async function getUsers(req, res) {
   try {
     const {
@@ -14,38 +69,39 @@ export async function getUsers(req, res) {
       isSystemAdmin,
       departemen,
       divisi,
+      posisi, 
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
-
     const filter = {};
 
-    // Filter system admin
     if (isSystemAdmin && isSystemAdmin !== "all") {
       filter.isSystemAdmin = isSystemAdmin === "true";
     }
+    if (departemen && departemen !== "all") filter.departemen = departemen;
+    if (divisi && divisi !== "all") filter.divisi = divisi;
 
-    // Filter departemen & divisi
-    if (departemen && departemen !== "all") {
-      filter.departemen = departemen;
-    }
-    if (divisi && divisi !== "all") {
-      filter.divisi = divisi;
+    if (posisi && posisi !== "all") {
+      const posisiList = posisi.split(",").map((p) => p.trim());
+      filter.posisi =
+        posisiList.length === 1
+          ? { $regex: new RegExp(posisiList[0], "i") }
+          : { $in: posisiList.map((p) => new RegExp(p, "i")) };
     }
 
-    // Search filter
     if (search) {
       const regex = new RegExp(search, "i");
       filter.$or = [{ username: regex }, { email: regex }, { posisi: regex }];
     }
 
-    const users = await User.find(filter)
-      .select("-__v -password -resetOTP -resetOTPExpire")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await User.countDocuments(filter);
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select("-__v -password -resetOTP -resetOTPExpire")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      User.countDocuments(filter),
+    ]);
 
     res.status(200).json({
       success: true,
