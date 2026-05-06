@@ -65,7 +65,7 @@ export async function getUserById(req, res) {
     const { id } = req.params;
 
     const user = await User.findById(id).select(
-      "-password -resetOTP -resetOTPExpire"
+      "-password -resetOTP -resetOTPExpire",
     );
 
     if (!user) {
@@ -294,7 +294,7 @@ export async function deleteUser(req, res) {
     // Remove user dari semua workspace members
     await Workspace.updateMany(
       { "members.user": id },
-      { $pull: { members: { user: id } } }
+      { $pull: { members: { user: id } } },
     );
 
     // Delete photo jika ada
@@ -429,7 +429,7 @@ export async function changePassword(req, res) {
 export async function getProfile(req, res) {
   try {
     const user = await User.findById(req.user._id).select(
-      "-password -resetOTP -resetOTPExpire"
+      "-password -resetOTP -resetOTPExpire",
     );
 
     if (!user) {
@@ -495,7 +495,7 @@ export async function updateProfile(req, res) {
             process.cwd(),
             "uploads",
             "users",
-            user.photo
+            user.photo,
           );
           if (fs.existsSync(oldPath)) {
             fs.unlinkSync(oldPath);
