@@ -46,7 +46,7 @@ const io = new Server(httpServer, {
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
-      // "https://planify.itvault.cloud",
+      "https://planify.itvault.cloud",
       process.env.CLIENT_URL,
     ].filter(Boolean), // Remove undefined values
     methods: ["GET", "POST"],
@@ -67,7 +67,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
-      // "https://planify.itvault.cloud/api",
+      "https://planify.itvault.cloud/api",
       process.env.CLIENT_URL,
     ].filter(Boolean),
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
