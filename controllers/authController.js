@@ -10,12 +10,18 @@ const TOKEN_SECRET =
 
 export async function login(req, res) {
   try {
-    const { email, password } = req.body;
+    const { identifier, password } = req.body;
 
-    const user = await User.findOne({ email });
+
+const user = await User.findOne({
+  $or: [
+    { email: identifier },
+    { username: identifier },
+  ],
+});
 
     if (!user) return res.status(400).json({
-      message:'Email Not Found'
+        message: "Email or Username Not Found",
     }) 
 
     const valid = await bcrypt.compare(password, user.password);
