@@ -31,6 +31,7 @@ import {
   startTaskDueNotificationJob,
   startTaskOverdueNotificationJob,
 } from "./jobs/taskDueNotification.js";
+import reportRoutes from  "./routes/reportRoutes.js";
 import bookmarkRoutes from "./routes/bookmarkRoutes.js";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken"
@@ -107,6 +108,7 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/agenda", agendaRoutes);
 app.use("/api/bookmark", bookmarkRoutes);
+app.use("/api/reports", reportRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
