@@ -76,7 +76,7 @@ router.put("/me", authenticate, upload.single("photo"), updateProfile);
 
 router.post("/", authenticate, requireSystemAdmin, createUser);
 
-router.get("/", authenticate, requireSystemAdmin, getUsers);
+router.get("/", getUsers);
 router.put("/:id", authenticate, updateUser);
 router.get("/:id", authenticate, getUserById);
 router.delete("/:id", authenticate, deleteUser);
