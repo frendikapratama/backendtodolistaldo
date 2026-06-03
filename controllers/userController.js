@@ -372,6 +372,141 @@ export async function deleteUser(req, res) {
   }
 }
 
+export async function addUserToWorkspace(req, res) {
+  try {
+    const { id } = req.params; // userId
+    const { workspaceId, role } = req.body;
+
+    if (!workspaceId || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Workspace ID and role are required",
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ success: false, message: "Workspace not found" });
+    }
+
+    // Check if already a member in Workspace
+    const isMember = workspace.members.some((m) => m.user.toString() === id);
+    if (isMember) {
+      return res.status(400).json({
+        success: false,
+        message: "User is already a member of this workspace",
+      });
+    }
+
+    // Add to Workspace
+    workspace.members.push({ user: id, role });
+    await workspace.save();
+
+    // Add to User workspaces array
+    user.workspaces.push({ workspace: workspaceId, role });
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "User added to workspace successfully",
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function removeUserFromWorkspace(req, res) {
+  try {
+    const { id, workspaceId } = req.params;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ success: false, message: "Workspace not found" });
+    }
+
+    // Check if owner
+    if (workspace.owner.toString() === id) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot remove owner of workspace. Transfer ownership first.",
+      });
+    }
+
+    // Remove from Workspace
+    workspace.members = workspace.members.filter((m) => m.user.toString() !== id);
+    await workspace.save();
+
+    // Remove from User
+    user.workspaces = user.workspaces.filter(
+      (w) => w.workspace.toString() !== workspaceId
+    );
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "User removed from workspace successfully",
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function updateUserWorkspaceRole(req, res) {
+  try {
+    const { id, workspaceId } = req.params;
+    const { role } = req.body;
+
+    if (!role) {
+      return res.status(400).json({ success: false, message: "Role is required" });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ success: false, message: "Workspace not found" });
+    }
+
+    // Update in Workspace
+    const member = workspace.members.find((m) => m.user.toString() === id);
+    if (!member) {
+      return res.status(400).json({
+        success: false,
+        message: "User is not a member of this workspace",
+      });
+    }
+    member.role = role;
+    await workspace.save();
+
+    // Update in User
+    const userWs = user.workspaces.find((w) => w.workspace.toString() === workspaceId);
+    if (userWs) {
+      userWs.role = role;
+      await user.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Workspace role updated successfully",
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }

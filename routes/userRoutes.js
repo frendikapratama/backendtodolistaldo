@@ -9,8 +9,11 @@ import {
   deleteUser,
   getProfile,
   updateProfile,
+  addUserToWorkspace,
+  removeUserFromWorkspace,
+  updateUserWorkspaceRole,
 } from "../controllers/userController.js";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, requireSystemAdmin } from "../middleware/auth.js";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -71,12 +74,17 @@ router.get("/me", authenticate, async (req, res) => {
 // router.get("/me", authenticate, getProfile);
 router.put("/me", authenticate, upload.single("photo"), updateProfile);
 
-router.post("/", createUser);
+router.post("/", authenticate, requireSystemAdmin, createUser);
 
-router.get("/", getUsers);
+router.get("/", authenticate, requireSystemAdmin, getUsers);
 router.put("/:id", authenticate, updateUser);
 router.get("/:id", authenticate, getUserById);
 router.delete("/:id", authenticate, deleteUser);
+
+// Workspace membership management routes for system admin
+router.post("/:id/workspaces", authenticate, requireSystemAdmin, addUserToWorkspace);
+router.delete("/:id/workspaces/:workspaceId", authenticate, requireSystemAdmin, removeUserFromWorkspace);
+router.put("/:id/workspaces/:workspaceId/role", authenticate, requireSystemAdmin, updateUserWorkspaceRole);
 
 router.post("/forget-password", sendOTP);
 router.post("/change-password", changePassword);
