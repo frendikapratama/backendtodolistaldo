@@ -41,7 +41,6 @@ dotenv.config({ debug: true, override: true });
 const app = express();
 const httpServer = createServer(app);
 
-// Socket.IO configuration
 const io = new Server(httpServer, {
   cors: {
     origin: [
