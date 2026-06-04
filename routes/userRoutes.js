@@ -71,20 +71,18 @@ router.get("/me", authenticate, async (req, res) => {
 
   //  res.json({ user });
 });
-// router.get("/me", authenticate, getProfile);
 router.put("/me", authenticate, upload.single("photo"), updateProfile);
 
-router.post("/", authenticate, requireSystemAdmin, createUser);
+router.post("/", authenticate, createUser);
 
 router.get("/", getUsers);
 router.put("/:id", authenticate, updateUser);
 router.get("/:id", authenticate, getUserById);
 router.delete("/:id", authenticate, deleteUser);
 
-// Workspace membership management routes for system admin
-router.post("/:id/workspaces", authenticate, requireSystemAdmin, addUserToWorkspace);
-router.delete("/:id/workspaces/:workspaceId", authenticate, requireSystemAdmin, removeUserFromWorkspace);
-router.put("/:id/workspaces/:workspaceId/role", authenticate, requireSystemAdmin, updateUserWorkspaceRole);
+router.post("/:id/workspaces", authenticate, addUserToWorkspace);
+router.delete("/:id/workspaces/:workspaceId", authenticate, removeUserFromWorkspace);
+router.put("/:id/workspaces/:workspaceId/role", authenticate, updateUserWorkspaceRole);
 
 router.post("/forget-password", sendOTP);
 router.post("/change-password", changePassword);

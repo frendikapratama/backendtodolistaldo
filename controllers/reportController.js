@@ -165,6 +165,7 @@ export const getTaskReports = async (req, res) => {
           path: "kuarter",
         },
       })
+      .populate("project", "nama")
       .populate("groups", "nama")
       .populate("pic", "nama email username")
       .populate({
@@ -198,6 +199,7 @@ export const getTaskReports = async (req, res) => {
         departemen: task.workspace?.kuarter?.departemen || "-",
         workspace: task.workspace?.nama || "-",
         group: groupName,
+        project: task.project?.nama || "-",
         taskId: task._id,
         taskName: task.nama,
         subtaskId: null,
@@ -227,6 +229,7 @@ export const getTaskReports = async (req, res) => {
           departemen: task.workspace?.kuarter?.departemen || "-",
           workspace: task.workspace?.nama || "-",
           group: groupName,
+          project: task.project?.nama || "-",
           taskId: task._id,
           taskName: task.nama,
           subtaskId: subtask._id,
