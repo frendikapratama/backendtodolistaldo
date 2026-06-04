@@ -73,7 +73,7 @@ router.get("/me", authenticate, async (req, res) => {
 });
 router.put("/me", authenticate, upload.single("photo"), updateProfile);
 
-router.post("/", authenticate, createUser);
+router.post("/", createUser);
 
 router.get("/", getUsers);
 router.put("/:id", authenticate, updateUser);
