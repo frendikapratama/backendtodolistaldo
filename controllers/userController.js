@@ -265,6 +265,16 @@ export async function updateUser(req, res) {
       allowedFields.push("isSystemAdmin");
     }
 
+    if (req.body.password && req.body.password.trim() !== "") {
+      if (req.body.password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: "Password must be at least 6 characters",
+        });
+      }
+      user.password = req.body.password;
+    }
+
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) {
         user[field] = req.body[field];
