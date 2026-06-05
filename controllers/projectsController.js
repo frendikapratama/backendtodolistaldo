@@ -5,6 +5,8 @@ import { handleError } from "../utils/errorHandler.js";
 import Task from "../models/Task.js";
 import Kuarter from "../models/Kuarter.js";
 import User from "../models/User.js";
+import Subtask from "../models/Subtask.js";
+import Comment from "../models/Comment.js";
 
 export async function getProject(req, res) {
   try {
@@ -119,17 +121,29 @@ export async function deleteProject(req, res) {
       });
     }
 
-    await Group.deleteMany({ project: projectId });
+    const groups = await Group.find({ project: projectId });
+    const groupIds = groups.map(g => g._id);
 
+    const tasks = await Task.find({ groups: { $in: groupIds } });
+    const taskIds = tasks.map(t => t._id);
+
+    await Subtask.deleteMany({ task: { $in: taskIds } });
+    
+    await Comment.deleteMany({ task: { $in: taskIds } });
+  
+    await Task.deleteMany({ groups: { $in: groupIds } });
+    
+    await Group.deleteMany({ project: projectId });
+    
     await Workspace.findByIdAndUpdate(projectRef.workspace, {
       $pull: { projects: projectId },
     });
-
+    
     await Project.findByIdAndDelete(projectId);
 
     res.status(200).json({
       success: true,
-      message: "Project dan semua group terkait berhasil dihapus",
+      message: "Project dan semua data terkait (group, task, subtask, comment, attachment) berhasil dihapus",
     });
   } catch (error) {
     return handleError(res, error);
