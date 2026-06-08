@@ -46,7 +46,10 @@ const io = new Server(httpServer, {
     origin: [
       "http://localhost:5173",
       "http://127.0.0.1:5173",
+      "http://localhost:2000",
+      "http://127.0.0.1:2000",
       "https://planify.itvault.cloud",
+      "https://ticketra.itvault.cloud",
       process.env.CLIENT_URL,
     ].filter(Boolean), // Remove undefined values
     methods: ["GET", "POST"],
