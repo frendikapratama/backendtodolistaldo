@@ -4,6 +4,7 @@ import {
   replySubtaskComment,
   getSubtaskComments,
   deleteSubtaskComment,
+  editSubtaskComment
 } from "../controllers/SubtaskCommentController.js";
 import { authenticate } from "../middleware/auth.js";
 
@@ -11,16 +12,10 @@ const router = express.Router();
 
 router.use(authenticate);
 
-// Create comment on subtask
 router.post("/:subtaskId", authenticate, createSubtaskComment);
-
-// Reply to comment on subtask
 router.post("/:subtaskId/reply/:commentId", authenticate, replySubtaskComment);
-
-// Get all comments for subtask
 router.get("/:subtaskId", authenticate, getSubtaskComments);
-
-// Delete comment
 router.delete("/:commentId", authenticate, deleteSubtaskComment);
+router.put("/:commentId", editSubtaskComment);
 
 export default router;

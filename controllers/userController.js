@@ -260,7 +260,6 @@ export async function updateUser(req, res) {
       "posisi",
     ];
 
-    // Hanya system admin yang bisa ubah isSystemAdmin
     if (req.user.isSystemAdmin) {
       allowedFields.push("isSystemAdmin");
     }

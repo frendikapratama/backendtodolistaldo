@@ -4,6 +4,7 @@ import {
   replyComment,
   getComments,
   deleteComment,
+  editComment
 } from "../controllers/CommentController.js";
 import { authenticate } from "../middleware/auth.js";
 
@@ -16,5 +17,7 @@ router.post("/:taskId/reply/:commentId", authenticate, replyComment);
 router.get("/:taskId", authenticate, getComments);
 
 router.delete("/:commentId", authenticate, deleteComment);
+  
+router.put("/:commentId", authenticate, editComment);
 
 export default router;

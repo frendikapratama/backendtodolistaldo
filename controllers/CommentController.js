@@ -53,27 +53,21 @@ export async function createComment(req, res) {
       },
     });
 
-    // Get io instance from app
     const io = req.app.get("io");
 
-    // Cari semua user yang pernah komentar di task ini
     const allCommenters = await Comment.find({ task: taskId })
       .distinct("user")
       .lean();
 
-    // Gabungkan PIC dan commenters, pastikan tidak ada duplikat
     const allPicIds = task.pic.map((pic) => pic._id.toString());
     const allCommenterIds = allCommenters.map((commenter) =>
       commenter.toString(),
     );
 
-    // Gabungkan semua user yang perlu dikirim notifikasi
     const uniqueUserIds = new Set([...allPicIds, ...allCommenterIds]);
 
-    // Hapus user yang membuat comment dari list notifikasi
     uniqueUserIds.delete(userId.toString());
 
-    // Kirim notifikasi ke semua user yang relevan
     if (uniqueUserIds.size > 0) {
       for (const recipientId of uniqueUserIds) {
         await createCommentNotification({
@@ -108,7 +102,6 @@ export async function createComment(req, res) {
     }
 
     if (io) {
-      // Populate comment dengan user info untuk ditampilkan
       const populatedComment = await Comment.findById(comment._id).populate(
         "user",
         "username email",
@@ -181,35 +174,26 @@ export async function replyComment(req, res) {
       },
     });
 
-    // Get io instance from app
     const io = req.app.get("io");
 
-    // Cari semua user yang pernah komentar di task ini (termasuk pemilik parent comment)
     const allCommenters = await Comment.find({ task: taskId })
       .distinct("user")
       .lean();
 
-    // Gabungkan PIC dan commenters
     const allPicIds = task.pic.map((pic) => pic._id.toString());
     const allCommenterIds = allCommenters.map((commenter) =>
       commenter.toString(),
     );
 
-    // Gabungkan semua user yang perlu dikirim notifikasi
     const uniqueUserIds = new Set([...allPicIds, ...allCommenterIds]);
 
-    // Pastikan pemilik parent comment tetap mendapat notifikasi khusus
-    // Hapus user yang membuat reply dari list notifikasi
     uniqueUserIds.delete(userId.toString());
 
-    // Kirim notifikasi ke semua user yang relevan
     if (uniqueUserIds.size > 0) {
       for (const recipientId of uniqueUserIds) {
-        // Tentukan apakah recipient adalah pemilik parent comment
         const isParentCommenter = recipientId === parent.user._id.toString();
 
         if (isParentCommenter) {
-          // Notifikasi khusus untuk pemilik parent comment
           await createReplyCommentNotification({
             recipientId: recipientId,
             senderId: userId,
@@ -241,7 +225,6 @@ export async function replyComment(req, res) {
             });
           }
         } else {
-          // Notifikasi umum untuk user lain
           await createCommentNotification({
             recipientId: recipientId,
             senderId: userId,
@@ -345,7 +328,6 @@ export async function deleteComment(req, res) {
       });
     }
 
-    // Verifikasi bahwa user adalah pembuat comment
     if (comment.user.toString() !== userId.toString()) {
       return res.status(403).json({
         success: false,
@@ -355,18 +337,15 @@ export async function deleteComment(req, res) {
 
     const taskId = comment.task._id;
 
-    // Hapus comment dan semua replies-nya
     await Comment.deleteMany({
       $or: [{ _id: commentId }, { parentComment: commentId }],
     });
 
-    // Hapus semua notification yang terkait dengan comment ini
     await Notification.deleteMany({
       task: taskId,
       type: { $in: ["TASK_COMMENT", "TASK_REPLY_COMMENT"] },
     });
 
-    // Broadcast socket event ke semua user yang terhubung ke task ini
     const io = req.app.get("io");
     if (io) {
       io.to(`task:${taskId}`).emit("comment:deleted", {
@@ -380,6 +359,43 @@ export async function deleteComment(req, res) {
       success: true,
       message: "Comment dan notifikasi berhasil dihapus",
     });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+
+export async function editComment(req, res) {
+  try {
+    const { commentId } = req.params;
+    const { text } = req.body;
+    const userId = req.user._id;
+
+    const comment = await Comment.findById(commentId).populate("task");
+    if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment tidak ditemukan",
+      });
+    }
+
+    if (comment.user.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have permission to edit this comment",
+      });
+    }
+
+    comment.text = text;
+    comment.updatedAt = new Date();
+    await comment.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Comment updated",
+      data: comment,
+    });
+    
   } catch (error) {
     return handleError(res, error);
   }
