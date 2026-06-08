@@ -35,7 +35,7 @@ const user = await User.findOne({
       { id: user._id, role: user.role },
       TOKEN_SECRET,
       {
-        expiresIn:"12s"
+        expiresIn:"12h"
       }
     );
     const refreshToken = crypto.randomBytes(64).toString("hex")
@@ -90,7 +90,7 @@ export async function refresh(req, res) {
     const token = jwt.sign(
       { id: session.user },
       process.env.TOKEN_SECRET,
-      { expiresIn: "12s" }
+      { expiresIn: "12h" }
     );
 
     res.json({ accessToken: token });
