@@ -4,7 +4,7 @@ import {
   sendTaskStatusChangedEmail,
   sendTaskAssignedEmail,
   sendTaskOverdueEmail,
-  sendSubtaskAssignedEmail, // ✅ TAMBAHAN IMPORT
+  sendSubtaskAssignedEmail,
 } from "../utils/emailUtils.js";
 import User from "../models/User.js";
 
@@ -292,7 +292,7 @@ export async function createTaskOverdueNotification({
     if (notifications.length > 0) {
       savedNotifications = await Notification.insertMany(notifications);
       console.log(
-        `✅ Saved ${savedNotifications.length} overdue notifications to database`,
+        `Saved ${savedNotifications.length} overdue notifications to database`,
       );
 
       User.find({ _id: { $in: recipients } })
@@ -516,7 +516,6 @@ export async function createSubtaskAssignmentNotification({
       },
     });
 
-    // ✅ TAMBAHAN: Kirim email tanpa await (fire and forget)
     User.findById(recipientId)
       .select("email")
       .then((user) => {

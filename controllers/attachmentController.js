@@ -69,12 +69,11 @@ export async function addAttachment(req, res) {
     // Create notification dan emit socket untuk semua PIC (kecuali yang upload)
     if (task.pic && task.pic.length > 0) {
       for (const pic of task.pic) {
-        // Ekstrak ID yang benar dari object atau string
         const picUserId = pic._id ? pic._id.toString() : pic.toString();
 
         if (picUserId !== req.user._id.toString()) {
           await createAttachmentNotification({
-            recipientId: picUserId, // Gunakan ID yang sudah diekstrak
+            recipientId: picUserId,
             senderId: req.user._id,
             taskId: task._id,
             taskName: task.nama,
@@ -88,7 +87,6 @@ export async function addAttachment(req, res) {
           // Emit real-time notification via Socket.IO
           if (io) {
             io.to(`user:${picUserId}`).emit("notification:attachment", {
-              // Gunakan picUserId
               type: "TASK_ATTACHMENT_UPLOADED",
               title: "File Uploaded to Task",
               message: `${sender.username} uploaded a file "${req.file.originalname}" to "${task.nama}"`,

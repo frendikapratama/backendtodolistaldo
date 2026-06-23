@@ -2,7 +2,7 @@ name: Build & Push Backend Planify
 
 on:
   push:
-    branches: [memberWorkspace]
+    branches: [mem]
 
 permissions:
   contents: read

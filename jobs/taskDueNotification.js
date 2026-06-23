@@ -162,7 +162,7 @@ export function startTaskOverdueNotificationJob(io) {
             });
 
             console.log(
-              `✅ Sent ${notifications.length} overdue notifications for task "${task.nama}" (${daysOverdue} days overdue)`,
+              ` Sent ${notifications.length} overdue notifications for task "${task.nama}" (${daysOverdue} days overdue)`,
             );
           }
         }

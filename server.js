@@ -31,10 +31,13 @@ import {
   startTaskDueNotificationJob,
   startTaskOverdueNotificationJob,
 } from "./jobs/taskDueNotification.js";
-import reportRoutes from  "./routes/reportRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
 import bookmarkRoutes from "./routes/bookmarkRoutes.js";
 import cookieParser from "cookie-parser";
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
+import facilityRoutes from "./routes/facilityRoutes.js";
+import roomRoutes from "./routes/roomRoutes.js";
+import meetingRoutes from "./routes/meetingRoutes.js";
 
 dotenv.config({ debug: true, override: true });
 
@@ -77,7 +80,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-  })
+  }),
 );
 
 // Middleware
@@ -112,7 +115,9 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/agenda", agendaRoutes);
 app.use("/api/bookmark", bookmarkRoutes);
 app.use("/api/reports", reportRoutes);
-
+app.use("/api/facilities", facilityRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/meeting", meetingRoutes);
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -135,7 +140,6 @@ app.use((error, req, res, next) => {
   });
 });
 
-
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) return next(new Error("Unauthorized"));
@@ -157,7 +161,7 @@ httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(
     `Server running in ${
       process.env.NODE_ENV || "development"
-    } mode on port ${PORT}`
+    } mode on port ${PORT}`,
   );
   console.log(`Socket.IO server is ready for connections`);
 });

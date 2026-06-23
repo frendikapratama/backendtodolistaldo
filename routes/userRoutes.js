@@ -18,7 +18,6 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 
-// Pastikan directory uploads/users ada
 const uploadsDir = path.join(process.cwd(), "uploads", "users");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -62,7 +61,7 @@ router.get("/me", authenticate, async (req, res) => {
     });
   }
   res.json({ user: req.user });
-  
+
   //   const user = req.user.toObject();
   //   delete user.password;
   //   delete user.resetOTP;
@@ -81,8 +80,16 @@ router.get("/:id", authenticate, getUserById);
 router.delete("/:id", authenticate, deleteUser);
 
 router.post("/:id/workspaces", authenticate, addUserToWorkspace);
-router.delete("/:id/workspaces/:workspaceId", authenticate, removeUserFromWorkspace);
-router.put("/:id/workspaces/:workspaceId/role", authenticate, updateUserWorkspaceRole);
+router.delete(
+  "/:id/workspaces/:workspaceId",
+  authenticate,
+  removeUserFromWorkspace,
+);
+router.put(
+  "/:id/workspaces/:workspaceId/role",
+  authenticate,
+  updateUserWorkspaceRole,
+);
 
 router.post("/forget-password", sendOTP);
 router.post("/change-password", changePassword);
