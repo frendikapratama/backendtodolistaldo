@@ -12,64 +12,70 @@ export const checkAvailability = async (req, res) => {
     const { roomId, participantIds, startTime, endTime } = req.body;
 
     // ROOM CONFLICT
-
     const roomConflict = await Meeting.findOne({
       roomId,
-
-      status: {
-        $ne: "cancelled",
-      },
-
-      startTime: {
-        $lt: new Date(endTime),
-      },
-
-      endTime: {
-        $gt: new Date(startTime),
-      },
+      status: { $ne: "cancelled" },
+      startTime: { $lt: new Date(endTime) },
+      endTime: { $gt: new Date(startTime) },
     });
 
-    // PARTICIPANT CONFLICT
-
+    // PARTICIPANT CONFLICT (sebagai participant)
     const participantConflict = await MeetingParticipant.find({
-      userId: {
-        $in: participantIds,
-      },
+      userId: { $in: participantIds },
     })
       .populate({
         path: "meetingId",
-
         match: {
-          status: {
-            $ne: "cancelled",
-          },
-
-          startTime: {
-            $lt: new Date(endTime),
-          },
-
-          endTime: {
-            $gt: new Date(startTime),
-          },
+          status: { $ne: "cancelled" },
+          startTime: { $lt: new Date(endTime) },
+          endTime: { $gt: new Date(startTime) },
         },
-
         select: "title startTime endTime",
       })
       .populate("userId", "nama email");
 
     const conflicts = participantConflict.filter((item) => item.meetingId);
 
+    //  PARTICIPANT CONFLICT (sebagai organizer)
+    const organizerConflicts = await Meeting.find({
+      organizerId: { $in: participantIds },
+      status: { $ne: "cancelled" },
+      startTime: { $lt: new Date(endTime) },
+      endTime: { $gt: new Date(startTime) },
+    })
+      .populate("organizerId", "nama email")
+      .select("title startTime endTime organizerId");
+
+    // Format agar sama strukturnya dengan participantConflicts
+    const organizerConflictFormatted = organizerConflicts.map((meeting) => ({
+      userId: meeting.organizerId,
+      meetingId: {
+        _id: meeting._id,
+        title: meeting.title,
+        startTime: meeting.startTime,
+        endTime: meeting.endTime,
+      },
+      asOrganizer: true, // opsional, untuk info di frontend
+    }));
+
+    // Merge conflicts, hindari duplikat userId
+    const allConflicts = [...conflicts];
+    for (const oc of organizerConflictFormatted) {
+      const alreadyIn = allConflicts.some(
+        (c) =>
+          c.userId?._id?.toString() === oc.userId?._id?.toString() ||
+          c.userId?.toString() === oc.userId?._id?.toString(),
+      );
+      if (!alreadyIn) allConflicts.push(oc);
+    }
+
     return res.json({
       roomAvailable: !roomConflict,
-
       roomConflict,
-
-      participantConflicts: conflicts,
+      participantConflicts: allConflicts,
     });
   } catch (error) {
-    return res.status(500).json({
-      message: error.message,
-    });
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -105,7 +111,7 @@ export const createMeeting = async (req, res) => {
 
     if (roomConflict) {
       return res.status(409).json({
-        message: "Room sudah digunakan",
+        message: "The selected room is already booked for the specified time.",
       });
     }
 
@@ -176,6 +182,18 @@ export const getMeeting = async (req, res) => {
   }
 };
 
+export const getMeetingParticipants = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const participants = await MeetingParticipant.find({
+      meetingId: id,
+    }).populate("userId", "nama username email photo");
+    res.status(200).json({ success: true, data: participants });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const updateMeeting = async (req, res) => {
   try {
     const { id } = req.params;
@@ -186,7 +204,7 @@ export const updateMeeting = async (req, res) => {
 
     if (!meeting) {
       return res.status(404).json({
-        message: "Meeting tidak ditemukan",
+        message: "Meeting not found.",
       });
     }
 
@@ -224,7 +242,7 @@ export const updateMeeting = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Meeting berhasil diupdate",
+      message: "Meeting updated successfully.",
       data: meeting,
     });
   } catch (error) {
@@ -244,7 +262,7 @@ export const rescheduleMeeting = async (req, res) => {
 
     if (!meeting) {
       return res.status(404).json({
-        message: "Meeting tidak ditemukan",
+        message: "Meeting not found.",
       });
     }
 
@@ -264,7 +282,8 @@ export const rescheduleMeeting = async (req, res) => {
 
     if (roomConflict) {
       return res.status(409).json({
-        message: "Room sudah digunakan",
+        message:
+          "The selected room is unavailable during the requested time period.",
       });
     }
 
@@ -320,7 +339,7 @@ export const cancelMeeting = async (req, res) => {
 
     if (!meeting) {
       return res.status(404).json({
-        message: "Meeting tidak ditemukan",
+        message: "Meeting not found.",
       });
     }
 
@@ -346,7 +365,7 @@ export const cancelMeeting = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Meeting berhasil dibatalkan",
+      message: "Meeting has been cancelled successfully.",
     });
   } catch (error) {
     return res.status(500).json({
