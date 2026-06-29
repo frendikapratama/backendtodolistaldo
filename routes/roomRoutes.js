@@ -4,6 +4,7 @@ import {
   getRooms,
   deleteRoom,
   updateRoom,
+  getRoomSchedule,
 } from "../controllers/roomController.js";
 import multer from "multer";
 import fs from "fs";
@@ -41,4 +42,5 @@ router.get("/", getRooms);
 router.post("/", upload.single("photo"), createRoom);
 router.delete("/:id", deleteRoom);
 router.put("/:id", upload.single("photo"), updateRoom);
+router.get("/:id/schedule", getRoomSchedule);
 export default router;

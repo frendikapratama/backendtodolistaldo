@@ -11,7 +11,15 @@ const meetingHistorySchema = new mongoose.Schema(
 
     action: {
       type: String,
-      enum: ["created", "updated", "rescheduled", "cancelled"],
+      enum: [
+        "created",
+        "updated",
+        "rescheduled",
+        "cancelled",
+        "result_added",
+        "result_updated",
+        "result_deleted",
+      ],
       required: true,
     },
 

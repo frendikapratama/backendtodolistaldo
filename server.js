@@ -38,6 +38,7 @@ import jwt from "jsonwebtoken";
 import facilityRoutes from "./routes/facilityRoutes.js";
 import roomRoutes from "./routes/roomRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
+import { updateMeetingStatuses } from "./helpers/meetingStatusUpdater.js";
 
 dotenv.config({ debug: true, override: true });
 
@@ -176,5 +177,7 @@ process.on("SIGTERM", () => {
 });
 startTaskDueNotificationJob(io);
 startTaskOverdueNotificationJob(io);
+updateMeetingStatuses(io);
+setInterval(() => updateMeetingStatuses(io), 60 * 1000);
 export default app;
 export { io };

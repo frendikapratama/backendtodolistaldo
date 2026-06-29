@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import Room from "../models/Room.js";
 import { handleError } from "../utils/errorHandler.js";
+import Meeting from "../models/Meeting.js";
+import MeetingParticipant from "../models/MeetingParticipant.js";
 
 export async function getRooms(req, res) {
   try {
@@ -154,6 +156,79 @@ export async function updateRoom(req, res) {
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
+    return handleError(res, error);
+  }
+}
+
+// roomController.js - tambahkan function ini
+
+export async function getRoomSchedule(req, res) {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate } = req.query;
+
+    const room = await Room.findById(id);
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found",
+      });
+    }
+
+    const now = new Date();
+    const filterQuery = {
+      roomId: id,
+      status: { $ne: "cancelled" },
+      endTime: { $gt: now },
+    };
+
+    if (startDate) filterQuery.startTime = { $gte: new Date(startDate) };
+    if (endDate)
+      filterQuery.endTime = { ...filterQuery.endTime, $lte: new Date(endDate) };
+
+    const meetings = await Meeting.find(filterQuery)
+      .populate("organizerId", "nama username email photo")
+      .sort({ startTime: 1 })
+      .lean();
+
+    const meetingIds = meetings.map((m) => m._id);
+
+    const participants = await MeetingParticipant.find({
+      meetingId: { $in: meetingIds },
+    })
+      .populate("userId", "nama username email photo")
+      .lean();
+
+    const participantMap = participants.reduce((acc, p) => {
+      const key = p.meetingId.toString();
+      if (!acc[key]) acc[key] = [];
+      acc[key].push({
+        ...p.userId,
+        invitationStatus: p.invitationStatus,
+      });
+      return acc;
+    }, {});
+
+    const schedule = meetings.map((meeting) => ({
+      ...meeting,
+      participants: participantMap[meeting._id.toString()] || [],
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Room schedule fetched successfully",
+      data: {
+        room: {
+          _id: room._id,
+          nama: room.nama,
+          lokasi: room.lokasi,
+          kapasitas: room.kapasitas,
+        },
+        schedule,
+        total: schedule.length,
+      },
+    });
+  } catch (error) {
     return handleError(res, error);
   }
 }

@@ -55,6 +55,34 @@ const meetingSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    meetingResults: {
+      type: [
+        {
+          content: {
+            type: String,
+            default: null,
+          },
+          fileName: {
+            type: String,
+            default: null,
+          },
+          originalName: {
+            type: String,
+            default: null,
+          },
+          uploadedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+          },
+          uploadedAt: {
+            type: Date,
+            default: Date.now,
+          },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,
