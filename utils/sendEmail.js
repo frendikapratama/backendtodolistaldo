@@ -8,7 +8,7 @@ dotenv.config();
 //     // user: "frendikapratama28@gmail.com",
 //     // pass: "dlvpcuypehhywuuq"
 //     user: process.env.EMAIL_USER || "frendikapratama28@gmail.com",
-//     pass: process.env.EMAIL_PASS || "dlvpcuypehhywuuq",
+//     pass: process.env.EMAIL_PASS || "idsudxanxyzvktyf",
 //   },
 // });
 

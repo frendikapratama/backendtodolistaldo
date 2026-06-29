@@ -39,6 +39,7 @@ import facilityRoutes from "./routes/facilityRoutes.js";
 import roomRoutes from "./routes/roomRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import { updateMeetingStatuses } from "./helpers/meetingStatusUpdater.js";
+import { startReplyListener } from "./helpers/meetingReplyListener.js";
 
 dotenv.config({ debug: true, override: true });
 
@@ -178,6 +179,7 @@ process.on("SIGTERM", () => {
 startTaskDueNotificationJob(io);
 startTaskOverdueNotificationJob(io);
 updateMeetingStatuses(io);
+startReplyListener();
 setInterval(() => updateMeetingStatuses(io), 60 * 1000);
 export default app;
 export { io };

@@ -18,7 +18,7 @@ const meetingParticipantSchema = new mongoose.Schema(
 
     invitationStatus: {
       type: String,
-      enum: ["pending", "accepted", "rejected", "tentative"],
+      enum: ["pending", "accepted", "decline", "tentative"],
       default: "pending",
     },
 

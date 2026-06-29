@@ -17,7 +17,7 @@ export async function sendTaskPicInvitationEmail({
     : "Register and Accept Invitation";
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Planify" <${process.env.EMAIL_USER}>`,
     to,
     subject: `Invitation to be PIC for Task: ${taskName}`,
     html: `
@@ -62,7 +62,7 @@ export async function sendWorkspaceInvitationEmail({
   };
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Planify" <${process.env.EMAIL_USER}>`,
     to,
     subject: `Invitation to join Workspace: ${workspaceName}`,
     html: `
@@ -110,7 +110,7 @@ export async function sendSubtaskPicInvitationEmail({
     : "Before accepting the invitation, you need to register first:";
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Planify" <${process.env.EMAIL_USER}>`,
     to,
     subject: `Invitation to be PIC for Subtask: ${subTaskName}`,
     html: `
@@ -161,7 +161,7 @@ export async function sendTaskDueSoonEmail({
   }
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Planify" <${process.env.EMAIL_USER}>`,
     to,
     subject: `⏰ Reminder: Task "${taskName}" is Due `,
     html: `
@@ -175,7 +175,7 @@ export async function sendTaskDueSoonEmail({
           <p style="margin: 5px 0; color: #6b7280;">Workspace: ${workspaceName}</p>
           <p style="margin: 10px 0 5px 0; color: #92400e;"><strong>Due date: ${urgencyMessage}</strong></p>
           <p style="margin: 5px 0; color: #6b7280;">Date: ${new Date(
-            dueDate
+            dueDate,
           ).toLocaleDateString("id-ID")}</p>
           <p style="margin: 5px 0; color: #6b7280;">Current status: <strong>${status}</strong></p>
         </div>
@@ -198,7 +198,7 @@ export async function sendTaskStatusChangedEmail({
   newStatus,
 }) {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Planify" <${process.env.EMAIL_USER}>`,
     to,
     subject: `🔄 Status Task "${taskName}" updated`,
     html: `
@@ -230,7 +230,7 @@ export async function sendTaskAssignedEmail({
   assignerName,
 }) {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Planify" <${process.env.EMAIL_USER}>`,
     to,
     subject: `📋 New task assigned: ${taskName}`,
     html: `
@@ -262,7 +262,7 @@ export async function sendTaskOverdueEmail({
   daysOverdue,
 }) {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Planify" <${process.env.EMAIL_USER}>`,
     to,
     subject: `🚨 URGENT: Task "${taskName}" is overdue by ${daysOverdue} days`,
     html: `
@@ -276,7 +276,7 @@ export async function sendTaskOverdueEmail({
           <p style="margin: 5px 0; color: #6b7280;">Workspace: ${workspaceName}</p>
           <p style="margin: 10px 0 5px 0; color: #991b1b;"><strong>⚠️ Overdue: ${daysOverdue} days</strong></p>
           <p style="margin: 5px 0; color: #6b7280;">Deadline: ${new Date(
-            dueDate
+            dueDate,
           ).toLocaleDateString("id-ID")}</p>
           <p style="margin: 5px 0; color: #6b7280;">Current status: <strong>${status}</strong></p>
         </div>
@@ -298,7 +298,7 @@ export async function sendSubtaskAssignedEmail({
   assignerName,
 }) {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Planify" <${process.env.EMAIL_USER}>`,
     to,
     subject: `📋 New subtask assigned: ${subtaskName}`,
     html: `

@@ -8,6 +8,7 @@ import { handleError } from "../utils/errorHandler.js";
 import { validateAvailability } from "../helpers/meetingAvailabilityService.js";
 import { syncParticipants } from "../helpers/participantSyncService.js";
 import MeetingHistory from "../models/MeetingHistory.js";
+import { sendMeetingInvitation } from "../helpers/meetingEmailService.js";
 
 const meetingUploadsDir = path.join(
   process.cwd(),
@@ -97,7 +98,6 @@ export const createMeeting = async (req, res) => {
       endTime,
     } = req.body;
 
-    // VALIDASI ROOM
     const roomConflict = await Meeting.findOne({
       roomId,
       status: { $ne: "cancelled" },
@@ -127,9 +127,29 @@ export const createMeeting = async (req, res) => {
     await MeetingParticipant.insertMany(participants);
 
     const populatedMeeting = await Meeting.findById(meeting._id)
-      .populate("roomId", "nama")
-      .populate("organizerId", "username")
+      .populate("roomId", "nama lokasi")
+      .populate("organizerId", " username email")
       .lean();
+
+    const invitedUsers = await User.find(
+      { _id: { $in: participantIds } },
+      " username email",
+    ).lean();
+
+    const organizer = populatedMeeting.organizerId; // { nama, username, email }
+    const room = populatedMeeting.roomId; // { nama, lokasi }
+
+    // Jalankan pengiriman email di background, jangan await agar response tetap cepat
+    sendMeetingInvitation({
+      participants: invitedUsers.map((u) => ({
+        email: u.email,
+        nama: u.nama || u.username,
+      })),
+      organizer,
+      meeting: populatedMeeting,
+      room,
+    }).catch((err) => console.error("Email invitation error:", err));
+    // ─────────────────────────────────────────────────────────────────
 
     const io = req.app.get("io");
     io.emit("meeting:created", {
@@ -526,7 +546,6 @@ export const addMeetingResult = async (req, res) => {
   }
 };
 
-// UPDATE MEETING RESULT (ONLY FOR CONTENT/TEXT)
 export const updateMeetingResult = async (req, res) => {
   try {
     const { id, resultId } = req.params;
@@ -662,5 +681,103 @@ export const deleteMeetingResult = async (req, res) => {
     });
   } catch (error) {
     return handleError(res, error);
+  }
+};
+
+export const handleRSVP = async (req, res) => {
+  try {
+    const { meetingId } = req.params;
+    const { status, email } = req.query;
+
+    const validStatus = ["accepted", "decline", "tentative"];
+    if (!validStatus.includes(status)) {
+      return res.status(400).send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
+          <h2 style="color:#EF4444;">Invalid response.</h2>
+        </body></html>
+      `);
+    }
+
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${email}$`, "i") },
+    });
+
+    if (!user) {
+      return res.status(404).send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
+          <h2 style="color:#EF4444;">User not found.</h2>
+        </body></html>
+      `);
+    }
+
+    const updated = await MeetingParticipant.findOneAndUpdate(
+      { meetingId, userId: user._id },
+      { invitationStatus: status, responseAt: new Date() },
+      { new: true },
+    );
+
+    if (!updated) {
+      return res.status(404).send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
+          <h2 style="color:#EF4444;">Meeting or participant not found.</h2>
+        </body></html>
+      `);
+    }
+
+    const io = req.app.get("io");
+    io.emit("meeting:rsvp_updated", {
+      meetingId,
+      userId: user._id,
+      status,
+      responseAt: updated.responseAt,
+    });
+
+    const labelMap = {
+      accepted: {
+        text: "You have accepted the meeting invitation.",
+        color: "#4F46E5",
+        icon: "✓",
+      },
+      decline: {
+        text: "You have declined the meeting invitation.",
+        color: "#EF4444",
+        icon: "✗",
+      },
+      tentative: {
+        text: "You marked attendance as maybe.",
+        color: "#F59E0B",
+        icon: "?",
+      },
+    };
+    const { text, color, icon } = labelMap[status];
+
+    // Redirect ke halaman konfirmasi sederhana
+    return res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+        <title>RSVP Confirmed</title>
+      </head>
+      <body style="margin:0;padding:0;background:#F8FAFC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+          <div style="background:#FFFFFF;border-radius:16px;padding:48px 40px;max-width:440px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+            <div style="width:64px;height:64px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:28px;color:#fff;line-height:64px;">${icon}</div>
+            <p style="margin:0 0 8px 0;color:#4F46E5;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">Planify</p>
+            <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:700;color:#0F172A;">Response Recorded</h1>
+            <p style="margin:0 0 32px 0;font-size:15px;color:#475569;line-height:1.6;">${text}</p>
+            <p style="margin:0;font-size:13px;color:#94A3B8;">You may close this tab.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    return res.status(500).send(`
+      <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
+        <h2 style="color:#EF4444;">Server error: ${error.message}</h2>
+      </body></html>
+    `);
   }
 };

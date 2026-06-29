@@ -15,6 +15,7 @@ import {
   addMeetingResult,
   deleteMeetingResult,
   updateMeetingResult,
+  handleRSVP,
 } from "../controllers/meetingController.js";
 
 // Setup upload directory for meeting results
@@ -81,5 +82,5 @@ router.get("/:id/detail", getMeetingDetail);
 router.post("/:id/results", upload.single("file"), addMeetingResult);
 router.put("/:id/results/:resultId", updateMeetingResult);
 router.delete("/:id/results/:resultId", deleteMeetingResult);
-
+router.get("/rsvp/:meetingId", handleRSVP);
 export default router;
