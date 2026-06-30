@@ -19,7 +19,7 @@ const buildMeetingMessage = ({
   organizer,
   participantEmail,
 }) => {
-  const base = process.env.API_URL || "http://localhost:5000";
+  const base = process.env.VITE_API_URL || "http://localhost:5000";
   const encoded = encodeURIComponent(participantEmail);
 
   const accepted = `${base}/api/meeting/rsvp/${meeting._id}?status=accepted&email=${encoded}`;
