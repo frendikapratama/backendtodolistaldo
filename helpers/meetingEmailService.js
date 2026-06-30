@@ -148,7 +148,7 @@ const generateICS = ({
 // ─── RSVP Buttons ───────────────────────────────────────────────────────────
 
 const buildRSVPButtons = (meetingId, participantEmail) => {
-  const base = process.env.VITE_API_URL || "http://localhost:5000";
+  const base = process.env.VITE_API_URL || "https://planify.itvault.cloud/api";
   const encoded = encodeURIComponent(participantEmail);
 
   const accepted = `${base}/api/meeting/rsvp/${meetingId}?status=accepted&email=${encoded}`;
