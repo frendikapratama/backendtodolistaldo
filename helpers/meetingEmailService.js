@@ -8,15 +8,32 @@ const fmt = (d) =>
     .replace(/[-:]/g, "")
     .replace(/\.\d{3}/, "");
 
-// Format local WIB time tanpa Z — untuk DTSTART/DTEND dengan TZID
+// Format waktu Asia/Jakarta untuk DTSTART/DTEND;TZID=Asia/Jakarta
 const fmtLocal = (d) => {
-  const date = new Date(d);
-  const wib = new Date(date.getTime() + 7 * 60 * 60 * 1000);
-  return wib
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d{3}Z$/, "");
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(d));
+
+  const get = (type) =>
+    parts.find((p) => p.type === type)?.value?.padStart(2, "0") ?? "00";
+
+  return `${get("year")}${get("month")}${get("day")}T${get("hour")}${get("minute")}${get("second")}`;
 };
+
+// Escape karakter khusus RFC 5545 — Outlook gagal parse jika tidak di-escape
+const escapeICS = (text = "") =>
+  String(text)
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
 
 const fmtDate = (d) =>
   new Date(d).toLocaleString("en-GB", {
@@ -47,7 +64,6 @@ const generateICS = ({
   startTime,
   endTime,
   location,
-  organizerEmail,
   organizerName,
   senderEmail,
   meetingId,
@@ -63,7 +79,7 @@ const generateICS = ({
 
   const attendeeLines = participants.map(
     (p) =>
-      `ATTENDEE;CN=${sanitizeCN(p.nama || p.username)};RSVP=TRUE;PARTSTAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT:mailto:${p.email}`,
+      `ATTENDEE;CUTYPE=INDIVIDUAL;CN=${sanitizeCN(p.nama || p.username)};RSVP=TRUE;PARTSTAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT:mailto:${p.email}`,
   );
 
   // Fold long lines per RFC 5545 (max 75 octets per line)
@@ -99,19 +115,24 @@ const generateICS = ({
     "BEGIN:VEVENT",
     `UID:meeting-${meetingId}@planify.app`,
     `DTSTAMP:${fmt(new Date())}Z`,
+    `CREATED:${fmt(new Date())}Z`,
     `DTSTART;TZID=Asia/Jakarta:${fmtLocal(startTime)}`,
     `DTEND;TZID=Asia/Jakarta:${fmtLocal(endTime)}`,
-    `SUMMARY:${title}`,
-    `DESCRIPTION:${(description || "").replace(/\n/g, "\\n")}`,
-    `LOCATION:${location || ""}`,
-    // ✅ Outlook WAJIB: ORGANIZER email harus sama dengan From address
-    // Karena email dikirim dari EMAIL_USER (system account), pakai SENT-BY
-    // supaya Outlook tahu siapa organizer aslinya tapi tetap trust sender
-    `ORGANIZER;CN=${sanitizeCN(organizerName)};SENT-BY="mailto:${senderEmail}":mailto:${organizerEmail}`,
+    `SUMMARY:${escapeICS(title)}`,
+    `DESCRIPTION:${escapeICS(description)}`,
+    `LOCATION:${escapeICS(location)}`,
+    // Outlook WAJIB: mailto ORGANIZER harus sama persis dengan alamat From (senderEmail)
+    `ORGANIZER;CN=${sanitizeCN(organizerName)}:mailto:${senderEmail}`,
     ...attendeeLines,
+    "CLASS:PUBLIC",
     "STATUS:CONFIRMED",
     "SEQUENCE:0",
     "TRANSP:OPAQUE",
+    // Properti Microsoft — membantu Outlook/OWA mengenali sebagai appointment
+    "X-MICROSOFT-CDO-BUSYSTATUS:BUSY",
+    "X-MICROSOFT-CDO-INTENDEDSTATUS:BUSY",
+    "X-MICROSOFT-CDO-IMPORTANCE:1",
+    "X-MICROSOFT-CDO-ALLDAYEVENT:FALSE",
     "BEGIN:VALARM",
     "TRIGGER:-PT30M",
     "ACTION:DISPLAY",
@@ -166,6 +187,25 @@ const buildRSVPButtons = (meetingId, participantEmail) => {
   </table>`;
 };
 
+// ─── Plain Text Builder ─────────────────────────────────────────────────────
+
+const buildPlainText = ({ nama, meeting, room, organizer }) =>
+  [
+    `Meeting Invitation: ${meeting.title}`,
+    "",
+    `Hello ${nama},`,
+    `${organizer.nama || organizer.username} has invited you to a meeting.`,
+    "",
+    `When: ${fmtDate(meeting.startTime)} – ${fmtDate(meeting.endTime)}`,
+    `Duration: ${duration(meeting.startTime, meeting.endTime)}`,
+    `Location: ${room?.nama || "—"}`,
+    meeting.description ? `Details: ${meeting.description}` : null,
+    "",
+    "Open this email in Outlook and use Accept/Decline to add it to your calendar.",
+  ]
+    .filter(Boolean)
+    .join("\r\n");
+
 // ─── HTML Builder ────────────────────────────────────────────────────────────
 
 const buildHTML = ({
@@ -173,7 +213,7 @@ const buildHTML = ({
   meeting,
   room,
   organizer,
-  totalParticipants, // ✅ diterima sebagai parameter
+  totalParticipants,
   participantEmail,
 }) => `
 <!DOCTYPE html>
@@ -296,69 +336,70 @@ export const sendMeetingInvitation = async ({
   meeting,
   room,
 }) => {
-  const icsContent = generateICS({
-    title: meeting.title,
-    description: meeting.description,
-    startTime: meeting.startTime,
-    endTime: meeting.endTime,
-    location: room?.nama || "",
-    organizerEmail: organizer.email,
-    organizerName: organizer.nama || organizer.username,
-    senderEmail: process.env.EMAIL_USER,
-    meetingId: meeting._id,
-    participants,
-  });
-
-  // ✅ Hitung totalParticipants di sini — tersedia untuk semua email
+  const senderEmail = process.env.EMAIL_USER;
   const totalParticipants = participants.length;
-
   const safeTitle = meeting.title.replace(/\s+/g, "-").replace(/[^\w-]/g, "");
 
   const results = await Promise.allSettled(
-    participants.map(({ email, nama }) =>
-      transporter.sendMail({
-        // ✅ From pakai nama organizer tapi alamat system email
-        // Outlook membaca nama ini sebagai pengirim
-        from: `"${organizer.nama || organizer.username} via Planify" <${process.env.EMAIL_USER}>`,
+    participants.map(({ email, nama }) => {
+      const icsContent = generateICS({
+        title: meeting.title,
+        description: meeting.description,
+        startTime: meeting.startTime,
+        endTime: meeting.endTime,
+        location: room?.nama || "",
+        organizerName: organizer.nama || organizer.username,
+        senderEmail,
+        meetingId: meeting._id,
+        participants: [{ email, nama }],
+      });
+
+      const htmlContent = buildHTML({
+        nama,
+        meeting,
+        room,
+        organizer,
+        totalParticipants,
+        participantEmail: email,
+      });
+
+      return transporter.sendMail({
+        // from: `"${organizer.nama || organizer.username} via Planify" <${senderEmail}>`,
+        from: `"Planify" <${process.env.EMAIL_USER}>`,
         to: email,
-        // ✅ Reply-To ke organizer asli supaya balasan email ke orang yang benar
         replyTo: `"${organizer.nama || organizer.username}" <${organizer.email}>`,
         subject: `[Meeting Invitation] ${meeting.title}`,
 
-        // ✅ Headers wajib agar Outlook/Exchange routing ke kalender
         headers: {
           "Content-Class": "urn:content-classes:calendarmessage",
-          "X-MS-Exchange-Organization-CalendarBooking-Response": "True",
+          "X-MS-OLK-FORCEINSPECTOROPEN": "TRUE",
         },
 
-        // ✅ alternatives = kunci utama agar Outlook tampilkan tombol Accept/Decline
-        // Outlook hanya tampilkan tombol jika ICS ada di alternatives (multipart/alternative)
-        alternatives: [
-          {
-            contentType: "text/calendar; method=REQUEST; charset=UTF-8",
-            content: Buffer.from(icsContent, "utf-8"),
-          },
-        ],
+        text: buildPlainText({ nama, meeting, room, organizer }),
+        html: htmlContent,
 
-        html: buildHTML({
-          nama,
-          meeting,
-          room,
-          organizer,
-          totalParticipants,
-          participantEmail: email,
-        }),
-
-        attachments: [
-          {
-            filename: `${safeTitle}-invite.ics`,
-            content: Buffer.from(icsContent, "utf-8"),
-            contentType: "application/ics",
-            contentDisposition: "attachment",
-          },
-        ],
-      }),
-    ),
+        // Microsoft/Outlook: ICS harus MIME part TERPISAH (sibling), BUKAN di dalam
+        // multipart/alternative. Nodemailer icalEvent/alternatives salah struktur untuk OWA.
+        // Inline + text/calendar; method=REQUEST → tombol Accept/Decline di Outlook Web.
+        // attachments: [
+        //   {
+        //     filename: `${safeTitle}-invite.ics`,
+        //     content: icsContent,
+        //     contentType: "text/calendar; charset=UTF-8; method=REQUEST",
+        //     contentDisposition: "inline",
+        //     contentTransferEncoding: "7bit",
+        //     headers: {
+        //       "Content-Class": "urn:content-classes:calendarmessage",
+        //     },
+        //   },
+        // ],
+        icalEvent: {
+          method: "REQUEST",
+          filename: `${safeTitle}.ics`,
+          content: icsContent,
+        },
+      });
+    }),
   );
 
   results.forEach((r, i) => {
