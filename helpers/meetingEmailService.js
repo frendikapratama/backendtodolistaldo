@@ -1,6 +1,6 @@
 import { transporter } from "../utils/sendEmail.js";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers
 
 const fmt = (d) =>
   new Date(d)
@@ -56,7 +56,7 @@ const duration = (s, e) => {
   return `${r} min`;
 };
 
-// ─── ICS Generator ──────────────────────────────────────────────────────────
+// ─── ICS Generator
 
 const generateICS = ({
   title,
@@ -142,7 +142,6 @@ const generateICS = ({
     "END:VCALENDAR",
   ];
 
-  // Apply line folding dan join dengan CRLF — wajib per RFC 5545
   return lines.map(foldLine).join("\r\n");
 };
 
@@ -151,43 +150,91 @@ const generateICS = ({
 const buildRSVPButtons = (meetingId, participantEmail) => {
   const base = process.env.API_URL || "http://localhost:5000";
   const encoded = encodeURIComponent(participantEmail);
+
   const accepted = `${base}/api/meeting/rsvp/${meetingId}?status=accepted&email=${encoded}`;
-  const decline = `${base}/api/meeting/rsvp/${meetingId}?status=decline&email=${encoded}`;
   const tentative = `${base}/api/meeting/rsvp/${meetingId}?status=tentative&email=${encoded}`;
+  const decline = `${base}/api/meeting/rsvp/${meetingId}?status=decline&email=${encoded}`;
 
   return `
-  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">
-    <tr>
-      <td style="padding:0 0 12px 0;">
-        <p style="margin:0 0 12px 0;font-size:14px;font-weight:600;color:#0F172A;">Will you attend this meeting?</p>
-        <table cellpadding="0" cellspacing="0">
-          <tr>
-            <td style="padding-right:8px;">
-              <a href="${accepted}"
-                style="display:inline-block;padding:10px 20px;background:#4F46E5;color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">
-                &#10003; Yes, I'll attend
-              </a>
-            </td>
-            <td style="padding-right:8px;">
-              <a href="${decline}"
-                style="display:inline-block;padding:10px 20px;background:#EF4444;color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">
-                &#10007; Can't attend
-              </a>
-            </td>
-            <td>
-              <a href="${tentative}"
-                style="display:inline-block;padding:10px 20px;background:#F59E0B;color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">
-                ? Maybe
-              </a>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>`;
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
+<tr>
+<td>
+
+<p style="
+  margin:0 0 14px;
+  font-size:15px;
+  font-weight:600;
+  color:#0F172A;
+  ">
+  Will you attend this meeting?
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0">
+<tr>
+
+<td style="padding-right:10px;">
+<a href="${accepted}"
+style="
+background:#2563EB;
+color:#ffffff;
+text-decoration:none;
+padding:12px 24px;
+font-size:14px;
+font-weight:600;
+border-radius:22px;
+display:inline-block;
+font-family:Arial,sans-serif;
+">
+Accept
+</a>
+</td>
+
+<td style="padding-right:10px;">
+<a href="${tentative}"
+style="
+background:#F3F4F6;
+color:#374151;
+text-decoration:none;
+padding:12px 24px;
+font-size:14px;
+font-weight:600;
+border-radius:22px;
+display:inline-block;
+border:1px solid #D1D5DB;
+font-family:Arial,sans-serif;
+">
+Tentative
+</a>
+</td>
+
+<td>
+<a href="${decline}"
+style="
+background:#ffffff;
+color:#DC2626;
+text-decoration:none;
+padding:12px 24px;
+font-size:14px;
+font-weight:600;
+border-radius:22px;
+display:inline-block;
+border:1px solid #FCA5A5;
+font-family:Arial,sans-serif;
+">
+Decline
+</a>
+</td>
+
+</tr>
+</table>
+
+</td>
+</tr>
+</table>
+`;
 };
 
-// ─── Plain Text Builder ─────────────────────────────────────────────────────
+// ─── Plain Text Builder
 
 const buildPlainText = ({ nama, meeting, room, organizer }) =>
   [
@@ -206,7 +253,7 @@ const buildPlainText = ({ nama, meeting, room, organizer }) =>
     .filter(Boolean)
     .join("\r\n");
 
-// ─── HTML Builder ────────────────────────────────────────────────────────────
+// ─── HTML Builder
 
 const buildHTML = ({
   nama,
@@ -328,7 +375,7 @@ const buildHTML = ({
 </html>
 `;
 
-// ─── Main Export ─────────────────────────────────────────────────────────────
+// ─── Main Export
 
 export const sendMeetingInvitation = async ({
   participants,

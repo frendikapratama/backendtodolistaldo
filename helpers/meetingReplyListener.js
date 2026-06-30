@@ -80,7 +80,7 @@ const processReply = async (parsed, io) => {
 
     if (!updated) return false;
 
-    console.log(`✅ RSVP updated | ${attendeeEmail} → ${dbStatus}`);
+    // console.log(` RSVP updated | ${attendeeEmail} → ${dbStatus}`);
 
     if (io) {
       io.emit("meeting:rsvp_updated", {
@@ -93,7 +93,7 @@ const processReply = async (parsed, io) => {
 
     return true;
   } catch (err) {
-    console.error("❌ Failed to process reply:", err.message);
+    // console.error(" Failed to process reply:", err.message);
     return false;
   }
 };
@@ -124,11 +124,11 @@ const fetchAndProcessUnseen = async (client, io) => {
           });
         }
       } catch (err) {
-        console.error("❌ Failed to read email:", err.message);
+        // console.error(" Failed to read email:", err.message);
       }
     }
   } catch (err) {
-    console.error("❌ Failed to fetch emails:", err.message);
+    // console.error(" Failed to fetch emails:", err.message);
   }
 };
 
@@ -151,26 +151,26 @@ export const startReplyListener = async (io = null) => {
   });
 
   client.on("error", (err) => {
-    console.error("❌ IMAP error:", err.message);
+    // console.error(" IMAP error:", err.message);
   });
 
   try {
     await client.connect();
 
-    console.log(`📬 IMAP connected (${process.env.EMAIL_USER})`);
+    // console.log(`IMAP connected (${process.env.EMAIL_USER})`);
 
     await client.mailboxOpen("INBOX");
 
     await fetchAndProcessUnseen(client, io);
 
     client.on("exists", async () => {
-      console.log("📩 New email received");
+      // console.log(" New email received");
       await fetchAndProcessUnseen(client, io);
     });
 
     await client.idle();
   } catch (err) {
-    console.error("❌ IMAP connection failed:", err.message);
+    // console.error(" IMAP connection failed:", err.message);
 
     setTimeout(() => {
       startReplyListener(io);

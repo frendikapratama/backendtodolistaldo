@@ -40,6 +40,7 @@ import roomRoutes from "./routes/roomRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import { updateMeetingStatuses } from "./helpers/meetingStatusUpdater.js";
 import { startReplyListener } from "./helpers/meetingReplyListener.js";
+import { initWhatsApp } from "./utils/whatsapp.js";
 
 dotenv.config({ debug: true, override: true });
 
@@ -180,6 +181,7 @@ startTaskDueNotificationJob(io);
 startTaskOverdueNotificationJob(io);
 updateMeetingStatuses(io);
 startReplyListener();
+initWhatsApp();
 setInterval(() => updateMeetingStatuses(io), 60 * 1000);
 export default app;
 export { io };

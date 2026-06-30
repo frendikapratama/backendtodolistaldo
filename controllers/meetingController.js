@@ -9,6 +9,7 @@ import { validateAvailability } from "../helpers/meetingAvailabilityService.js";
 import { syncParticipants } from "../helpers/participantSyncService.js";
 import MeetingHistory from "../models/MeetingHistory.js";
 import { sendMeetingInvitation } from "../helpers/meetingEmailService.js";
+import { sendMeetingWhatsAppNotification } from "../helpers/meetingWhatsAppService.js";
 
 const meetingUploadsDir = path.join(
   process.cwd(),
@@ -128,18 +129,18 @@ export const createMeeting = async (req, res) => {
 
     const populatedMeeting = await Meeting.findById(meeting._id)
       .populate("roomId", "nama lokasi")
-      .populate("organizerId", " username email")
+      .populate("organizerId", "nama username email")
       .lean();
 
     const invitedUsers = await User.find(
       { _id: { $in: participantIds } },
-      " username email",
+      "nama username email noHp",
     ).lean();
 
     const organizer = populatedMeeting.organizerId; // { nama, username, email }
     const room = populatedMeeting.roomId; // { nama, lokasi }
 
-    // Jalankan pengiriman email di background, jangan await agar response tetap cepat
+    // ─── Email invitation (background, tidak menunggu)
     sendMeetingInvitation({
       participants: invitedUsers.map((u) => ({
         email: u.email,
@@ -149,7 +150,18 @@ export const createMeeting = async (req, res) => {
       meeting: populatedMeeting,
       room,
     }).catch((err) => console.error("Email invitation error:", err));
-    // ─────────────────────────────────────────────────────────────────
+
+    // ─── WhatsApp notification (background, tidak menunggu)
+    sendMeetingWhatsAppNotification({
+      participants: invitedUsers.map((u) => ({
+        noHp: u.noHp,
+        nama: u.nama || u.username,
+        email: u.email, // <-- tambahkan ini
+      })),
+      organizer,
+      meeting: populatedMeeting,
+      room,
+    }).catch((err) => console.error("WhatsApp invitation error:", err));
 
     const io = req.app.get("io");
     io.emit("meeting:created", {
