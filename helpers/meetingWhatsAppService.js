@@ -20,10 +20,7 @@ const buildMeetingMessage = ({
   participantEmail,
   isParticipant,
 }) => {
-  let base = process.env.VITE_API_URL || "https://planify.itvault.cloud";
-  if (base.endsWith("/api")) {
-    base = base.slice(0, -4);
-  }
+  let base = process.env.VITE_API_URL || "https://planify.itvault.cloud/api";
   if (!base.startsWith("http")) {
     base = "https://" + base;
   }

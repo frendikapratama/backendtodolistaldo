@@ -147,10 +147,8 @@ const generateICS = ({
 
 // ─── RSVP Buttons ───────────────────────────────────────────────────────────
 const buildRSVPButtons = (meetingId, participantEmail) => {
-  let base = process.env.VITE_API_URL || "https://planify.itvault.cloud";
-  if (base.endsWith("/api")) {
-    base = base.slice(0, -4);
-  }
+  let base = process.env.VITE_API_URL || "https://planify.itvault.cloud/api";
+
   if (!base.startsWith("http")) {
     base = "https://" + base;
   }
@@ -267,7 +265,9 @@ const buildPlainText = ({ nama, meeting, room, organizer, isParticipant }) =>
     `Ruangan: ${room?.nama || "—"}`,
     meeting.description ? `Detail: ${meeting.description}` : null,
     "",
-    isParticipant ? "Buka email ini di Outlook dan gunakan Hadir/Tidak Hadir untuk menambahkannya ke kalender Anda." : "",
+    isParticipant
+      ? "Buka email ini di Outlook dan gunakan Hadir/Tidak Hadir untuk menambahkannya ke kalender Anda."
+      : "",
   ]
     .filter(Boolean)
     .join("\r\n");
@@ -362,7 +362,7 @@ const buildHTML = ({
             </tr>
           </table>
 
-          ${isParticipant ? buildRSVPButtons(meeting._id, participantEmail) : ''}
+          ${isParticipant ? buildRSVPButtons(meeting._id, participantEmail) : ""}
 
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
