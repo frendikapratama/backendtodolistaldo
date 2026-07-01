@@ -36,7 +36,7 @@ const escapeICS = (text = "") =>
     .replace(/\n/g, "\\n");
 
 const fmtDate = (d) =>
-  new Date(d).toLocaleString("en-GB", {
+  new Date(d).toLocaleString("id-ID", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -51,9 +51,9 @@ const duration = (s, e) => {
   const m = Math.round((new Date(e) - new Date(s)) / 60000);
   const h = Math.floor(m / 60),
     r = m % 60;
-  if (h > 0 && r > 0) return `${h}h ${r}m`;
-  if (h > 0) return `${h} hour${h > 1 ? "s" : ""}`;
-  return `${r} min`;
+  if (h > 0 && r > 0) return `${h} jam ${r} menit`;
+  if (h > 0) return `${h} jam`;
+  return `${r} menit`;
 };
 
 // ─── ICS Generator
@@ -146,14 +146,31 @@ const generateICS = ({
 };
 
 // ─── RSVP Buttons ───────────────────────────────────────────────────────────
-
 const buildRSVPButtons = (meetingId, participantEmail) => {
-  const base = process.env.VITE_API_URL || "https://planify.itvault.cloud/api";
-  const encoded = encodeURIComponent(participantEmail);
+  let base = process.env.VITE_API_URL || "https://planify.itvault.cloud";
+  if (base.endsWith("/api")) {
+    base = base.slice(0, -4);
+  }
+  if (!base.startsWith("http")) {
+    base = "https://" + base;
+  }
 
-  const accepted = `${base}/api/meeting/rsvp/${meetingId}?status=accepted&email=${encoded}`;
-  const tentative = `${base}/api/meeting/rsvp/${meetingId}?status=tentative&email=${encoded}`;
-  const decline = `${base}/api/meeting/rsvp/${meetingId}?status=decline&email=${encoded}`;
+  const createToken = (status) => {
+    const statusMap = { accepted: "a", tentative: "t", decline: "d" };
+    const idBuf = Buffer.from(String(meetingId), "hex");
+    const sBuf = Buffer.from(statusMap[status] || "t", "utf8");
+    const eBuf = Buffer.from(participantEmail, "utf8");
+    const combined = Buffer.concat([idBuf, sBuf, eBuf]);
+    return combined
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  };
+
+  const accepted = `${base}/api/meeting/rsvp/${createToken("accepted")}`;
+  const tentative = `${base}/api/meeting/rsvp/${createToken("tentative")}`;
+  const decline = `${base}/api/meeting/rsvp/${createToken("decline")}`;
 
   return `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
@@ -166,7 +183,7 @@ const buildRSVPButtons = (meetingId, participantEmail) => {
   font-weight:600;
   color:#0F172A;
   ">
-  Will you attend this meeting?
+  Apakah Anda akan menghadiri meeting ini?
 </p>
 
 <table role="presentation" cellpadding="0" cellspacing="0">
@@ -185,7 +202,7 @@ border-radius:22px;
 display:inline-block;
 font-family:Arial,sans-serif;
 ">
-Accept
+Hadir
 </a>
 </td>
 
@@ -203,7 +220,7 @@ display:inline-block;
 border:1px solid #D1D5DB;
 font-family:Arial,sans-serif;
 ">
-Tentative
+Mungkin
 </a>
 </td>
 
@@ -221,7 +238,7 @@ display:inline-block;
 border:1px solid #FCA5A5;
 font-family:Arial,sans-serif;
 ">
-Decline
+Tidak Hadir
 </a>
 </td>
 
@@ -236,19 +253,21 @@ Decline
 
 // ─── Plain Text Builder
 
-const buildPlainText = ({ nama, meeting, room, organizer }) =>
+const buildPlainText = ({ nama, meeting, room, organizer, isParticipant }) =>
   [
-    `Meeting Invitation: ${meeting.title}`,
+    `Undangan Meeting: ${meeting.title}`,
     "",
-    `Hello ${nama},`,
-    `${organizer.nama || organizer.username} has invited you to a meeting.`,
+    `Halo ${nama},`,
+    isParticipant
+      ? `${organizer.nama || organizer.username} telah mengundang Anda ke sebuah meeting.`
+      : `Pemberitahuan: ${organizer.nama || organizer.username} telah menjadwalkan meeting yang membutuhkan perhatian departemen Anda.`,
     "",
-    `When: ${fmtDate(meeting.startTime)} – ${fmtDate(meeting.endTime)}`,
-    `Duration: ${duration(meeting.startTime, meeting.endTime)}`,
-    `Location: ${room?.nama || "—"}`,
-    meeting.description ? `Details: ${meeting.description}` : null,
+    `Waktu: ${fmtDate(meeting.startTime)} – ${fmtDate(meeting.endTime)}`,
+    `Durasi: ${duration(meeting.startTime, meeting.endTime)}`,
+    `Ruangan: ${room?.nama || "—"}`,
+    meeting.description ? `Detail: ${meeting.description}` : null,
     "",
-    "Open this email in Outlook and use Accept/Decline to add it to your calendar.",
+    isParticipant ? "Buka email ini di Outlook dan gunakan Hadir/Tidak Hadir untuk menambahkannya ke kalender Anda." : "",
   ]
     .filter(Boolean)
     .join("\r\n");
@@ -262,6 +281,7 @@ const buildHTML = ({
   organizer,
   totalParticipants,
   participantEmail,
+  isParticipant,
 }) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -277,18 +297,18 @@ const buildHTML = ({
       <tr>
         <td style="padding:0 0 32px 0;">
           <p style="margin:0 0 6px 0;color:#4F46E5;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">Planify</p>
-          <h1 style="margin:0 0 6px 0;color:#0F172A;font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;">Meeting Invitation</h1>
-          <p style="margin:0;color:#475569;font-size:15px;">You have been added as a participant</p>
+          <h1 style="margin:0 0 6px 0;color:#0F172A;font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;">Undangan Meeting</h1>
+          <p style="margin:0;color:#475569;font-size:15px;">${isParticipant ? "Anda telah diundang sebagai partisipan" : "Pemberitahuan untuk departemen Anda"}</p>
         </td>
       </tr>
 
       <tr>
         <td style="padding:0 0 32px 0;">
 
-          <p style="margin:0 0 6px 0;font-size:15px;color:#0F172A;">Hello, <strong style="color:#0F172A;">${nama}</strong></p>
+          <p style="margin:0 0 6px 0;font-size:15px;color:#0F172A;">Halo, <strong style="color:#0F172A;">${nama}</strong></p>
           <p style="margin:0 0 32px 0;font-size:15px;color:#475569;line-height:1.6;">
             <strong style="color:#4F46E5;">${organizer.nama || organizer.username}</strong>
-            has scheduled a meeting and you have been invited to participate.
+            ${isParticipant ? "telah menjadwalkan meeting dan Anda diundang untuk berpartisipasi." : "telah menjadwalkan meeting yang membutuhkan perhatian departemen Anda."}
           </p>
 
           <hr style="border:none;border-top:1px solid #E2E8F0;margin:0 0 32px 0;"/>
@@ -303,12 +323,12 @@ const buildHTML = ({
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
             <tr>
               <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
-                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Start</p>
+                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Mulai</p>
                 <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;line-height:1.5;">${fmtDate(meeting.startTime)}</p>
               </td>
               <td width="4%"></td>
               <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
-                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">End</p>
+                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Selesai</p>
                 <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;line-height:1.5;">${fmtDate(meeting.endTime)}</p>
               </td>
             </tr>
@@ -317,12 +337,12 @@ const buildHTML = ({
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
             <tr>
               <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
-                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Duration</p>
+                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Durasi</p>
                 <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;">${duration(meeting.startTime, meeting.endTime)}</p>
               </td>
               <td width="4%"></td>
               <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
-                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Room</p>
+                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Ruangan</p>
                 <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;">${room?.nama || "&mdash;"}</p>
               </td>
             </tr>
@@ -331,26 +351,26 @@ const buildHTML = ({
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
             <tr>
               <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
-                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Organizer</p>
+                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Penyelenggara</p>
                 <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;">${organizer.nama || organizer.username}</p>
               </td>
               <td width="4%"></td>
               <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
-                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Participants</p>
-                <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;">${totalParticipants} people</p>
+                <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Partisipan</p>
+                <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;">${totalParticipants} orang</p>
               </td>
             </tr>
           </table>
 
-          ${buildRSVPButtons(meeting._id, participantEmail)}
+          ${isParticipant ? buildRSVPButtons(meeting._id, participantEmail) : ''}
 
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td style="background:#F8FAFC;border-left:4px solid #4F46E5;border-radius:0 8px 8px 0;padding:16px 20px;">
                 <p style="margin:0;font-size:14px;color:#334155;line-height:1.6;">
-                  <strong>Calendar invite attached</strong><br/>
-                  Open the <strong>.ics</strong> file to add this meeting to Google Calendar, Outlook,
-                  or Apple Calendar. A reminder will fire <strong>30 minutes</strong> before the meeting.
+                  <strong>Undangan kalender terlampir</strong><br/>
+                  Buka file <strong>.ics</strong> untuk menambahkan meeting ini ke Google Calendar, Outlook,
+                  atau Apple Calendar. Pengingat akan aktif <strong>30 menit</strong> sebelum meeting.
                 </p>
               </td>
             </tr>
@@ -362,9 +382,9 @@ const buildHTML = ({
       <tr>
         <td style="border-top:1px solid #E2E8F0;padding:24px 0 0 0;text-align:center;">
           <p style="margin:0 0 4px 0;font-size:13px;color:#64748B;">
-            Sent automatically by <strong style="color:#4F46E5;">Planify</strong>.
+            Dikirim secara otomatis oleh <strong style="color:#4F46E5;">Planify</strong>.
           </p>
-          <p style="margin:0;font-size:12px;color:#94A3B8;">Please do not reply to this email.</p>
+          <p style="margin:0;font-size:12px;color:#94A3B8;">Mohon untuk tidak membalas email ini.</p>
         </td>
       </tr>
 
@@ -388,7 +408,7 @@ export const sendMeetingInvitation = async ({
   const safeTitle = meeting.title.replace(/\s+/g, "-").replace(/[^\w-]/g, "");
 
   const results = await Promise.allSettled(
-    participants.map(({ email, nama }) => {
+    participants.map(({ email, nama, isParticipant }) => {
       const icsContent = generateICS({
         title: meeting.title,
         description: meeting.description,
@@ -408,6 +428,7 @@ export const sendMeetingInvitation = async ({
         organizer,
         totalParticipants,
         participantEmail: email,
+        isParticipant,
       });
 
       return transporter.sendMail({
@@ -415,14 +436,14 @@ export const sendMeetingInvitation = async ({
         from: `"Planify" <${process.env.EMAIL_USER}>`,
         to: email,
         replyTo: `"${organizer.nama || organizer.username}" <${organizer.email}>`,
-        subject: `[Meeting Invitation] ${meeting.title}`,
+        subject: `[Undangan Meeting] ${meeting.title}`,
 
         headers: {
           "Content-Class": "urn:content-classes:calendarmessage",
           "X-MS-OLK-FORCEINSPECTOROPEN": "TRUE",
         },
 
-        text: buildPlainText({ nama, meeting, room, organizer }),
+        text: buildPlainText({ nama, meeting, room, organizer, isParticipant }),
         html: htmlContent,
 
         // Microsoft/Outlook: ICS harus MIME part TERPISAH (sibling), BUKAN di dalam
@@ -456,6 +477,211 @@ export const sendMeetingInvitation = async ({
         r.reason?.message || r.reason,
       );
     else console.log(`✓ Sent    →  ${participants[i].email}`);
+  });
+
+  return results;
+};
+
+export const sendMeetingCancellationEmail = async ({
+  users,
+  meeting,
+  canceller,
+  cancelledReason,
+}) => {
+  const results = await Promise.allSettled(
+    users.map(({ email, nama, username, isParticipant }) => {
+      const recipientName = nama || username;
+      const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+</head>
+<body style="margin:0;padding:0;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;text-align:left;">
+        <tr>
+          <td style="padding:0 0 32px 0;">
+            <p style="margin:0 0 6px 0;color:#DC2626;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">Planify</p>
+            <h1 style="margin:0 0 6px 0;color:#0F172A;font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;">Meeting Dibatalkan</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 0 32px 0;">
+            <p style="margin:0 0 6px 0;font-size:15px;color:#0F172A;">Halo, <strong style="color:#0F172A;">${recipientName}</strong></p>
+            <p style="margin:0 0 16px 0;font-size:15px;color:#475569;line-height:1.6;">
+              ${isParticipant ? `Meeting <strong style="color:#0F172A;">${meeting.title}</strong> telah dibatalkan oleh <strong style="color:#4F46E5;">${canceller?.nama || canceller?.username || "Admin"}</strong>.` : `Pemberitahuan: Meeting <strong style="color:#0F172A;">${meeting.title}</strong> yang membutuhkan dukungan departemen Anda telah dibatalkan oleh <strong style="color:#4F46E5;">${canceller?.nama || canceller?.username || "Admin"}</strong>.`}
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+              <tr>
+                <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
+                  <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Alasan</p>
+                  <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;line-height:1.5;">${cancelledReason || "Tidak ada alasan yang diberikan"}</p>
+                </td>
+                <td width="4%"></td>
+                <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
+                  <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Ruangan</p>
+                  <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;line-height:1.5;">${meeting.roomId?.nama || "&mdash;"}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="border-top:1px solid #E2E8F0;padding:24px 0 0 0;text-align:center;">
+            <p style="margin:0 0 4px 0;font-size:13px;color:#64748B;">
+              Dikirim secara otomatis oleh <strong style="color:#DC2626;">Planify</strong>.
+            </p>
+            <p style="margin:0;font-size:12px;color:#94A3B8;">Mohon untuk tidak membalas email ini.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+      return transporter.sendMail({
+        from: `"Planify" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `[Meeting Dibatalkan] ${meeting.title}`,
+        html: htmlContent,
+      });
+    }),
+  );
+
+  results.forEach((r, i) => {
+    if (r.status === "rejected")
+      console.error(
+        `✗ Failed Cancel Email  →  ${users[i].email}:`,
+        r.reason?.message || r.reason,
+      );
+    else console.log(`✓ Sent Cancel Email    →  ${users[i].email}`);
+  });
+
+  return results;
+};
+
+export const sendMeetingRescheduleEmail = async ({
+  users,
+  meeting,
+  room,
+  rescheduler,
+  oldData,
+}) => {
+  const senderEmail = process.env.EMAIL_USER;
+
+  const results = await Promise.allSettled(
+    users.map(({ email, nama, username, isParticipant }) => {
+      const recipientName = nama || username;
+      const organizer = meeting.organizerId || {};
+
+      const icsContent = generateICS({
+        title: meeting.title,
+        description: meeting.description,
+        startTime: meeting.startTime,
+        endTime: meeting.endTime,
+        location: room?.nama || "",
+        organizerName:
+          organizer.nama ||
+          organizer.username ||
+          rescheduler?.nama ||
+          rescheduler?.username ||
+          "Admin",
+        senderEmail,
+        meetingId: meeting._id,
+        participants: [{ email, nama: recipientName }],
+      });
+
+      const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+</head>
+<body style="margin:0;padding:0;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;text-align:left;">
+        <tr>
+          <td style="padding:0 0 32px 0;">
+            <p style="margin:0 0 6px 0;color:#F59E0B;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;">Planify</p>
+            <h1 style="margin:0 0 6px 0;color:#0F172A;font-size:26px;font-weight:700;letter-spacing:-0.5px;line-height:1.2;">Jadwal Meeting Diubah</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 0 32px 0;">
+            <p style="margin:0 0 6px 0;font-size:15px;color:#0F172A;">Halo, <strong style="color:#0F172A;">${recipientName}</strong></p>
+            <p style="margin:0 0 16px 0;font-size:15px;color:#475569;line-height:1.6;">
+              ${isParticipant ? `Jadwal meeting <strong style="color:#0F172A;">${meeting.title}</strong> telah diubah oleh <strong style="color:#4F46E5;">${rescheduler?.nama || rescheduler?.username || "Admin"}</strong>.` : `Pemberitahuan: Jadwal meeting <strong style="color:#0F172A;">${meeting.title}</strong> yang terkait dengan departemen Anda telah diubah oleh <strong style="color:#4F46E5;">${rescheduler?.nama || rescheduler?.username || "Admin"}</strong>.`}
+            </p>
+            
+            <h2 style="margin:0 0 6px 0;font-size:16px;font-weight:700;color:#0F172A;">Jadwal Baru</h2>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+              <tr>
+                <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
+                  <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Mulai</p>
+                  <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;line-height:1.5;">${fmtDate(meeting.startTime)}</p>
+                </td>
+                <td width="4%"></td>
+                <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
+                  <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Selesai</p>
+                  <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;line-height:1.5;">${fmtDate(meeting.endTime)}</p>
+                </td>
+              </tr>
+            </table>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+              <tr>
+                <td width="100%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
+                  <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Ruangan Baru</p>
+                  <p style="margin:0;font-size:14px;font-weight:600;color:#1E293B;line-height:1.5;">${room?.nama || "&mdash;"}</p>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+        <tr>
+          <td style="border-top:1px solid #E2E8F0;padding:24px 0 0 0;text-align:center;">
+            <p style="margin:0 0 4px 0;font-size:13px;color:#64748B;">
+              Dikirim secara otomatis oleh <strong style="color:#F59E0B;">Planify</strong>.
+            </p>
+            <p style="margin:0;font-size:12px;color:#94A3B8;">Mohon untuk tidak membalas email ini.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+      const safeTitle = meeting.title
+        .replace(/\s+/g, "-")
+        .replace(/[^\w-]/g, "");
+
+      return transporter.sendMail({
+        from: `"Planify" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `[Jadwal Meeting Diubah] ${meeting.title}`,
+        html: htmlContent,
+        icalEvent: {
+          method: "REQUEST",
+          filename: `${safeTitle}-reschedule.ics`,
+          content: icsContent,
+        },
+      });
+    }),
+  );
+
+  results.forEach((r, i) => {
+    if (r.status === "rejected")
+      console.error(
+        `✗ Failed Reschedule Email  →  ${users[i].email}:`,
+        r.reason?.message || r.reason,
+      );
+    else console.log(`✓ Sent Reschedule Email    →  ${users[i].email}`);
   });
 
   return results;

@@ -416,9 +416,7 @@ export async function addUserToWorkspace(req, res) {
     workspace.members.push({ user: id, role });
     await workspace.save();
 
-    // Add to User workspaces array
-    user.workspaces.push({ workspace: workspaceId, role });
-    await user.save();
+
 
     res.status(200).json({
       success: true,
@@ -455,11 +453,7 @@ export async function removeUserFromWorkspace(req, res) {
     workspace.members = workspace.members.filter((m) => m.user.toString() !== id);
     await workspace.save();
 
-    // Remove from User
-    user.workspaces = user.workspaces.filter(
-      (w) => w.workspace.toString() !== workspaceId
-    );
-    await user.save();
+
 
     res.status(200).json({
       success: true,
@@ -500,12 +494,7 @@ export async function updateUserWorkspaceRole(req, res) {
     member.role = role;
     await workspace.save();
 
-    // Update in User
-    const userWs = user.workspaces.find((w) => w.workspace.toString() === workspaceId);
-    if (userWs) {
-      userWs.role = role;
-      await user.save();
-    }
+
 
     res.status(200).json({
       success: true,

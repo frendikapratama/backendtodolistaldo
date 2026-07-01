@@ -8,8 +8,16 @@ import { handleError } from "../utils/errorHandler.js";
 import { validateAvailability } from "../helpers/meetingAvailabilityService.js";
 import { syncParticipants } from "../helpers/participantSyncService.js";
 import MeetingHistory from "../models/MeetingHistory.js";
-import { sendMeetingInvitation } from "../helpers/meetingEmailService.js";
-import { sendMeetingWhatsAppNotification } from "../helpers/meetingWhatsAppService.js";
+import {
+  sendMeetingInvitation,
+  sendMeetingCancellationEmail,
+  sendMeetingRescheduleEmail,
+} from "../helpers/meetingEmailService.js";
+import {
+  sendMeetingWhatsAppNotification,
+  sendMeetingCancellationWhatsApp,
+  sendMeetingRescheduleWhatsApp,
+} from "../helpers/meetingWhatsAppService.js";
 
 const meetingUploadsDir = path.join(
   process.cwd(),
@@ -137,14 +145,29 @@ export const createMeeting = async (req, res) => {
       "nama username email noHp",
     ).lean();
 
-    const organizer = populatedMeeting.organizerId; // { nama, username, email }
-    const room = populatedMeeting.roomId; // { nama, lokasi }
+    // ─── Tambahkan HRD, GA, IT sebagai penerima notifikasi
+    const targetDivisions = [/^hrd$/i, /^ga$/i, /^it$/i];
+    const hrdGaItUsers = await User.find({
+      divisi: { $in: targetDivisions },
+      _id: { $nin: participantIds },
+    })
+      .select("nama username email noHp")
+      .lean();
+
+    const allNotifyUsers = [
+      ...invitedUsers.map((u) => ({ ...u, isParticipant: true })),
+      ...hrdGaItUsers.map((u) => ({ ...u, isParticipant: false })),
+    ];
+
+    const organizer = populatedMeeting.organizerId;
+    const room = populatedMeeting.roomId;
 
     // ─── Email invitation (background, tidak menunggu)
     sendMeetingInvitation({
-      participants: invitedUsers.map((u) => ({
+      participants: allNotifyUsers.map((u) => ({
         email: u.email,
         nama: u.nama || u.username,
+        isParticipant: u.isParticipant,
       })),
       organizer,
       meeting: populatedMeeting,
@@ -153,10 +176,11 @@ export const createMeeting = async (req, res) => {
 
     // ─── WhatsApp notification (background, tidak menunggu)
     sendMeetingWhatsAppNotification({
-      participants: invitedUsers.map((u) => ({
+      participants: allNotifyUsers.map((u) => ({
         noHp: u.noHp,
         nama: u.nama || u.username,
-        email: u.email, // <-- tambahkan ini
+        email: u.email,
+        isParticipant: u.isParticipant,
       })),
       organizer,
       meeting: populatedMeeting,
@@ -322,6 +346,53 @@ export const rescheduleMeeting = async (req, res) => {
       newData: { roomId, startTime, endTime },
     });
 
+    const populatedMeeting = await Meeting.findById(meeting._id)
+      .populate("roomId", "nama lokasi")
+      .populate("organizerId", "nama username email")
+      .lean();
+
+    const rescheduler = await User.findById(changedBy).select(
+      "nama username email",
+    );
+
+    const participantsData = await MeetingParticipant.find({ meetingId: id })
+      .populate("userId", "nama username email noHp")
+      .lean();
+    const participantUsers = participantsData
+      .map((p) => p.userId)
+      .filter((u) => u);
+
+    const targetDivisions = [/^hrd$/i, /^ga$/i, /^it$/i];
+    const hrdItUsers = await User.find({
+      divisi: { $in: targetDivisions },
+      _id: { $nin: participantUsers.map((u) => u._id) },
+    })
+      .select("nama username email noHp")
+      .lean();
+
+    const allNotifyUsers = [
+      ...participantUsers.map((u) => ({ ...u, isParticipant: true })),
+      ...hrdItUsers.map((u) => ({ ...u, isParticipant: false })),
+    ];
+
+    if (allNotifyUsers.length > 0) {
+      sendMeetingRescheduleEmail({
+        users: allNotifyUsers,
+        meeting: populatedMeeting,
+        room: populatedMeeting.roomId,
+        rescheduler,
+        oldData,
+      }).catch((err) => console.error("Email reschedule error:", err));
+
+      sendMeetingRescheduleWhatsApp({
+        users: allNotifyUsers,
+        meeting: populatedMeeting,
+        room: populatedMeeting.roomId,
+        rescheduler,
+        oldData,
+      }).catch((err) => console.error("WhatsApp reschedule error:", err));
+    }
+
     // EMIT REALTIME
     const io = req.app.get("io");
     io.emit("meeting:rescheduled", {
@@ -347,7 +418,7 @@ export const cancelMeeting = async (req, res) => {
     const { id } = req.params;
     const { cancelledReason, cancelledBy } = req.body;
 
-    const meeting = await Meeting.findById(id);
+    const meeting = await Meeting.findById(id).populate("roomId", "nama");
     if (!meeting) {
       return res.status(404).json({ message: "Meeting not found." });
     }
@@ -364,11 +435,58 @@ export const cancelMeeting = async (req, res) => {
       newData: { cancelledReason },
     });
 
+    const canceller = await User.findById(cancelledBy).select(
+      "nama username email",
+    );
+
+    // Ambil seluruh participant meeting
+    const participantsData = await MeetingParticipant.find({
+      meetingId: id,
+    })
+      .populate("userId", "nama username email noHp")
+      .lean();
+
+    const participantUsers = participantsData
+      .map((p) => p.userId)
+      .filter(Boolean);
+
+    // Ambil HRD, GA, IT selain participant
+    const targetDivisions = [/^hrd$/i, /^ga$/i, /^it$/i];
+
+    const divisionUsers = await User.find({
+      divisi: { $in: targetDivisions },
+      _id: { $nin: participantUsers.map((u) => u._id) },
+    })
+      .select("nama username email noHp")
+      .lean();
+
+    // Gabungkan dan hilangkan duplikasi
+    const notifyUsers = [
+      ...participantUsers.map((u) => ({ ...u, isParticipant: true })),
+      ...divisionUsers.map((u) => ({ ...u, isParticipant: false })),
+    ];
+
+    if (notifyUsers.length > 0) {
+      sendMeetingCancellationEmail({
+        users: notifyUsers,
+        meeting,
+        canceller,
+        cancelledReason,
+      }).catch((err) => console.error("Email cancellation error:", err));
+
+      sendMeetingCancellationWhatsApp({
+        users: notifyUsers,
+        meeting,
+        canceller,
+        cancelledReason,
+      }).catch((err) => console.error("WhatsApp cancellation error:", err));
+    }
+
     // EMIT REALTIME
     const io = req.app.get("io");
     io.emit("meeting:cancelled", {
       meetingId: id,
-      roomId: meeting.roomId,
+      roomId: meeting.roomId ? meeting.roomId._id : undefined,
     });
 
     return res.status(200).json({
@@ -698,8 +816,40 @@ export const deleteMeetingResult = async (req, res) => {
 
 export const handleRSVP = async (req, res) => {
   try {
-    const { meetingId } = req.params;
-    const { status, email } = req.query;
+    const { token } = req.params;
+    let meetingId, status, email;
+
+    if (req.query.status && req.query.email) {
+      // Fallback for old links
+      meetingId = token;
+      status = req.query.status;
+      email = req.query.email;
+    } else {
+      try {
+        const decodedStr = Buffer.from(token, "base64").toString("utf-8");
+        if (decodedStr.startsWith("{")) {
+          // Fallback for the intermediate JSON token format
+          const decoded = JSON.parse(decodedStr);
+          meetingId = decoded.m;
+          status = decoded.s;
+          email = decoded.e;
+        } else {
+          // New compact binary format
+          const decodedBuf = Buffer.from(token, "base64");
+          meetingId = decodedBuf.slice(0, 12).toString("hex");
+          const sChar = decodedBuf.slice(12, 13).toString("utf8");
+          const statusMapRev = { a: "accepted", t: "tentative", d: "decline" };
+          status = statusMapRev[sChar];
+          email = decodedBuf.slice(13).toString("utf8");
+        }
+      } catch (err) {
+        return res.status(400).send(`
+          <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
+            <h2 style="color:#EF4444;">Invalid or expired link.</h2>
+          </body></html>
+        `);
+      }
+    }
 
     const validStatus = ["accepted", "decline", "tentative"];
     if (!validStatus.includes(status)) {

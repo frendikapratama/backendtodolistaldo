@@ -14,7 +14,10 @@ import Workspace from "../models/Workspace.js";
 import { createActivity } from "../helpers/activityhelper.js";
 import { createSubtaskAssignmentNotification } from "../helpers/notificationHelper.js";
 import { emitNotificationToUser } from "../sockets/socketHandler.js";
-import { calculateFibonacciScore, getPriorityLevelFromScore } from "../helpers/fibonacciPriority.js";
+import {
+  calculateFibonacciScore,
+  getPriorityLevelFromScore,
+} from "../helpers/fibonacciPriority.js";
 
 export async function getSubTask(req, res) {
   try {
@@ -45,9 +48,13 @@ export async function createSubTask(req, res) {
     };
 
     if (subtaskData.scale && subtaskData.due_date) {
-      const fibonacciScore = calculateFibonacciScore(subtaskData.scale, 0, subtaskData.due_date);
+      const fibonacciScore = calculateFibonacciScore(
+        subtaskData.scale,
+        0,
+        subtaskData.due_date,
+      );
       const priorityData = getPriorityLevelFromScore(fibonacciScore);
-      
+
       subtaskData.fibonacci_score = fibonacciScore;
       subtaskData.priority = priorityData.level;
     }
@@ -97,7 +104,7 @@ export async function updateSubTask(req, res) {
           subTaskId,
           email,
           oldSubTask,
-          req.user._id
+          req.user._id,
         );
 
         if (!picResult.success) {
@@ -119,7 +126,7 @@ export async function updateSubTask(req, res) {
           });
 
           console.log(
-            `Sent subtask PIC assignment notification to user ${picResult.notification.recipient}`
+            `Sent subtask PIC assignment notification to user ${picResult.notification.recipient}`,
           );
         }
       }
@@ -140,22 +147,30 @@ export async function updateSubTask(req, res) {
     if (updateData.scale || updateData.due_date || picEmail) {
       const scale = updateData.scale || oldSubTask.scale;
       const dueDate = updateData.due_date || oldSubTask.due_date;
-      const picLength = updateData.pic ? updateData.pic.length : (oldSubTask.pic?.length || 0);
+      const picLength = updateData.pic
+        ? updateData.pic.length
+        : oldSubTask.pic?.length || 0;
 
       if (scale && dueDate) {
-        const fibonacciScore = calculateFibonacciScore(scale, picLength, dueDate);
+        const fibonacciScore = calculateFibonacciScore(
+          scale,
+          picLength,
+          dueDate,
+        );
         updateData.fibonacci_score = fibonacciScore;
 
         const priorityData = getPriorityLevelFromScore(fibonacciScore);
         updateData.priority = priorityData.level;
-        console.log(`Subtask ${subTaskId} - Score: ${fibonacciScore}, Priority: ${priorityData.level}`);
+        console.log(
+          `Subtask ${subTaskId} - Score: ${fibonacciScore}, Priority: ${priorityData.level}`,
+        );
       }
     }
 
     const updatedSubTask = await Subtask.findByIdAndUpdate(
       subTaskId,
       updateData,
-      { new: true }
+      { new: true },
     ).populate("pic", "username email");
 
     const before = {};
@@ -208,7 +223,7 @@ async function handleSubtaskPicAssignment(
   subTaskId,
   picEmail,
   subtask,
-  requesterId
+  requesterId,
 ) {
   try {
     const result = await getWorkspaceFromSubtask(subTaskId);
@@ -224,7 +239,7 @@ async function handleSubtaskPicAssignment(
     if (
       currentSubtask.pic &&
       currentSubtask.pic.some(
-        (id) => targetUser && id.toString() === targetUser._id.toString()
+        (id) => targetUser && id.toString() === targetUser._id.toString(),
       )
     ) {
       return {
@@ -235,7 +250,7 @@ async function handleSubtaskPicAssignment(
 
     if (targetUser) {
       const isMember = workspace.members.some(
-        (m) => m.user.toString() === targetUser._id.toString()
+        (m) => m.user.toString() === targetUser._id.toString(),
       );
       if (!isMember) {
         await Workspace.findByIdAndUpdate(workspace._id, {
@@ -246,37 +261,28 @@ async function handleSubtaskPicAssignment(
             },
           },
         });
-
-        await User.findByIdAndUpdate(targetUser._id, {
-          $push: {
-            workspaces: {
-              workspace: workspace._id,
-              role: "member",
-            },
-          },
-        });
       }
       await Subtask.findByIdAndUpdate(subTaskId, {
         $addToSet: { pic: targetUser._id },
       });
 
-      await User.findByIdAndUpdate(targetUser._id, {
-        $addToSet: { assignedSubtasks: subTaskId },
-      });
+
       const updatedSubtask = await Subtask.findById(subTaskId).populate("pic");
       if (updatedSubtask.scale && updatedSubtask.due_date) {
         const fibonacciScore = calculateFibonacciScore(
           updatedSubtask.scale,
           updatedSubtask.pic.length,
-          updatedSubtask.due_date
+          updatedSubtask.due_date,
         );
         const priorityData = getPriorityLevelFromScore(fibonacciScore);
-        
+
         await Subtask.findByIdAndUpdate(subTaskId, {
           fibonacci_score: fibonacciScore,
           priority: priorityData.level,
         });
-        console.log(`Subtask ${subTaskId} PIC updated - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`);
+        console.log(
+          `Subtask ${subTaskId} PIC updated - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`,
+        );
       }
 
       try {
@@ -299,7 +305,7 @@ async function handleSubtaskPicAssignment(
           message: `${picEmail} successfully added as PIC${
             !isMember ? " and joined workspace as member" : ""
           }`,
-          notification, 
+          notification,
         };
       } catch (notifError) {
         console.error("Error sending subtask PIC notification:", notifError);
@@ -398,13 +404,6 @@ export async function acceptSubtaskPicInvite(req, res) {
       $addToSet: { members: userId },
     });
 
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: {
-        workspaces: workspace._id,
-        assignedSubtasks: subTaskId,
-      },
-    });
-
     await Subtask.findByIdAndUpdate(subTaskId, {
       $addToSet: { pic: userId },
       $pull: { pendingPicInvites: { token: token } },
@@ -445,7 +444,7 @@ export async function removeSubtaskPic(req, res) {
     }
 
     const wasRemoved = subtask.pic.some(
-      (id) => id.toString() === userId.toString()
+      (id) => id.toString() === userId.toString(),
     );
 
     if (!wasRemoved) {
@@ -459,27 +458,27 @@ export async function removeSubtaskPic(req, res) {
     const picBefore = [...subtask.pic];
 
     subtask.pic = subtask.pic.filter(
-      (id) => id.toString() !== userId.toString()
+      (id) => id.toString() !== userId.toString(),
     );
     await subtask.save();
     if (subtask.scale && subtask.due_date) {
       const fibonacciScore = calculateFibonacciScore(
         subtask.scale,
         subtask.pic.length,
-        subtask.due_date
+        subtask.due_date,
       );
       const priorityData = getPriorityLevelFromScore(fibonacciScore);
-      
+
       await Subtask.findByIdAndUpdate(subTaskId, {
         fibonacci_score: fibonacciScore,
         priority: priorityData.level,
       });
-      console.log(`Subtask ${subTaskId} PIC removed - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`);
+      console.log(
+        `Subtask ${subTaskId} PIC removed - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`,
+      );
     }
 
-    await User.findByIdAndUpdate(userId, {
-      $pull: { assignedSubtasks: subtask._id },
-    });
+
 
     const workspaceResult = await getWorkspaceFromSubtask(subTaskId);
     if (workspaceResult.success) {
@@ -612,8 +611,8 @@ export async function positionSubTask(req, res) {
     }
     await Promise.all(
       subTaskId.map((id, position) =>
-        Subtask.findByIdAndUpdate(id, { position, task: taskId })
-      )
+        Subtask.findByIdAndUpdate(id, { position, task: taskId }),
+      ),
     );
     res.status(200).json({
       success: true,

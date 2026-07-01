@@ -82,5 +82,5 @@ router.get("/:id/detail", getMeetingDetail);
 router.post("/:id/results", upload.single("file"), addMeetingResult);
 router.put("/:id/results/:resultId", updateMeetingResult);
 router.delete("/:id/results/:resultId", deleteMeetingResult);
-router.get("/rsvp/:meetingId", handleRSVP);
+router.get("/rsvp/:token", handleRSVP);
 export default router;

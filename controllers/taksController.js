@@ -187,14 +187,14 @@ export async function createTask(req, res) {
     const populatedTask = await Task.findById(task._id)
       .populate("workspace", "nama")
       .populate("project", "nama");
-      const io = req.app.get("io");
-      if (io) {
-        io.to(`workspace:${populatedTask.workspace._id}`).emit("task:created", {
-          task: populatedTask,
-          groupId,
-          createdBy: req.user._id,
-        });
-      }
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`workspace:${populatedTask.workspace._id}`).emit("task:created", {
+        task: populatedTask,
+        groupId,
+        createdBy: req.user._id,
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -341,7 +341,7 @@ export async function updateTask(req, res) {
       .populate("pic", "username email")
       .populate("workspace", "nama")
       .populate("project", "nama");
-    
+
     const io = req.app.get("io");
     if (io) {
       io.to(`task:${taskId}`).emit("task:updated", {
@@ -350,7 +350,7 @@ export async function updateTask(req, res) {
         updatedBy: req.user._id,
         updatedFields: Object.keys(updateData),
       });
-    
+
       io.to(`workspace:${updatedTask.workspace._id}`).emit("task:updated", {
         taskId: updatedTask._id,
         task: updatedTask,
@@ -693,25 +693,13 @@ async function handlePicAssignment(taskId, picEmail, task, requesterId) {
             },
           },
         });
-
-        await User.findByIdAndUpdate(targetUser._id, {
-          $push: {
-            workspaces: {
-              workspace: workspace._id,
-              role: "member",
-            },
-          },
-        });
       }
 
       await Task.findByIdAndUpdate(taskId, {
         $addToSet: { pic: targetUser._id },
       });
 
-      if (!targetUser.assignedTasks.includes(taskId)) {
-        targetUser.assignedTasks.push(taskId);
-        await targetUser.save();
-      }
+
 
       const updatedTask = await Task.findById(taskId).populate("pic");
       if (updatedTask.scale && updatedTask.due_date) {
@@ -860,22 +848,9 @@ export async function acceptPicInvite(req, res) {
           },
         },
       });
-
-      await User.findByIdAndUpdate(userId, {
-        $push: {
-          workspaces: {
-            workspace: workspace._id,
-            role: "member",
-          },
-        },
-      });
     }
 
-    await User.findByIdAndUpdate(userId, {
-      $addToSet: {
-        assignedTasks: taskId,
-      },
-    });
+
 
     await Task.findByIdAndUpdate(taskId, {
       $addToSet: { pic: userId },
@@ -952,9 +927,7 @@ export async function removePic(req, res) {
       );
     }
 
-    await User.findByIdAndUpdate(userId, {
-      $pull: { assignedTasks: task._id },
-    });
+
 
     const group = await Group.findById(task.groups);
     await createActivity({
@@ -990,11 +963,7 @@ export async function removeAllPics(req, res) {
       });
     }
 
-    for (const picId of task.pic) {
-      await User.findByIdAndUpdate(picId, {
-        $pull: { assignedTasks: task._id },
-      });
-    }
+
 
     task.pic = [];
     await task.save();

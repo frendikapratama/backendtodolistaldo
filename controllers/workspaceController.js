@@ -84,14 +84,7 @@ export async function createWorkspace(req, res) {
       $push: { workspace: newWorkspace._id },
     });
 
-    await User.findByIdAndUpdate(req.user._id, {
-      $push: {
-        workspaces: {
-          workspace: newWorkspace._id,
-          role: "admin",
-        },
-      },
-    });
+ 
 
     res.status(201).json({
       success: true,
@@ -148,11 +141,7 @@ export async function deleteWorkspace(req, res) {
 
     await Project.deleteMany({ workspace: workspaceId });
 
-    // Hapus workspace dari user's workspaces array
-    await User.updateMany(
-      { "workspaces.workspace": workspaceId },
-      { $pull: { workspaces: { workspace: workspaceId } } },
-    );
+
 
     const deletedWorkspace = await Workspace.findByIdAndDelete(workspaceId);
 
@@ -215,14 +204,7 @@ export async function inviteMemberByEmail(req, res) {
         },
       });
 
-      await User.findByIdAndUpdate(existingUser._id, {
-        $push: {
-          workspaces: {
-            workspace: workspaceId,
-            role: role,
-          },
-        },
-      });
+
 
       console.log(`✅ ${email} langsung ditambahkan sebagai ${role}`);
       return res.status(200).json({
@@ -387,14 +369,7 @@ export async function acceptWorkspaceInvite(req, res) {
       { new: true },
     );
 
-    await User.findByIdAndUpdate(userId, {
-      $push: {
-        workspaces: {
-          workspace: workspace._id,
-          role: invitedRole,
-        },
-      },
-    });
+
 
     return res.status(200).json({
       success: true,
@@ -427,10 +402,7 @@ export async function updateMemberRole(req, res) {
       { $set: { "members.$.role": role } },
     );
 
-    await User.findOneAndUpdate(
-      { _id: userId, "workspaces.workspace": workspaceId },
-      { $set: { "workspaces.$.role": role } },
-    );
+
 
     res.status(200).json({
       success: true,
@@ -461,9 +433,7 @@ export async function removeMember(req, res) {
       $pull: { members: { user: userId } },
     });
 
-    await User.findByIdAndUpdate(userId, {
-      $pull: { workspaces: { workspace: workspaceId } },
-    });
+
 
     res.status(200).json({
       success: true,
@@ -485,22 +455,30 @@ export async function getMyworkspace(req, res) {
       });
     }
 
-    // Mencari user dengan ID yang sesuai dan populate workspace
-    const user = await User.findById(userId).populate({
-      path: "workspaces.workspace",
-      select: "nama",
-    });
+    const workspaces = await Workspace.find({
+      $or: [{ owner: userId }, { "members.user": userId }],
+    }).select("nama members owner");
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User tidak ditemukan",
-      });
-    }
+    const formattedWorkspaces = workspaces.map((w) => {
+      let role = "member";
+      if (w.owner && w.owner.toString() === userId.toString()) {
+        role = "owner";
+      } else {
+        const member = w.members.find(
+          (m) => m.user && m.user.toString() === userId.toString(),
+        );
+        if (member) role = member.role;
+      }
+
+      return {
+        workspace: { _id: w._id, nama: w.nama },
+        role,
+      };
+    });
 
     return res.status(200).json({
       success: true,
-      data: { workspaces: user.workspaces || [] },
+      data: { workspaces: formattedWorkspaces },
     });
   } catch (error) {
     console.error("Error fetching workspaces:", error);

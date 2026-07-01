@@ -49,26 +49,13 @@ const router = express.Router();
 
 router.get("/me", authenticate, async (req, res) => {
   try {
-    const user = await req.user.populate({
-      path: "workspaces.workspace",
-      select: "nama photo",
-    });
-    res.json({ user });
+    res.json({ user: req.user });
   } catch (error) {
     res.status(500).json({
       message: "Failed to fetch user data",
       error: error.message,
     });
   }
-  res.json({ user: req.user });
-
-  //   const user = req.user.toObject();
-  //   delete user.password;
-  //   delete user.resetOTP;
-  //   delete user.resetOTPExpire;
-  //   delete user.__v;
-
-  //  res.json({ user });
 });
 router.put("/me", authenticate, upload.single("photo"), updateProfile);
 
