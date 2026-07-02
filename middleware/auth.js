@@ -42,20 +42,19 @@ const JWT_SECRET =
 //   }
 // }
 
-
 export async function authenticate(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer")) {
       return res.status(401).json({
-        message: "No authorization token provided"
+        message: "No authorization token provided",
       });
     }
     const token = authHeader.split(" ")[1];
     if (!token || token === "undefined" || token === "null") {
       return res.status(401).json({
-        message: "Invalid token format"
+        message: "Invalid token format",
       });
     }
     let decoded;
@@ -63,27 +62,27 @@ export async function authenticate(req, res, next) {
       decoded = jwt.verify(token, JWT_SECRET);
     } catch (jwtError) {
       console.error("JWT verification error:", jwtError.message);
-      if (jwtError.name === 'TokenExpiredError') {
+      if (jwtError.name === "TokenExpiredError") {
         return res.status(401).json({
           message: "Token expired",
-          expired: true
+          expired: true,
         });
       }
-      if (jwtError.name === 'JsonWebTokenError') {
+      if (jwtError.name === "JsonWebTokenError") {
         return res.status(401).json({
           message: "Invalid token",
-          error: jwtError.message
+          error: jwtError.message,
         });
       }
       return res.status(401).json({
         message: "Token verification failed",
-        error: jwtError.message
+        error: jwtError.message,
       });
     }
     const user = await User.findById(decoded.id).select("-password");
     if (!user) {
       return res.status(401).json({
-        message: "User not found"
+        message: "User not found",
       });
     }
 
@@ -97,6 +96,7 @@ export async function authenticate(req, res, next) {
     });
   }
 }
+
 export function requireSystemAdmin(req, res, next) {
   if (!req.user) {
     return res.status(401).json({ message: "you don't have access" });
@@ -148,7 +148,7 @@ export function checkWorkspaceRole(allowedRoles = []) {
       }
 
       const member = workspace.members.find(
-        (m) => m.user.toString() === userId.toString()
+        (m) => m.user.toString() === userId.toString(),
       );
 
       if (!member) {
@@ -165,7 +165,7 @@ export function checkWorkspaceRole(allowedRoles = []) {
         return res.status(403).json({
           success: false,
           message: `This action requires a role:  ${allowedRoles.join(
-            " Or "
+            " Or ",
           )}. Your role is: ${member.role}`,
         });
       }
@@ -222,7 +222,7 @@ export function checkWorkspaceRoleFromProject(allowedRoles = []) {
       }
 
       const member = workspace.members.find(
-        (m) => m.user.toString() === userId.toString()
+        (m) => m.user.toString() === userId.toString(),
       );
 
       if (!member) {
@@ -240,7 +240,7 @@ export function checkWorkspaceRoleFromProject(allowedRoles = []) {
         return res.status(403).json({
           success: false,
           message: `This action requires a role: ${allowedRoles.join(
-            " or "
+            " or ",
           )}. Your role is: ${member.role}`,
         });
       }
@@ -283,7 +283,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
         }
 
         const project = await Project.findById(group.project).populate(
-          "workspace"
+          "workspace",
         );
         if (!project || !project.workspace) {
           return res.status(404).json({
@@ -314,7 +314,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
       }
 
       const project = await Project.findById(group.project).populate(
-        "workspace"
+        "workspace",
       );
       if (!project || !project.workspace) {
         return res.status(404).json({
@@ -333,7 +333,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
       }
 
       const member = workspace.members.find(
-        (m) => m.user.toString() === userId.toString()
+        (m) => m.user.toString() === userId.toString(),
       );
 
       if (!member) {
@@ -351,7 +351,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
         return res.status(403).json({
           success: false,
           message: `This action requires a role: ${allowedRoles.join(
-            " or "
+            " or ",
           )}. Your role is: ${member.role}`,
         });
       }
@@ -402,7 +402,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
         }
 
         const project = await Project.findById(group.project).populate(
-          "workspace"
+          "workspace",
         );
         if (!project || !project.workspace) {
           return res.status(404).json({
@@ -441,7 +441,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
       }
 
       const project = await Project.findById(group.project).populate(
-        "workspace"
+        "workspace",
       );
       if (!project || !project.workspace) {
         return res.status(404).json({
@@ -460,7 +460,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
       }
 
       const member = workspace.members.find(
-        (m) => m.user.toString() === userId.toString()
+        (m) => m.user.toString() === userId.toString(),
       );
 
       if (!member) {
@@ -478,7 +478,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
         return res.status(403).json({
           success: false,
           message: `This action requires a role: ${allowedRoles.join(
-            " or "
+            " or ",
           )}. Your role is: ${member.role}`,
         });
       }
@@ -509,7 +509,7 @@ export async function checkWorkspaceMemberFromTask(req, res, next) {
       }
       const group = await Group.findById(task.groups);
       const project = await Project.findById(group.project).populate(
-        "workspace"
+        "workspace",
       );
       req.task = task;
       req.workspace = project.workspace;
@@ -545,7 +545,7 @@ export async function checkWorkspaceMemberFromTask(req, res, next) {
       });
     }
     const isMember = project.workspace.members.some(
-      (member) => member.user.toString() === userId.toString()
+      (member) => member.user.toString() === userId.toString(),
     );
     if (!isMember) {
       return res.status(403).json({
@@ -584,7 +584,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
         }
 
         const project = await Project.findById(group.project).populate(
-          "workspace"
+          "workspace",
         );
         if (!project || !project.workspace) {
           return res.status(404).json({
@@ -607,7 +607,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
       }
 
       const project = await Project.findById(group.project).populate(
-        "workspace"
+        "workspace",
       );
       if (!project || !project.workspace) {
         return res.status(404).json({
@@ -626,7 +626,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
       }
 
       const member = workspace.members.find(
-        (m) => m.user.toString() === userId.toString()
+        (m) => m.user.toString() === userId.toString(),
       );
 
       if (!member) {
@@ -644,7 +644,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
         return res.status(403).json({
           success: false,
           message: `This action requires a role: ${allowedRoles.join(
-            " or "
+            " or ",
           )}. Your role is: ${member.role}`,
         });
       }
@@ -677,7 +677,7 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
         targetWorkspaceId = req.body.fromWorkspaceId;
       } else if (req.params.requestId) {
         const request = await CollaborationRequest.findById(
-          req.params.requestId
+          req.params.requestId,
         );
         if (!request) {
           return res.status(404).json({
@@ -715,7 +715,7 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
       }
 
       const member = workspace.members.find(
-        (m) => m.user.toString() === userId.toString()
+        (m) => m.user.toString() === userId.toString(),
       );
 
       if (!member) {
@@ -732,7 +732,7 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
         return res.status(403).json({
           success: false,
           message: `This action requires a role: ${allowedRoles.join(
-            " or "
+            " or ",
           )}. Your role is: ${member.role}`,
         });
       }
@@ -770,7 +770,7 @@ export function checkTaskTypeAccess() {
         });
       }
       const project = await Project.findById(group.project).populate(
-        "workspace"
+        "workspace",
       );
       if (!project || !project.workspace) {
         return res.status(404).json({
@@ -783,7 +783,7 @@ export function checkTaskTypeAccess() {
         return next();
       }
       const member = workspace.members.find(
-        (m) => m.user.toString() === userId.toString()
+        (m) => m.user.toString() === userId.toString(),
       );
       if (!member) {
         return res.status(403).json({
@@ -793,10 +793,10 @@ export function checkTaskTypeAccess() {
       }
       const taskType = task.type || "Major";
       const userRole = member.role;
-      if (!canAccessTaskType(userRole, taskType, 'edit')) {
-        const allowedEditTypes = getAllowedTaskTypes(userRole, 'edit');
-        const allowedViewTypes = getAllowedTaskTypes(userRole, 'view');
-        
+      if (!canAccessTaskType(userRole, taskType, "edit")) {
+        const allowedEditTypes = getAllowedTaskTypes(userRole, "edit");
+        const allowedViewTypes = getAllowedTaskTypes(userRole, "view");
+
         return res.status(403).json({
           message: `Role "${userRole}" cannot edit task with type "${taskType}". Only can edit: ${allowedEditTypes.join(", ")}`,
         });
@@ -818,18 +818,18 @@ export function checkSubtaskTypeAccess() {
     try {
       const { subTaskId } = req.params;
       const userId = req.user._id;
-      
+
       if (req.user.isSystemAdmin === true) {
         return next();
       }
-      const subtask = await Subtask.findById(subTaskId).populate('task');
+      const subtask = await Subtask.findById(subTaskId).populate("task");
       if (!subtask || !subtask.task) {
         return res.status(404).json({
           success: false,
           message: "Subtask or parent task not found",
         });
       }
-      
+
       const task = subtask.task;
       const group = await Group.findById(task.groups);
       if (!group) {
@@ -838,22 +838,24 @@ export function checkSubtaskTypeAccess() {
           message: "Group not found",
         });
       }
-      
-      const project = await Project.findById(group.project).populate('workspace');
+
+      const project = await Project.findById(group.project).populate(
+        "workspace",
+      );
       if (!project || !project.workspace) {
         return res.status(404).json({
           success: false,
           message: "Project or Division not found",
         });
       }
-      
+
       const workspace = project.workspace;
       if (workspace.owner.toString() === userId.toString()) {
         return next();
       }
-      
+
       const member = workspace.members.find(
-        (m) => m.user.toString() === userId.toString()
+        (m) => m.user.toString() === userId.toString(),
       );
       if (!member) {
         return res.status(403).json({
@@ -861,18 +863,19 @@ export function checkSubtaskTypeAccess() {
           message: "You are not a member of this division",
         });
       }
-      
+
       const taskType = subtask.type || "Major";
       const userRole = member.role;
-      
-      if (!canAccessTaskType(userRole, taskType, 'edit')) {
-        const allowedEditTypes = getAllowedTaskTypes(userRole, 'edit');
-        const allowedViewTypes = getAllowedTaskTypes(userRole, 'view');
-        
+
+      if (!canAccessTaskType(userRole, taskType, "edit")) {
+        const allowedEditTypes = getAllowedTaskTypes(userRole, "edit");
+        const allowedViewTypes = getAllowedTaskTypes(userRole, "view");
+
         return res.status(403).json({
-          message: `Role "${userRole}" cannot edit task with type "${taskType}". Only can edit: ${allowedEditTypes.join(", ")}`,        });
+          message: `Role "${userRole}" cannot edit task with type "${taskType}". Only can edit: ${allowedEditTypes.join(", ")}`,
+        });
       }
-      
+
       req.task = task;
       req.subtask = subtask;
       next();
