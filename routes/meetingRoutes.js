@@ -16,6 +16,7 @@ import {
   deleteMeetingResult,
   updateMeetingResult,
   handleRSVP,
+  endMeeting,
 } from "../controllers/meetingController.js";
 
 // Setup upload directory for meeting results
@@ -41,7 +42,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "application/pdf",
@@ -83,4 +84,5 @@ router.post("/:id/results", upload.single("file"), addMeetingResult);
 router.put("/:id/results/:resultId", updateMeetingResult);
 router.delete("/:id/results/:resultId", deleteMeetingResult);
 router.get("/rsvp/:token", handleRSVP);
+router.patch("/:id/end", endMeeting);
 export default router;

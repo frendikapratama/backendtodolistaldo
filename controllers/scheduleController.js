@@ -22,20 +22,41 @@ export const getMySchedule = async (req, res) => {
       $or: [{ organizerId: userId }, { _id: { $in: meetingIds } }],
     };
 
-    const total = await Meeting.countDocuments(filter);
-
     const meetings = await Meeting.find(filter)
       .populate("roomId", "nama")
       .populate("organizerId", "username")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
       .lean();
+
+    const now = new Date();
+
+    meetings.sort((a, b) => {
+      const aTime = new Date(a.startTime);
+      const bTime = new Date(b.startTime);
+
+      const aUpcoming = aTime >= now;
+      const bUpcoming = bTime >= now;
+
+      // Upcoming di atas
+      if (aUpcoming && !bUpcoming) return -1;
+      if (!aUpcoming && bUpcoming) return 1;
+
+      // Sama-sama upcoming -> ASC
+      if (aUpcoming && bUpcoming) {
+        return aTime - bTime;
+      }
+
+      // Sama-sama sudah lewat -> DESC
+      return bTime - aTime;
+    });
+
+    const total = meetings.length;
+
+    const paginatedMeetings = meetings.slice(skip, skip + limit);
 
     return res.status(200).json({
       success: true,
       message: "Success get my schedule",
-      data: meetings,
+      data: paginatedMeetings,
       pagination: {
         page,
         limit,

@@ -559,16 +559,39 @@ export const getMeetingDetail = async (req, res) => {
       .populate("userId", "nama username email photo")
       .lean();
 
-    const history = await MeetingHistory.find({ meetingId: id })
-      .sort({ createdAt: -1 })
-      .populate("changedBy", "nama username")
-      .lean();
+    // const history = await MeetingHistory.find({ meetingId: id })
+    //   .sort({ createdAt: -1 })
+    //   .populate("changedBy", "nama username")
+    //   .lean();
+
+    const participantsWithStatus = participants.map((p) => ({
+      _id: p.userId._id,
+      username: p.userId.username,
+      email: p.userId.email,
+      photo: p.userId.photo || null,
+      invitationStatus: p.invitationStatus,
+      responseAt: p.responseAt,
+      // notes: p.notes,
+      // joinedAt: p.createdAt,
+      // participantId: p._id,
+    }));
 
     const meetingDetail = {
       ...meeting,
-      participants: participants.map((p) => p.userId),
-      history: history,
-      results: meeting.meetingResults || [],
+      participants: participantsWithStatus,
+      // history: history,
+      summary: {
+        total: participants.length,
+        accepted: participants.filter((p) => p.invitationStatus === "accepted")
+          .length,
+        pending: participants.filter((p) => p.invitationStatus === "pending")
+          .length,
+        declined: participants.filter((p) => p.invitationStatus === "decline")
+          .length,
+        tentative: participants.filter(
+          (p) => p.invitationStatus === "tentative",
+        ).length,
+      },
     };
 
     return res.status(200).json({
@@ -941,5 +964,41 @@ export const handleRSVP = async (req, res) => {
         <h2 style="color:#EF4444;">Server error: ${error.message}</h2>
       </body></html>
     `);
+  }
+};
+
+export const endMeeting = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { endTime, endedBy } = req.body;
+
+    const meeting = await Meeting.findById(id);
+    if (!meeting) {
+      return res.status(404).json({ message: "Meeting not found." });
+    }
+
+    meeting.endTime = new Date(endTime);
+    await meeting.save();
+
+    await MeetingHistory.create({
+      meetingId: meeting._id,
+      action: "ended",
+      changedBy: endedBy,
+      newData: { endTime },
+    });
+
+    const io = req.app.get("io");
+    io.emit("meeting:ended", {
+      meetingId: id,
+      endTime,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Meeting ended successfully.",
+      data: meeting,
+    });
+  } catch (error) {
+    return handleError(res, error);
   }
 };

@@ -55,24 +55,24 @@ const connectWhatsApp = async () => {
         `✗ WhatsApp disconnected (code: ${statusCode}). Reconnect: ${shouldReconnect}`,
       );
 
-      if (shouldReconnect) {
-        readyPromise = new Promise((resolve) => {
-          readyPromiseResolve = resolve;
-        });
-        connectWhatsApp();
-      } else {
-        console.log(
-          "WhatsApp logged out. Hapus folder wa-auth lalu scan ulang.",
-        );
-      }
-
       // if (shouldReconnect) {
-      //   console.log("WhatsApp disconnected. Auto reconnect dinonaktifkan.");
+      //   readyPromise = new Promise((resolve) => {
+      //     readyPromiseResolve = resolve;
+      //   });
+      //   connectWhatsApp();
       // } else {
       //   console.log(
       //     "WhatsApp logged out. Hapus folder wa-auth lalu scan ulang.",
       //   );
       // }
+
+      if (shouldReconnect) {
+        console.log("WhatsApp disconnected. Auto reconnect dinonaktifkan.");
+      } else {
+        console.log(
+          "WhatsApp logged out. Hapus folder wa-auth lalu scan ulang.",
+        );
+      }
     }
   });
 };
