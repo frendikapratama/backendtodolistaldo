@@ -39,6 +39,7 @@ import facilityRoutes from "./routes/facilityRoutes.js";
 import roomRoutes from "./routes/roomRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import scheduleRoutes from "./routes/scheduleRoutes.js";
+import meetingrecapRoutes from "./routes/meetingrecapRoutes.js";
 import { updateMeetingStatuses } from "./helpers/meetingStatusUpdater.js";
 import { startReplyListener } from "./helpers/meetingReplyListener.js";
 import { initWhatsApp } from "./utils/whatsapp.js";
@@ -123,6 +124,7 @@ app.use("/api/facilities", facilityRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/meeting", meetingRoutes);
 app.use("/api/schedule", scheduleRoutes);
+app.use("/api/meeting-recap", meetingrecapRoutes);
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({

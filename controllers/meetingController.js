@@ -29,66 +29,28 @@ export const checkAvailability = async (req, res) => {
   try {
     const { roomId, participantIds, startTime, endTime } = req.body;
 
-    // ROOM CONFLICT
-    const roomConflict = await Meeting.findOne({
-      roomId,
-      status: { $ne: "cancelled" },
-      startTime: { $lt: new Date(endTime) },
-      endTime: { $gt: new Date(startTime) },
-    });
+    const { roomConflict, conflictType, participantConflicts } =
+      await validateAvailability({
+        roomId,
+        participantIds,
+        startTime,
+        endTime,
+      });
 
-    // PARTICIPANT CONFLICT (sebagai participant)
-    const participantConflict = await MeetingParticipant.find({
-      userId: { $in: participantIds },
-    })
-      .populate({
-        path: "meetingId",
-        match: {
-          status: { $ne: "cancelled" },
-          startTime: { $lt: new Date(endTime) },
-          endTime: { $gt: new Date(startTime) },
-        },
-        select: "title startTime endTime",
-      })
-      .populate("userId", "nama email");
-
-    const conflicts = participantConflict.filter((item) => item.meetingId);
-
-    // PARTICIPANT CONFLICT (sebagai organizer)
-    const organizerConflicts = await Meeting.find({
-      organizerId: { $in: participantIds },
-      status: { $ne: "cancelled" },
-      startTime: { $lt: new Date(endTime) },
-      endTime: { $gt: new Date(startTime) },
-    })
-      .populate("organizerId", "nama email")
-      .select("title startTime endTime organizerId");
-
-    const organizerConflictFormatted = organizerConflicts.map((meeting) => ({
-      userId: meeting.organizerId,
-      meetingId: {
-        _id: meeting._id,
-        title: meeting.title,
-        startTime: meeting.startTime,
-        endTime: meeting.endTime,
-      },
-      asOrganizer: true,
-    }));
-
-    const allConflicts = [...conflicts];
-    for (const oc of organizerConflictFormatted) {
-      const alreadyIn = allConflicts.some(
-        (c) =>
-          c.userId?._id?.toString() === oc.userId?._id?.toString() ||
-          c.userId?.toString() === oc.userId?._id?.toString(),
-      );
-      if (!alreadyIn) allConflicts.push(oc);
+    let roomMessage = null;
+    if (roomConflict) {
+      roomMessage =
+        conflictType === "buffer"
+          ? "This room cannot be booked yet — a 30-minute cleaning buffer is required after the previous meeting ends. Please choose a different time or room."
+          : "This room is already booked at that time. Please choose a different time or room.";
     }
 
     return res.json({
       roomAvailable: !roomConflict,
       roomConflict,
-      participantConflicts: allConflicts,
+      conflictType, // "overlap" | "buffer" | null
+      roomMessage,
+      participantConflicts,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -107,17 +69,22 @@ export const createMeeting = async (req, res) => {
       endTime,
     } = req.body;
 
+    const reqStart = new Date(startTime);
+    const reqEnd = new Date(endTime);
     const roomConflict = await Meeting.findOne({
       roomId,
       status: { $ne: "cancelled" },
-      startTime: { $lt: new Date(endTime) },
-      endTime: { $gt: new Date(startTime) },
+      startTime: { $lt: new Date(reqEnd.getTime() + 30 * 60000) },
+      endTime: { $gt: new Date(reqStart.getTime() - 30 * 60000) },
     });
 
     if (roomConflict) {
-      return res.status(409).json({
-        message: "The selected room is already booked for the specified time.",
-      });
+      const message =
+        conflictType === "buffer"
+          ? "The room cannot be booked yet — a 30-minute cleaning buffer is required after the previous meeting ends."
+          : "The selected room is already booked for the specified time.";
+
+      return res.status(409).json({ message });
     }
 
     const meeting = await Meeting.create({
@@ -321,10 +288,12 @@ export const rescheduleMeeting = async (req, res) => {
     });
 
     if (roomConflict) {
-      return res.status(409).json({
-        message:
-          "The selected room is unavailable during the requested time period.",
-      });
+      const message =
+        conflictType === "buffer"
+          ? "The room cannot be booked yet — a 30-minute cleaning buffer is required after the previous meeting ends."
+          : "The selected room is unavailable during the requested time period.";
+
+      return res.status(409).json({ message });
     }
 
     const oldData = {
@@ -936,7 +905,6 @@ export const handleRSVP = async (req, res) => {
     };
     const { text, color, icon } = labelMap[status];
 
-    // Redirect ke halaman konfirmasi sederhana
     return res.send(`
       <!DOCTYPE html>
       <html lang="en">
@@ -977,20 +945,26 @@ export const endMeeting = async (req, res) => {
       return res.status(404).json({ message: "Meeting not found." });
     }
 
+    if (meeting.status !== "in_progress") {
+      return res.status(400).json({ message: "Meeting is not in progress." });
+    }
+
     meeting.endTime = new Date(endTime);
+    meeting.status = "completed";
     await meeting.save();
 
     await MeetingHistory.create({
       meetingId: meeting._id,
       action: "ended",
       changedBy: endedBy,
-      newData: { endTime },
+      newData: { endTime, status: "completed" },
     });
 
     const io = req.app.get("io");
     io.emit("meeting:ended", {
       meetingId: id,
       endTime,
+      status: "completed",
     });
 
     return res.status(200).json({

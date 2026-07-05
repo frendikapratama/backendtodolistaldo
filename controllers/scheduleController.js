@@ -36,16 +36,13 @@ export const getMySchedule = async (req, res) => {
       const aUpcoming = aTime >= now;
       const bUpcoming = bTime >= now;
 
-      // Upcoming di atas
       if (aUpcoming && !bUpcoming) return -1;
       if (!aUpcoming && bUpcoming) return 1;
 
-      // Sama-sama upcoming -> ASC
       if (aUpcoming && bUpcoming) {
         return aTime - bTime;
       }
 
-      // Sama-sama sudah lewat -> DESC
       return bTime - aTime;
     });
 

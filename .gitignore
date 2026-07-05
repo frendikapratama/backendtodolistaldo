@@ -1,5 +1,7 @@
 # Node modules
 node_modules/
+wa-auth/
+
 
 # Environment variables
 .env

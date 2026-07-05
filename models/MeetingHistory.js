@@ -19,6 +19,7 @@ const meetingHistorySchema = new mongoose.Schema(
         "result_added",
         "result_updated",
         "result_deleted",
+        "ended",
       ],
       required: true,
     },
