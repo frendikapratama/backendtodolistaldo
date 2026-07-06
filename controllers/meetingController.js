@@ -62,6 +62,7 @@ export const createMeeting = async (req, res) => {
     const {
       title,
       description,
+      meetingLink,
       roomId,
       organizerId,
       participantIds,
@@ -90,6 +91,7 @@ export const createMeeting = async (req, res) => {
     const meeting = await Meeting.create({
       title,
       description,
+      meetingLink,
       roomId,
       organizerId,
       startTime,

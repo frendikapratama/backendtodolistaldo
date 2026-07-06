@@ -68,8 +68,8 @@ const generateICS = ({
   senderEmail,
   meetingId,
   participants = [],
+  meetingLink, // Tambahkan parameter ini
 }) => {
-  // CN dengan spasi atau karakter khusus harus di-quote — wajib untuk Outlook
   const sanitizeCN = (name) => {
     const cleaned = (name || "").replace(/"/g, "'").trim();
     return cleaned.includes(" ") || cleaned.includes(";")
@@ -82,7 +82,14 @@ const generateICS = ({
       `ATTENDEE;CUTYPE=INDIVIDUAL;CN=${sanitizeCN(p.nama || p.username)};RSVP=TRUE;PARTSTAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT:mailto:${p.email}`,
   );
 
-  // Fold long lines per RFC 5545 (max 75 octets per line)
+  // Tambahkan meeting link ke description jika ada
+  let fullDescription = description || "";
+  if (meetingLink) {
+    fullDescription += fullDescription
+      ? `\\n\\nLink Meeting: ${meetingLink}`
+      : `Link Meeting: ${meetingLink}`;
+  }
+
   const foldLine = (line) => {
     if (line.length <= 75) return line;
     const parts = [];
@@ -101,7 +108,6 @@ const generateICS = ({
     "PRODID:-//Planify//Meeting//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:REQUEST",
-    // VTIMEZONE — wajib untuk Outlook agar tidak salah timezone
     "BEGIN:VTIMEZONE",
     "TZID:Asia/Jakarta",
     "BEGIN:STANDARD",
@@ -111,7 +117,6 @@ const generateICS = ({
     "TZNAME:WIB",
     "END:STANDARD",
     "END:VTIMEZONE",
-    // VEVENT
     "BEGIN:VEVENT",
     `UID:meeting-${meetingId}@planify.app`,
     `DTSTAMP:${fmt(new Date())}Z`,
@@ -119,16 +124,14 @@ const generateICS = ({
     `DTSTART;TZID=Asia/Jakarta:${fmtLocal(startTime)}`,
     `DTEND;TZID=Asia/Jakarta:${fmtLocal(endTime)}`,
     `SUMMARY:${escapeICS(title)}`,
-    `DESCRIPTION:${escapeICS(description)}`,
+    `DESCRIPTION:${escapeICS(fullDescription)}`, // Description dengan link
     `LOCATION:${escapeICS(location)}`,
-    // Outlook WAJIB: mailto ORGANIZER harus sama persis dengan alamat From (senderEmail)
     `ORGANIZER;CN=${sanitizeCN(organizerName)}:mailto:${senderEmail}`,
     ...attendeeLines,
     "CLASS:PUBLIC",
     "STATUS:CONFIRMED",
     "SEQUENCE:0",
     "TRANSP:OPAQUE",
-    // Properti Microsoft — membantu Outlook/OWA mengenali sebagai appointment
     "X-MICROSOFT-CDO-BUSYSTATUS:BUSY",
     "X-MICROSOFT-CDO-INTENDEDSTATUS:BUSY",
     "X-MICROSOFT-CDO-IMPORTANCE:1",
@@ -251,18 +254,36 @@ Tidak Hadir
 
 // ─── Plain Text Builder
 
-const buildPlainText = ({ nama, meeting, room, organizer, isParticipant }) =>
-  [
-    `Undangan Meeting: ${meeting.title}`,
+const buildPlainText = ({
+  nama,
+  meeting,
+  room,
+  organizer,
+  isParticipant,
+  isReminder = false,
+  reminderText,
+}) => {
+  // Tambahkan meetingLink jika ada
+  const meetingLinkText = meeting.meetingLink
+    ? [``, `Link Meeting: ${meeting.meetingLink}`, ``]
+    : [];
+
+  return [
+    isReminder
+      ? `Pengingat Meeting: ${meeting.title}`
+      : `Undangan Meeting: ${meeting.title}`,
     "",
     `Halo ${nama},`,
     isParticipant
       ? `${organizer.nama || organizer.username} telah mengundang Anda ke sebuah meeting.`
       : `Pemberitahuan: ${organizer.nama || organizer.username} telah menjadwalkan meeting yang membutuhkan perhatian departemen Anda.`,
     "",
+    isReminder && reminderText ? reminderText : null,
+    "",
     `Waktu: ${fmtDate(meeting.startTime)} – ${fmtDate(meeting.endTime)}`,
     `Durasi: ${duration(meeting.startTime, meeting.endTime)}`,
     `Ruangan: ${room?.nama || "—"}`,
+    ...meetingLinkText, // Tambahkan link meeting di sini
     meeting.description ? `Detail: ${meeting.description}` : null,
     "",
     isParticipant
@@ -271,6 +292,7 @@ const buildPlainText = ({ nama, meeting, room, organizer, isParticipant }) =>
   ]
     .filter(Boolean)
     .join("\r\n");
+};
 
 // ─── HTML Builder
 
@@ -282,7 +304,26 @@ const buildHTML = ({
   totalParticipants,
   participantEmail,
   isParticipant,
-}) => `
+  isReminder = false,
+  reminderText,
+}) => {
+  // Tambahkan meetingLink jika ada
+  const meetingLinkHTML = meeting.meetingLink
+    ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+      <tr>
+        <td width="100%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
+          <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Link Meeting</p>
+          <p style="margin:0;font-size:14px;font-weight:600;color:#2563EB;word-break:break-all;">
+            <a href="${meeting.meetingLink}" style="color:#2563EB;text-decoration:underline;">${meeting.meetingLink}</a>
+          </p>
+        </td>
+      </tr>
+    </table>
+  `
+    : "";
+
+  return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -306,10 +347,12 @@ const buildHTML = ({
         <td style="padding:0 0 32px 0;">
 
           <p style="margin:0 0 6px 0;font-size:15px;color:#0F172A;">Halo, <strong style="color:#0F172A;">${nama}</strong></p>
-          <p style="margin:0 0 32px 0;font-size:15px;color:#475569;line-height:1.6;">
+          <p style="margin:0 0 16px 0;font-size:15px;color:#475569;line-height:1.6;">
             <strong style="color:#4F46E5;">${organizer.nama || organizer.username}</strong>
             ${isParticipant ? "telah menjadwalkan meeting dan Anda diundang untuk berpartisipasi." : "telah menjadwalkan meeting yang membutuhkan perhatian departemen Anda."}
           </p>
+
+          ${isReminder && reminderText ? `<div style="margin:0 0 24px 0;padding:14px 16px;border-left:4px solid #F59E0B;background:#FFFBEB;border-radius:8px;"><p style="margin:0;font-size:14px;color:#92400E;line-height:1.6;"><strong>Pengingat:</strong> ${reminderText}</p></div>` : ""}
 
           <hr style="border:none;border-top:1px solid #E2E8F0;margin:0 0 32px 0;"/>
 
@@ -348,6 +391,8 @@ const buildHTML = ({
             </tr>
           </table>
 
+          ${meetingLinkHTML} <!-- Tambahkan link meeting di sini -->
+
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
             <tr>
               <td width="48%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
@@ -370,7 +415,7 @@ const buildHTML = ({
                 <p style="margin:0;font-size:14px;color:#334155;line-height:1.6;">
                   <strong>Undangan kalender terlampir</strong><br/>
                   Buka file <strong>.ics</strong> untuk menambahkan meeting ini ke Google Calendar, Outlook,
-                  atau Apple Calendar. Pengingat akan aktif <strong>30 menit</strong> sebelum meeting.
+                  atau Apple Calendar.
                 </p>
               </td>
             </tr>
@@ -394,6 +439,7 @@ const buildHTML = ({
 </body>
 </html>
 `;
+};
 
 // ─── Main Export
 
@@ -402,6 +448,8 @@ export const sendMeetingInvitation = async ({
   organizer,
   meeting,
   room,
+  isReminder = false,
+  reminderText = null,
 }) => {
   const senderEmail = process.env.EMAIL_USER;
   const totalParticipants = participants.length;
@@ -419,6 +467,7 @@ export const sendMeetingInvitation = async ({
         senderEmail,
         meetingId: meeting._id,
         participants: [{ email, nama }],
+        meetingLink: meeting.meetingLink, // Kirim meetingLink
       });
 
       const htmlContent = buildHTML({
@@ -429,38 +478,31 @@ export const sendMeetingInvitation = async ({
         totalParticipants,
         participantEmail: email,
         isParticipant,
+        isReminder,
+        reminderText,
       });
 
       return transporter.sendMail({
-        // from: `"${organizer.nama || organizer.username} via Planify" <${senderEmail}>`,
         from: `"Planify" <${process.env.EMAIL_USER}>`,
         to: email,
         replyTo: `"${organizer.nama || organizer.username}" <${organizer.email}>`,
-        subject: `[Undangan Meeting] ${meeting.title}`,
-
+        subject: isReminder
+          ? `[Pengingat Meeting] ${meeting.title}`
+          : `[Undangan Meeting] ${meeting.title}`,
         headers: {
           "Content-Class": "urn:content-classes:calendarmessage",
           "X-MS-OLK-FORCEINSPECTOROPEN": "TRUE",
         },
-
-        text: buildPlainText({ nama, meeting, room, organizer, isParticipant }),
+        text: buildPlainText({
+          nama,
+          meeting,
+          room,
+          organizer,
+          isParticipant,
+          isReminder,
+          reminderText,
+        }),
         html: htmlContent,
-
-        // Microsoft/Outlook: ICS harus MIME part TERPISAH (sibling), BUKAN di dalam
-        // multipart/alternative. Nodemailer icalEvent/alternatives salah struktur untuk OWA.
-        // Inline + text/calendar; method=REQUEST → tombol Accept/Decline di Outlook Web.
-        // attachments: [
-        //   {
-        //     filename: `${safeTitle}-invite.ics`,
-        //     content: icsContent,
-        //     contentType: "text/calendar; charset=UTF-8; method=REQUEST",
-        //     contentDisposition: "inline",
-        //     contentTransferEncoding: "7bit",
-        //     headers: {
-        //       "Content-Class": "urn:content-classes:calendarmessage",
-        //     },
-        //   },
-        // ],
         icalEvent: {
           method: "REQUEST",
           filename: `${safeTitle}.ics`,
@@ -592,7 +634,24 @@ export const sendMeetingRescheduleEmail = async ({
         senderEmail,
         meetingId: meeting._id,
         participants: [{ email, nama: recipientName }],
+        meetingLink: meeting.meetingLink, // Kirim meetingLink
       });
+
+      // Tambahkan meetingLink ke HTML reschedule
+      const meetingLinkHTML = meeting.meetingLink
+        ? `
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+          <tr>
+            <td width="100%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
+              <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Link Meeting</p>
+              <p style="margin:0;font-size:14px;font-weight:600;color:#2563EB;word-break:break-all;">
+                <a href="${meeting.meetingLink}" style="color:#2563EB;text-decoration:underline;">${meeting.meetingLink}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      `
+        : "";
 
       const htmlContent = `
 <!DOCTYPE html>
@@ -632,7 +691,7 @@ export const sendMeetingRescheduleEmail = async ({
               </tr>
             </table>
 
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
               <tr>
                 <td width="100%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
                   <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Ruangan Baru</p>
@@ -640,6 +699,8 @@ export const sendMeetingRescheduleEmail = async ({
                 </td>
               </tr>
             </table>
+
+            ${meetingLinkHTML} <!-- Tambahkan link meeting di sini -->
 
           </td>
         </tr>

@@ -19,6 +19,8 @@ const buildMeetingMessage = ({
   organizer,
   participantEmail,
   isParticipant,
+  isReminder = false,
+  reminderText,
 }) => {
   let base = process.env.VITE_API_URL || "https://planify.itvault.cloud/api";
   if (!base.startsWith("http")) {
@@ -60,8 +62,18 @@ const buildMeetingMessage = ({
       ]
     : [];
 
+  const reminderLine =
+    isReminder && reminderText ? [`⏰ *Pengingat*`, reminderText, ""] : [];
+
+  // Tambahkan meetingLink jika ada
+  const meetingLinkLines = meeting.meetingLink
+    ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
+    : [];
+
   return [
-    "🗓️*Undangan Meeting - Planify*",
+    isReminder
+      ? "🗓️*Pengingat Meeting - Planify*"
+      : "🗓️*Undangan Meeting - Planify*",
     "",
     `Halo *${nama}*,`,
     "",
@@ -69,6 +81,7 @@ const buildMeetingMessage = ({
       ? `Anda diundang oleh *${organizer.nama || organizer.username}* untuk menghadiri meeting berikut.`
       : `Pemberitahuan: *${organizer.nama || organizer.username}* telah menjadwalkan meeting yang membutuhkan dukungan departemen Anda.`,
     "",
+    ...reminderLine,
     `📌 *${meeting.title}*`,
     meeting.description ? `📝 ${meeting.description}` : null,
     "",
@@ -80,6 +93,7 @@ const buildMeetingMessage = ({
     "",
     `📍 *Ruangan*`,
     `${room?.nama || "-"}`,
+    ...meetingLinkLines, // Tambahkan link meeting di sini
     "",
     ...rsvpLines,
     "Terima kasih.",
@@ -95,6 +109,8 @@ export const sendMeetingWhatsAppNotification = async ({
   organizer,
   meeting,
   room,
+  isReminder = false,
+  reminderText = null,
 }) => {
   const validParticipants = participants.filter((p) => p.noHp && p.email);
 
@@ -107,6 +123,8 @@ export const sendMeetingWhatsAppNotification = async ({
         organizer,
         participantEmail: participant.email,
         isParticipant: participant.isParticipant,
+        isReminder,
+        reminderText,
       });
 
       return sendWhatsAppMessage(participant.noHp, message);
@@ -139,6 +157,11 @@ export const sendMeetingCancellationWhatsApp = async ({
 
   const results = await Promise.allSettled(
     validUsers.map((user) => {
+      // Tambahkan meetingLink jika ada
+      const meetingLinkLines = meeting.meetingLink
+        ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
+        : [];
+
       const message = [
         "🚫 *Meeting Dibatalkan - Planify*",
         "",
@@ -155,6 +178,7 @@ export const sendMeetingCancellationWhatsApp = async ({
         "",
         `📍 *Ruangan*`,
         `${meeting.roomId?.nama || "-"}`,
+        ...meetingLinkLines, // Tambahkan link meeting di sini
         "",
         `📝 *Alasan Pembatalan*`,
         `${cancelledReason || "-"}`,
@@ -195,6 +219,11 @@ export const sendMeetingRescheduleWhatsApp = async ({
 
   const results = await Promise.allSettled(
     validUsers.map((user) => {
+      // Tambahkan meetingLink jika ada
+      const meetingLinkLines = meeting.meetingLink
+        ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
+        : [];
+
       const message = [
         "🔄 *Jadwal Meeting Diubah - Planify*",
         "",
@@ -211,6 +240,7 @@ export const sendMeetingRescheduleWhatsApp = async ({
         "",
         `📍 *Ruangan Baru*`,
         `${room?.nama || "-"}`,
+        ...meetingLinkLines, // Tambahkan link meeting di sini
         "",
         "Terima kasih.",
         "",

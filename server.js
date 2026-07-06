@@ -31,6 +31,7 @@ import {
   startTaskDueNotificationJob,
   startTaskOverdueNotificationJob,
 } from "./jobs/taskDueNotification.js";
+import { startMeetingReminderJob } from "./jobs/meetingReminderJob.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import bookmarkRoutes from "./routes/bookmarkRoutes.js";
 import cookieParser from "cookie-parser";
@@ -183,6 +184,7 @@ process.on("SIGTERM", () => {
 });
 startTaskDueNotificationJob(io);
 startTaskOverdueNotificationJob(io);
+startMeetingReminderJob();
 updateMeetingStatuses(io);
 startReplyListener();
 initWhatsApp();
