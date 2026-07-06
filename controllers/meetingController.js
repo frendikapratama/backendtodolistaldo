@@ -885,16 +885,52 @@ export const handleRSVP = async (req, res) => {
       `);
     }
 
+    const participant = await MeetingParticipant.findOne({
+      meetingId,
+      userId: user._id,
+    });
+
+    if (!participant) {
+      return res.status(404).send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
+          <h2 style="color:#EF4444;">Meeting or participant not found.</h2>
+        </body></html>
+      `);
+    }
+
+    if (participant.invitationStatus !== "pending") {
+      const currentStatusText =
+        {
+          accepted: "accepted",
+          decline: "declined",
+          tentative: "tentative",
+        }[participant.invitationStatus] || participant.invitationStatus;
+
+      return res.status(200).send(`
+        <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
+          <h2 style="color:#4F46E5;">Response already recorded.</h2>
+          <p>Your response was already saved as ${currentStatusText}.</p>
+        </body></html>
+      `);
+    }
+
     const updated = await MeetingParticipant.findOneAndUpdate(
-      { meetingId, userId: user._id },
-      { invitationStatus: status, responseAt: new Date() },
+      {
+        _id: participant._id,
+        invitationStatus: "pending",
+      },
+      {
+        invitationStatus: status,
+        responseAt: new Date(),
+      },
       { new: true },
     );
 
     if (!updated) {
-      return res.status(404).send(`
+      return res.status(200).send(`
         <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
-          <h2 style="color:#EF4444;">Meeting or participant not found.</h2>
+          <h2 style="color:#4F46E5;">Response already recorded.</h2>
+          <p>Your response has already been saved.</p>
         </body></html>
       `);
     }

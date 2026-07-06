@@ -64,10 +64,18 @@ const processReply = async (parsed, io) => {
 
     if (!user) return false;
 
+    const participant = await MeetingParticipant.findOne({
+      meetingId,
+      userId: user._id,
+    });
+
+    if (!participant || participant.invitationStatus !== "pending")
+      return false;
+
     const updated = await MeetingParticipant.findOneAndUpdate(
       {
-        meetingId,
-        userId: user._id,
+        _id: participant._id,
+        invitationStatus: "pending",
       },
       {
         invitationStatus: dbStatus,
