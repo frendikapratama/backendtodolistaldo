@@ -113,9 +113,16 @@ export const createMeeting = async (req, res) => {
     ).lean();
 
     // ─── Tambahkan HRD, GA, IT sebagai penerima notifikasi
-    const targetDivisions = [/^hrd$/i, /^ga$/i, /^it$/i];
-    const hrdGaItUsers = await User.find({
-      divisi: { $in: targetDivisions },
+    const targetDivisions = [/^it$/i];
+    const targetUserIds = [
+      "6a20de5c50ad9c30e06b9641", // hadi
+      "6a1f97c04cf5cd6b3c82a2f4", // mia
+    ];
+    const ItUsers = await User.find({
+      $or: [
+        { divisi: { $in: targetDivisions } },
+        { _id: { $in: targetUserIds } },
+      ],
       _id: { $nin: participantIds },
     })
       .select("nama username email noHp")
@@ -123,7 +130,7 @@ export const createMeeting = async (req, res) => {
 
     const allNotifyUsers = [
       ...invitedUsers.map((u) => ({ ...u, isParticipant: true })),
-      ...hrdGaItUsers.map((u) => ({ ...u, isParticipant: false })),
+      ...ItUsers.map((u) => ({ ...u, isParticipant: false })),
     ];
 
     const organizer = populatedMeeting.organizerId;
@@ -331,9 +338,16 @@ export const rescheduleMeeting = async (req, res) => {
       .map((p) => p.userId)
       .filter((u) => u);
 
-    const targetDivisions = [/^hrd$/i, /^ga$/i, /^it$/i];
-    const hrdItUsers = await User.find({
-      divisi: { $in: targetDivisions },
+    const targetDivisions = [/^it$/i];
+    const targetUserIds = [
+      "6a20de5c50ad9c30e06b9641", // hadi
+      "6a1f97c04cf5cd6b3c82a2f4", // mia
+    ];
+    const ItUsers = await User.find({
+      $or: [
+        { divisi: { $in: targetDivisions } },
+        { _id: { $in: targetUserIds } },
+      ],
       _id: { $nin: participantUsers.map((u) => u._id) },
     })
       .select("nama username email noHp")
@@ -341,7 +355,7 @@ export const rescheduleMeeting = async (req, res) => {
 
     const allNotifyUsers = [
       ...participantUsers.map((u) => ({ ...u, isParticipant: true })),
-      ...hrdItUsers.map((u) => ({ ...u, isParticipant: false })),
+      ...ItUsers.map((u) => ({ ...u, isParticipant: false })),
     ];
 
     if (allNotifyUsers.length > 0) {
@@ -419,11 +433,18 @@ export const cancelMeeting = async (req, res) => {
       .map((p) => p.userId)
       .filter(Boolean);
 
-    // Ambil HRD, GA, IT selain participant
-    const targetDivisions = [/^hrd$/i, /^ga$/i, /^it$/i];
+    // Ambil IT selain participant
+    const targetDivisions = [/^it$/i];
+    const targetUserIds = [
+      "6a20de5c50ad9c30e06b9641", // hadi
+      "6a1f97c04cf5cd6b3c82a2f4", // mia
+    ];
 
-    const divisionUsers = await User.find({
-      divisi: { $in: targetDivisions },
+    const ItUsers = await User.find({
+      $or: [
+        { divisi: { $in: targetDivisions } },
+        { _id: { $in: targetUserIds } },
+      ],
       _id: { $nin: participantUsers.map((u) => u._id) },
     })
       .select("nama username email noHp")
@@ -432,7 +453,7 @@ export const cancelMeeting = async (req, res) => {
     // Gabungkan dan hilangkan duplikasi
     const notifyUsers = [
       ...participantUsers.map((u) => ({ ...u, isParticipant: true })),
-      ...divisionUsers.map((u) => ({ ...u, isParticipant: false })),
+      ...ItUsers.map((u) => ({ ...u, isParticipant: false })),
     ];
 
     if (notifyUsers.length > 0) {
