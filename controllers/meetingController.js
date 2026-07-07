@@ -181,7 +181,7 @@ export const createMeeting = async (req, res) => {
 export const getMeeting = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 15;
+    const limit = parseInt(req.query.limit) || 5;
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
