@@ -12,6 +12,16 @@ const fmtDate = (d) =>
     timeZone: "Asia/Jakarta",
   }) + " WIB";
 
+const snackLabels = {
+  "makanan-ringan": "Makanan Ringan",
+  "makanan-berat": "Makanan Berat",
+};
+
+const fmtSnackRequest = (snackRequest = []) => {
+  if (!Array.isArray(snackRequest) || snackRequest.length === 0) return null;
+  return snackRequest.map((s) => snackLabels[s] || s).join(", ");
+};
+
 const buildMeetingMessage = ({
   nama,
   meeting,
@@ -65,6 +75,11 @@ const buildMeetingMessage = ({
   const reminderLine =
     isReminder && reminderText ? [`⏰ *Pengingat*`, reminderText, ""] : [];
 
+  const snackText = !isParticipant
+    ? fmtSnackRequest(meeting.snackRequest)
+    : null;
+
+  const snackLines = snackText ? [`🍿 *Snack Request*`, snackText, ""] : [];
   // Tambahkan meetingLink jika ada
   const meetingLinkLines = meeting.meetingLink
     ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
@@ -93,7 +108,8 @@ const buildMeetingMessage = ({
     "",
     `📍 *Ruangan*`,
     `${room?.nama || "-"}`,
-    ...meetingLinkLines, // Tambahkan link meeting di sini
+    ...meetingLinkLines,
+    ...snackLines,
     "",
     ...rsvpLines,
     "Terima kasih.",

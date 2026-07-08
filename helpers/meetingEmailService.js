@@ -56,6 +56,16 @@ const duration = (s, e) => {
   return `${r} menit`;
 };
 
+const snackLabels = {
+  "makanan-ringan": "Makanan Ringan",
+  "makanan-berat": "Makanan Berat",
+};
+
+const fmtSnackRequest = (snackRequest = []) => {
+  if (!Array.isArray(snackRequest) || snackRequest.length === 0) return null;
+  return snackRequest.map((s) => snackLabels[s] || s).join(", ");
+};
+
 // ─── ICS Generator
 
 const generateICS = ({
@@ -268,6 +278,10 @@ const buildPlainText = ({
     ? [``, `Link Meeting: ${meeting.meetingLink}`, ``]
     : [];
 
+  const snackText = !isParticipant
+    ? fmtSnackRequest(meeting.snackRequest)
+    : null;
+
   return [
     isReminder
       ? `Pengingat Meeting: ${meeting.title}`
@@ -284,6 +298,7 @@ const buildPlainText = ({
     `Durasi: ${duration(meeting.startTime, meeting.endTime)}`,
     `Ruangan: ${room?.nama || "—"}`,
     ...meetingLinkText, // Tambahkan link meeting di sini
+    snackText ? `Snack Request: ${snackText}` : null,
     meeting.description ? `Detail: ${meeting.description}` : null,
     "",
     isParticipant
@@ -317,6 +332,22 @@ const buildHTML = ({
           <p style="margin:0;font-size:14px;font-weight:600;color:#2563EB;word-break:break-all;">
             <a href="${meeting.meetingLink}" style="color:#2563EB;text-decoration:underline;">${meeting.meetingLink}</a>
           </p>
+        </td>
+      </tr>
+    </table>
+  `
+    : "";
+
+  const snackText = !isParticipant
+    ? fmtSnackRequest(meeting.snackRequest)
+    : null;
+  const snackHTML = snackText
+    ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td width="100%" style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:16px;vertical-align:top;">
+          <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#92400E;font-weight:700;">Snack Request</p>
+          <p style="margin:0;font-size:14px;font-weight:600;color:#92400E;">${snackText}</p>
         </td>
       </tr>
     </table>
@@ -392,6 +423,7 @@ const buildHTML = ({
           </table>
 
           ${meetingLinkHTML} <!-- Tambahkan link meeting di sini -->
+          ${snackHTML} <!-- Snack request untuk non-participant -->
 
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
             <tr>
@@ -640,13 +672,29 @@ export const sendMeetingRescheduleEmail = async ({
       // Tambahkan meetingLink ke HTML reschedule
       const meetingLinkHTML = meeting.meetingLink
         ? `
-        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
           <tr>
             <td width="100%" style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:16px;vertical-align:top;">
               <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;font-weight:700;">Link Meeting</p>
               <p style="margin:0;font-size:14px;font-weight:600;color:#2563EB;word-break:break-all;">
                 <a href="${meeting.meetingLink}" style="color:#2563EB;text-decoration:underline;">${meeting.meetingLink}</a>
               </p>
+            </td>
+          </tr>
+        </table>
+      `
+        : "";
+
+      const snackText = !isParticipant
+        ? fmtSnackRequest(meeting.snackRequest)
+        : null;
+      const snackHTML = snackText
+        ? `
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+          <tr>
+            <td width="100%" style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:16px;vertical-align:top;">
+              <p style="margin:0 0 6px 0;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#92400E;font-weight:700;">Snack Request</p>
+              <p style="margin:0;font-size:14px;font-weight:600;color:#92400E;">${snackText}</p>
             </td>
           </tr>
         </table>
@@ -701,6 +749,7 @@ export const sendMeetingRescheduleEmail = async ({
             </table>
 
             ${meetingLinkHTML} <!-- Tambahkan link meeting di sini -->
+            ${snackHTML} <!-- Snack request untuk non-participant -->
 
           </td>
         </tr>

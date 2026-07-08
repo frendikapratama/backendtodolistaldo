@@ -39,8 +39,9 @@ const meetingSchema = new mongoose.Schema(
     },
     meetingType: {
       type: String,
-      enum: ["offline", "online", "hybrid"],
-      default: "offline",
+      enum: ["internal", "external"],
+      default: "internal",
+      required: true,
     },
     meetingLink: {
       type: String,
@@ -85,6 +86,11 @@ const meetingSchema = new mongoose.Schema(
           },
         },
       ],
+      default: [],
+    },
+    snackRequest: {
+      type: [String],
+      enum: ["makanan-ringan", "makanan-berat"],
       default: [],
     },
   },

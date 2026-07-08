@@ -27,7 +27,8 @@ const meetingUploadsDir = path.join(
 
 export const checkAvailability = async (req, res) => {
   try {
-    const { roomId, participantIds, startTime, endTime } = req.body;
+    const { roomId, participantIds, startTime, endTime, excludeMeetingId } =
+      req.body;
 
     const { roomConflict, conflictType, participantConflicts } =
       await validateAvailability({
@@ -35,6 +36,7 @@ export const checkAvailability = async (req, res) => {
         participantIds,
         startTime,
         endTime,
+        excludeMeetingId,
       });
 
     let roomMessage = null;
@@ -62,6 +64,8 @@ export const createMeeting = async (req, res) => {
     const {
       title,
       description,
+      meetingType,
+      snackRequest,
       meetingLink,
       roomId,
       organizerId,
@@ -70,13 +74,19 @@ export const createMeeting = async (req, res) => {
       endTime,
     } = req.body;
 
-    const reqStart = new Date(startTime);
-    const reqEnd = new Date(endTime);
-    const roomConflict = await Meeting.findOne({
+    // Enforce: internal meeting tidak boleh punya snackRequest
+    const finalSnackRequest =
+      meetingType === "internal"
+        ? []
+        : Array.isArray(snackRequest)
+          ? snackRequest
+          : [];
+
+    const { roomConflict, conflictType } = await validateAvailability({
       roomId,
-      status: { $ne: "cancelled" },
-      startTime: { $lt: new Date(reqEnd.getTime() + 30 * 60000) },
-      endTime: { $gt: new Date(reqStart.getTime() - 30 * 60000) },
+      participantIds,
+      startTime,
+      endTime,
     });
 
     if (roomConflict) {
@@ -85,15 +95,18 @@ export const createMeeting = async (req, res) => {
           ? "The room cannot be booked yet — a 30-minute cleaning buffer is required after the previous meeting ends."
           : "The selected room is already booked for the specified time.";
 
-      return res.status(409).json({ message });
+      return res.status(409).json({ message, conflictType });
     }
 
     const meeting = await Meeting.create({
       title,
       description,
+      meetingType,
+      snackRequest: finalSnackRequest,
       meetingLink,
       roomId,
       organizerId,
+      participantIds,
       startTime,
       endTime,
     });
@@ -106,7 +119,7 @@ export const createMeeting = async (req, res) => {
 
     const populatedMeeting = await Meeting.findById(meeting._id)
       .populate("roomId", "nama lokasi")
-      .populate("organizerId", "nama username email")
+      .populate("organizerId", "username email")
       .lean();
 
     const invitedUsers = await User.find(
@@ -162,7 +175,6 @@ export const createMeeting = async (req, res) => {
       meeting: populatedMeeting,
       room,
     }).catch((err) => console.error("WhatsApp invitation error:", err));
-
     const io = req.app.get("io");
     io.emit("meeting:created", {
       meeting: populatedMeeting,
@@ -228,22 +240,63 @@ export const getMeetingParticipants = async (req, res) => {
 export const updateMeeting = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, organizerId, participantIds } = req.body;
+
+    const {
+      title,
+      description,
+      organizerId,
+      participantIds,
+      meetingType,
+      snackRequest,
+      meetingLink,
+    } = req.body;
 
     const meeting = await Meeting.findById(id);
+
     if (!meeting) {
-      return res.status(404).json({ message: "Meeting not found." });
+      return res.status(404).json({
+        success: false,
+        message: "Meeting not found.",
+      });
+    }
+
+    // Validasi conflict PARTICIPANT saja — room & waktu tidak diubah di endpoint ini
+    if (participantIds !== undefined) {
+      const { participantConflicts } = await validateAvailability({
+        roomId: meeting.roomId,
+        participantIds,
+        startTime: meeting.startTime,
+        endTime: meeting.endTime,
+        excludeMeetingId: meeting._id, // exclude meeting ini sendiri dari pengecekan
+      });
+
+      // Kirim balik ke frontend supaya konsisten dengan flow checkAvailability,
+      // tapi tidak memblokir update — hanya informasi
+      req.meetingParticipantConflicts = participantConflicts;
     }
 
     const oldData = {
       title: meeting.title,
       description: meeting.description,
       organizerId: meeting.organizerId,
+      meetingType: meeting.meetingType,
+      snackRequest: meeting.snackRequest,
+      meetingLink: meeting.meetingLink,
     };
+    const finalSnackRequest =
+      meetingType === "internal"
+        ? []
+        : Array.isArray(snackRequest)
+          ? snackRequest
+          : [];
 
     meeting.title = title;
     meeting.description = description;
     meeting.organizerId = organizerId;
+    meeting.meetingType = meetingType;
+    meeting.snackRequest = finalSnackRequest;
+    meeting.meetingLink = meetingLink;
+
     await meeting.save();
 
     if (participantIds !== undefined) {
@@ -255,23 +308,39 @@ export const updateMeeting = async (req, res) => {
       action: "updated",
       changedBy: organizerId,
       oldData,
-      newData: { title, description, organizerId },
+      newData: {
+        title,
+        description,
+        organizerId,
+        meetingType,
+        snackRequest,
+        meetingLink,
+      },
     });
 
-    // EMIT REALTIME
-    const io = req.app.get("io");
-    io.emit("meeting:updated", {
+    req.app.get("io").emit("meeting:updated", {
       meetingId: id,
-      changes: { title, description, organizerId },
+      changes: {
+        title,
+        description,
+        organizerId,
+        meetingType,
+        snackRequest,
+        meetingLink,
+      },
     });
 
     return res.status(200).json({
       success: true,
       message: "Meeting updated successfully.",
       data: meeting,
+      participantConflicts: req.meetingParticipantConflicts || [],
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
