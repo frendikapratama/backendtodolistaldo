@@ -152,29 +152,30 @@ export const createMeeting = async (req, res) => {
     const room = populatedMeeting.roomId;
 
     // ─── Email invitation (background, tidak menunggu)
-    sendMeetingInvitation({
-      participants: allNotifyUsers.map((u) => ({
-        email: u.email,
-        nama: u.nama || u.username,
-        isParticipant: u.isParticipant,
-      })),
-      organizer,
-      meeting: populatedMeeting,
-      room,
-    }).catch((err) => console.error("Email invitation error:", err));
+    // sendMeetingInvitation({
+    //   participants: allNotifyUsers.map((u) => ({
+    //     email: u.email,
+    //     nama: u.nama || u.username,
+    //     isParticipant: u.isParticipant,
+    //   })),
+    //   organizer,
+    //   meeting: populatedMeeting,
+    //   room,
+    // }).catch((err) => console.error("Email invitation error:", err));
 
     // ─── WhatsApp notification (background, tidak menunggu)
-    sendMeetingWhatsAppNotification({
-      participants: allNotifyUsers.map((u) => ({
-        noHp: u.noHp,
-        nama: u.nama || u.username,
-        email: u.email,
-        isParticipant: u.isParticipant,
-      })),
-      organizer,
-      meeting: populatedMeeting,
-      room,
-    }).catch((err) => console.error("WhatsApp invitation error:", err));
+    // sendMeetingWhatsAppNotification({
+    //   participants: allNotifyUsers.map((u) => ({
+    //     noHp: u.noHp,
+    //     nama: u.nama || u.username,
+    //     email: u.email,
+    //     isParticipant: u.isParticipant,
+    //   })),
+    //   organizer,
+    //   meeting: populatedMeeting,
+    //   room,
+    // }).catch((err) => console.error("WhatsApp invitation error:", err));
+
     const io = req.app.get("io");
     io.emit("meeting:created", {
       meeting: populatedMeeting,
@@ -192,32 +193,96 @@ export const createMeeting = async (req, res) => {
 
 export const getMeeting = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
-    const skip = (page - 1) * limit;
+    const {
+      organizerId,
+      roomId,
+      startDate,
+      endDate,
+      status,
+      meetingType,
+      search,
+      page,
+      limit,
+    } = req.query;
 
-    const [data, total] = await Promise.all([
-      Meeting.find()
-        .populate("roomId", "nama")
-        .populate("organizerId", "username")
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 })
-        .lean(),
-      Meeting.countDocuments(),
-    ]);
+    // PAGINATION
+    const pageNum = parseInt(page) || 1;
+    const limitNum = limit === "all" ? 0 : parseInt(limit) || 25;
+    const skipNum = (pageNum - 1) * limitNum;
 
-    res.status(200).json({
+    // BUILD FILTER
+    const filter = {};
+
+    // Organizer Filter
+    if (organizerId) {
+      filter.organizerId = organizerId;
+    }
+
+    // Room Filter
+    if (roomId) {
+      filter.roomId = roomId;
+    }
+
+    // Status Filter
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
+    // Meeting Type Filter
+    if (meetingType && meetingType !== "all") {
+      filter.meetingType = meetingType;
+    }
+
+    // Date Range Filter
+    if (startDate || endDate) {
+      filter.startTime = {};
+
+      if (startDate) {
+        filter.startTime.$gte = new Date(startDate);
+      }
+
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.startTime.$lte = end;
+      }
+    }
+
+    // Search Filter
+    if (search && search.trim() !== "") {
+      filter.title = {
+        $regex: search.trim(),
+        $options: "i",
+      };
+    }
+
+    const total = await Meeting.countDocuments(filter);
+
+    let meetingQuery = Meeting.find(filter)
+      .populate("roomId", "nama")
+      .populate("organizerId", "username")
+      .sort({
+        createdAt: -1,
+      });
+
+    if (limit !== "all") {
+      meetingQuery = meetingQuery.skip(skipNum).limit(limitNum);
+    }
+
+    const data = await meetingQuery.lean();
+
+    return res.status(200).json({
       success: true,
       message: "success get data meeting",
-      data: data,
+      data,
       pagination: {
-        page,
-        limit,
+        page: pageNum,
+        limit: limit === "all" ? total : limitNum,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1,
+        totalPages: limit === "all" ? 1 : Math.ceil(total / limitNum),
+        hasNext:
+          limit === "all" ? false : pageNum < Math.ceil(total / limitNum),
+        hasPrev: pageNum > 1,
       },
     });
   } catch (error) {
@@ -357,13 +422,14 @@ export const rescheduleMeeting = async (req, res) => {
     const participants = await MeetingParticipant.find({ meetingId: id });
     const participantIds = participants.map((item) => item.userId);
 
-    const { roomConflict, participantConflicts } = await validateAvailability({
-      roomId,
-      participantIds,
-      startTime,
-      endTime,
-      excludeMeetingId: id,
-    });
+    const { roomConflict, conflictType, participantConflicts } =
+      await validateAvailability({
+        roomId,
+        participantIds,
+        startTime,
+        endTime,
+        excludeMeetingId: id,
+      });
 
     if (roomConflict) {
       const message =
@@ -605,7 +671,7 @@ export const getMeetingDetail = async (req, res) => {
 
     const meeting = await Meeting.findById(id)
       .populate("roomId", "nama lokasi kapasitas photo")
-      .populate("organizerId", "nama username email photo")
+      .populate("organizerId", "username email photo")
       .populate("meetingResults.uploadedBy", "nama username email")
       .lean();
 
@@ -617,7 +683,7 @@ export const getMeetingDetail = async (req, res) => {
     }
 
     const participants = await MeetingParticipant.find({ meetingId: id })
-      .populate("userId", "nama username email photo")
+      .populate("userId", "username email photo")
       .lean();
 
     // const history = await MeetingHistory.find({ meetingId: id })
