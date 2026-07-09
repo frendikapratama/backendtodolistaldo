@@ -152,29 +152,29 @@ export const createMeeting = async (req, res) => {
     const room = populatedMeeting.roomId;
 
     // ─── Email invitation (background, tidak menunggu)
-    // sendMeetingInvitation({
-    //   participants: allNotifyUsers.map((u) => ({
-    //     email: u.email,
-    //     nama: u.nama || u.username,
-    //     isParticipant: u.isParticipant,
-    //   })),
-    //   organizer,
-    //   meeting: populatedMeeting,
-    //   room,
-    // }).catch((err) => console.error("Email invitation error:", err));
+    sendMeetingInvitation({
+      participants: allNotifyUsers.map((u) => ({
+        email: u.email,
+        nama: u.nama || u.username,
+        isParticipant: u.isParticipant,
+      })),
+      organizer,
+      meeting: populatedMeeting,
+      room,
+    }).catch((err) => console.error("Email invitation error:", err));
 
     // ─── WhatsApp notification (background, tidak menunggu)
-    // sendMeetingWhatsAppNotification({
-    //   participants: allNotifyUsers.map((u) => ({
-    //     noHp: u.noHp,
-    //     nama: u.nama || u.username,
-    //     email: u.email,
-    //     isParticipant: u.isParticipant,
-    //   })),
-    //   organizer,
-    //   meeting: populatedMeeting,
-    //   room,
-    // }).catch((err) => console.error("WhatsApp invitation error:", err));
+    sendMeetingWhatsAppNotification({
+      participants: allNotifyUsers.map((u) => ({
+        noHp: u.noHp,
+        nama: u.nama || u.username,
+        email: u.email,
+        isParticipant: u.isParticipant,
+      })),
+      organizer,
+      meeting: populatedMeeting,
+      room,
+    }).catch((err) => console.error("WhatsApp invitation error:", err));
 
     const io = req.app.get("io");
     io.emit("meeting:created", {
