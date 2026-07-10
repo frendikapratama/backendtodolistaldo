@@ -18,6 +18,10 @@ let readyPromise = new Promise((resolve) => {
   readyPromiseResolve = resolve;
 });
 
+let reconnectDelay = 3000; // 3 detik
+const MAX_RECONNECT_DELAY = 60000; // maksimal 1 menit
+let reconnectTimer = null;
+
 const connectWhatsApp = async () => {
   if (isConnecting) return;
   isConnecting = true;
@@ -42,12 +46,21 @@ const connectWhatsApp = async () => {
 
     if (connection === "open") {
       console.log("✓ WhatsApp connected");
+
+      reconnectDelay = 3000; // reset delay
+
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+
       isConnecting = false;
       readyPromiseResolve(sock);
     }
 
     if (connection === "close") {
       isConnecting = false;
+
       const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
@@ -55,24 +68,27 @@ const connectWhatsApp = async () => {
         `✗ WhatsApp disconnected (code: ${statusCode}). Reconnect: ${shouldReconnect}`,
       );
 
-      // if (shouldReconnect) {
-      //   readyPromise = new Promise((resolve) => {
-      //     readyPromiseResolve = resolve;
-      //   });
-      //   connectWhatsApp();
-      // } else {
-      //   console.log(
-      //     "WhatsApp logged out. Hapus folder wa-auth lalu scan ulang.",
-      //   );
-      // }
-
-      if (shouldReconnect) {
-        console.log("WhatsApp disconnected. Auto reconnect dinonaktifkan.");
-      } else {
+      if (!shouldReconnect) {
         console.log(
           "WhatsApp logged out. Hapus folder wa-auth lalu scan ulang.",
         );
+        return;
       }
+
+      readyPromise = new Promise((resolve) => {
+        readyPromiseResolve = resolve;
+      });
+
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+
+      console.log(`Reconnect dalam ${reconnectDelay / 1000} detik...`);
+
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connectWhatsApp();
+      }, reconnectDelay);
+
+      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
     }
   });
 };
