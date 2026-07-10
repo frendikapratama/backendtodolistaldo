@@ -1,6 +1,8 @@
 // routes/attachmentRoutes.js
 import express from "express";
 import { uploadSingle } from "../middleware/upload.js";
+
+import { uploadErrorHandler } from "../middleware/uploadErrorHandler.js";
 import {
   addAttachment,
   getTaskAttachments,
@@ -15,7 +17,13 @@ import { authenticate } from "../middleware/auth.js";
 const router = express.Router();
 
 // task
-router.post("/:taskId", authenticate, uploadSingle, addAttachment);
+router.post(
+  "/:taskId",
+  authenticate,
+  uploadSingle,
+  uploadErrorHandler,
+  addAttachment,
+);
 
 router.get("/:taskId", authenticate, getTaskAttachments);
 
@@ -28,7 +36,8 @@ router.post(
   "/subtask/:subTaskId",
   authenticate,
   uploadSingle,
-  addSubtaskAttachment
+  uploadErrorHandler,
+  addSubtaskAttachment,
 );
 
 router.get("/subtask/:subTaskId", authenticate, getSubtaskAttachments);
@@ -36,12 +45,12 @@ router.get("/subtask/:subTaskId", authenticate, getSubtaskAttachments);
 router.get(
   "/subtask/:subTaskId/:attachmentId/download",
   authenticate,
-  downloadSubtaskAttachment
+  downloadSubtaskAttachment,
 );
 
 router.delete(
   "/subtask/:subTaskId/delete/:attachmentId",
   authenticate,
-  deleteSubtaskAttachment
+  deleteSubtaskAttachment,
 );
 export default router;

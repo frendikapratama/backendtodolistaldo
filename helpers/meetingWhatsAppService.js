@@ -22,6 +22,11 @@ const fmtSnackRequest = (snackRequest = []) => {
   return snackRequest.map((s) => snackLabels[s] || s).join(", ");
 };
 
+const getPublicBaseUrl = () => {
+  const rawBase = process.env.VITE_API_URL || "https://planify.itvault.cloud";
+  return String(rawBase).trim().replace(/\/+$/, "");
+};
+
 const buildMeetingMessage = ({
   nama,
   meeting,
@@ -32,10 +37,8 @@ const buildMeetingMessage = ({
   isReminder = false,
   reminderText,
 }) => {
-  let base = process.env.VITE_API_URL || "https://planify.itvault.cloud/api";
-  if (!base.startsWith("http")) {
-    base = "https://" + base;
-  }
+  const base = getPublicBaseUrl();
+  const baseApiUrl = `${base}/api`;
 
   const createToken = (status) => {
     const statusMap = { accepted: "a", tentative: "t", decline: "d" };
@@ -50,9 +53,9 @@ const buildMeetingMessage = ({
       .replace(/=+$/, "");
   };
 
-  const accepted = `${base}/api/meeting/rsvp/${createToken("accepted")}`;
-  const tentative = `${base}/api/meeting/rsvp/${createToken("tentative")}`;
-  const decline = `${base}/api/meeting/rsvp/${createToken("decline")}`;
+  const accepted = `${baseApiUrl}/meeting/rsvp/${createToken("accepted")}`;
+  const tentative = `${baseApiUrl}/meeting/rsvp/${createToken("tentative")}`;
+  const decline = `${baseApiUrl}/meeting/rsvp/${createToken("decline")}`;
 
   const rsvpLines = isParticipant
     ? [

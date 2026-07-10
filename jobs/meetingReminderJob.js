@@ -15,7 +15,7 @@ const TWO_HOURS_IN_MS = 2 * 60 * 60 * 1000;
 
 // Pesan reminder khusus organizer
 const ORGANIZER_REMINDER_TEXT =
-  "Meeting akan segera dimulai dalam 2 jam. Jika tidak jadi, mohon segera konfirmasi kepada HRD.";
+  "Meeting akan segera dimulai dalam 2 jam. Jika meeting dibatalkan, mohon segera konfirmasi kepada HRD. Apabila konsumsi telah dipesan atau dibeli, biaya konsumsi akan dibebankan kepada organizer.";
 
 // Pesan reminder biasa (untuk participant & divisi target)
 const GENERAL_REMINDER_TEXT = "Meeting akan segera dimulai dalam 2 jam.";
