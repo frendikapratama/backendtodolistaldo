@@ -151,18 +151,6 @@ export const createMeeting = async (req, res) => {
     const organizer = populatedMeeting.organizerId;
     const room = populatedMeeting.roomId;
 
-    // ─── Email invitation (background, tidak menunggu)
-    sendMeetingInvitation({
-      participants: allNotifyUsers.map((u) => ({
-        email: u.email,
-        nama: u.nama || u.username,
-        isParticipant: u.isParticipant,
-      })),
-      organizer,
-      meeting: populatedMeeting,
-      room,
-    }).catch((err) => console.error("Email invitation error:", err));
-
     // ─── WhatsApp notification (background, tidak menunggu)
     sendMeetingWhatsAppNotification({
       participants: allNotifyUsers.map((u) => ({
@@ -175,6 +163,18 @@ export const createMeeting = async (req, res) => {
       meeting: populatedMeeting,
       room,
     }).catch((err) => console.error("WhatsApp invitation error:", err));
+
+    // ─── Email invitation (background, tidak menunggu)
+    sendMeetingInvitation({
+      participants: allNotifyUsers.map((u) => ({
+        email: u.email,
+        nama: u.nama || u.username,
+        isParticipant: u.isParticipant,
+      })),
+      organizer,
+      meeting: populatedMeeting,
+      room,
+    }).catch((err) => console.error("Email invitation error:", err));
 
     const io = req.app.get("io");
     io.emit("meeting:created", {
@@ -496,14 +496,6 @@ export const rescheduleMeeting = async (req, res) => {
     ];
 
     if (allNotifyUsers.length > 0) {
-      sendMeetingRescheduleEmail({
-        users: allNotifyUsers,
-        meeting: populatedMeeting,
-        room: populatedMeeting.roomId,
-        rescheduler,
-        oldData,
-      }).catch((err) => console.error("Email reschedule error:", err));
-
       sendMeetingRescheduleWhatsApp({
         users: allNotifyUsers,
         meeting: populatedMeeting,
@@ -511,6 +503,14 @@ export const rescheduleMeeting = async (req, res) => {
         rescheduler,
         oldData,
       }).catch((err) => console.error("WhatsApp reschedule error:", err));
+
+      sendMeetingRescheduleEmail({
+        users: allNotifyUsers,
+        meeting: populatedMeeting,
+        room: populatedMeeting.roomId,
+        rescheduler,
+        oldData,
+      }).catch((err) => console.error("Email reschedule error:", err));
     }
 
     // EMIT REALTIME
@@ -594,19 +594,19 @@ export const cancelMeeting = async (req, res) => {
     ];
 
     if (notifyUsers.length > 0) {
-      sendMeetingCancellationEmail({
-        users: notifyUsers,
-        meeting,
-        canceller,
-        cancelledReason,
-      }).catch((err) => console.error("Email cancellation error:", err));
-
       sendMeetingCancellationWhatsApp({
         users: notifyUsers,
         meeting,
         canceller,
         cancelledReason,
       }).catch((err) => console.error("WhatsApp cancellation error:", err));
+
+      sendMeetingCancellationEmail({
+        users: notifyUsers,
+        meeting,
+        canceller,
+        cancelledReason,
+      }).catch((err) => console.error("Email cancellation error:", err));
     }
 
     // EMIT REALTIME
