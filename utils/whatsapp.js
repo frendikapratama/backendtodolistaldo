@@ -79,16 +79,16 @@ const connectWhatsApp = async () => {
         readyPromiseResolve = resolve;
       });
 
-      if (reconnectTimer) clearTimeout(reconnectTimer);
+      // if (reconnectTimer) clearTimeout(reconnectTimer);
 
-      console.log(`Reconnect dalam ${reconnectDelay / 1000} detik...`);
+      // console.log(`Reconnect dalam ${reconnectDelay / 1000} detik...`);
 
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        connectWhatsApp();
-      }, reconnectDelay);
+      // reconnectTimer = setTimeout(() => {
+      //   reconnectTimer = null;
+      //   connectWhatsApp();
+      // }, reconnectDelay);
 
-      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+      // reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
     }
   });
 };
