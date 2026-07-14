@@ -151,40 +151,43 @@ export const createMeeting = async (req, res) => {
     const organizer = populatedMeeting.organizerId;
     const room = populatedMeeting.roomId;
 
-    // ─── Email invitation (background, tidak menunggu)
-    sendMeetingInvitation({
-      participants: allNotifyUsers.map((u) => ({
-        email: u.email,
-        nama: u.nama || u.username,
-        isParticipant: u.isParticipant,
-      })),
-      organizer,
-      meeting: populatedMeeting,
-      room,
-    }).catch((err) => console.error("Email invitation error:", err));
-
-    // ─── WhatsApp notification (background, tidak menunggu)
-    sendMeetingWhatsAppNotification({
-      participants: allNotifyUsers.map((u) => ({
-        noHp: u.noHp,
-        nama: u.nama || u.username,
-        email: u.email,
-        isParticipant: u.isParticipant,
-      })),
-      organizer,
-      meeting: populatedMeeting,
-      room,
-    }).catch((err) => console.error("WhatsApp invitation error:", err));
-
     const io = req.app.get("io");
-    io.emit("meeting:created", {
-      meeting: populatedMeeting,
-      roomId,
-    });
 
-    return res.status(201).json({
-      success: true,
-      data: meeting,
+    io.emit("meeting:created", { meeting: populatedMeeting, roomId });
+
+    res.status(201).json({ success: true, data: meeting });
+
+    // ─── Jalankan notifikasi setelah response terkirim, paralel, tidak diawait
+    setImmediate(() => {
+      Promise.allSettled([
+        sendMeetingInvitation({
+          participants: allNotifyUsers.map((u) => ({
+            email: u.email,
+            nama: u.nama || u.username,
+            isParticipant: u.isParticipant,
+          })),
+          organizer,
+          meeting: populatedMeeting,
+          room,
+        }),
+
+        sendMeetingWhatsAppNotification({
+          participants: allNotifyUsers.map((u) => ({
+            noHp: u.noHp,
+            nama: u.nama || u.username,
+            email: u.email,
+            isParticipant: u.isParticipant,
+          })),
+          organizer,
+          meeting: populatedMeeting,
+          room,
+        }),
+      ]).then(([emailResult, waResult]) => {
+        if (emailResult.status === "rejected")
+          console.error("Email invitation error:", emailResult.reason);
+        if (waResult.status === "rejected")
+          console.error("WhatsApp invitation error:", waResult.reason);
+      });
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });

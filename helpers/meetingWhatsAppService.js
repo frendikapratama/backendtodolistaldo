@@ -114,7 +114,7 @@ const buildMeetingMessage = ({
     ...meetingLinkLines,
     ...snackLines,
     "",
-    ...rsvpLines,
+    // ...rsvpLines,
     "Terima kasih.",
     "",
     "— *Planify*",
@@ -147,6 +147,7 @@ export const sendMeetingWhatsAppNotification = async ({
       });
 
       return sendWhatsAppMessage(participant.noHp, message);
+      console.log("Kirim WA ke :", noHp);
     }),
   );
 

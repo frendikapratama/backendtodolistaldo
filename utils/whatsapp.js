@@ -79,16 +79,16 @@ const connectWhatsApp = async () => {
         readyPromiseResolve = resolve;
       });
 
-      // if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
 
-      // console.log(`Reconnect dalam ${reconnectDelay / 1000} detik...`);
+      console.log(`Reconnect dalam ${reconnectDelay / 1000} detik...`);
 
-      // reconnectTimer = setTimeout(() => {
-      //   reconnectTimer = null;
-      //   connectWhatsApp();
-      // }, reconnectDelay);
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connectWhatsApp();
+      }, reconnectDelay);
 
-      // reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
     }
   });
 };
@@ -108,15 +108,49 @@ const toJid = (noHp) => {
 };
 
 export const sendWhatsAppMessage = async (noHp, message) => {
-  if (!noHp) return { success: false, reason: "no noHp" };
+  if (!noHp) {
+    console.log("Nomor kosong");
+    return { success: false, reason: "Nomor kosong" };
+  }
 
   try {
-    const socket = await readyPromise; // tunggu sampai koneksi siap
+    console.log("Menunggu socket...");
+    const socket = await readyPromise;
+
+    console.log("Socket siap");
+
     const jid = toJid(noHp);
-    await socket.sendMessage(jid, { text: message });
-    return { success: true };
+    console.log("JID :", jid);
+
+    // Cek apakah nomor terdaftar di WhatsApp
+    const exists = await socket.onWhatsApp(jid);
+    console.log("onWhatsApp :", exists);
+
+    if (!exists.length || !exists[0].exists) {
+      console.log(`✗ ${jid} tidak terdaftar di WhatsApp`);
+
+      return {
+        success: false,
+        reason: "Nomor tidak terdaftar",
+      };
+    }
+
+    const result = await socket.sendMessage(jid, {
+      text: message,
+    });
+
+    // console.log("WA Result :", result);
+
+    return {
+      success: true,
+      result,
+    };
   } catch (error) {
-    console.error(`✗ WA gagal kirim ke ${noHp}:`, error.message);
-    return { success: false, reason: error.message };
+    console.error("WA Error :", error);
+
+    return {
+      success: false,
+      reason: error.message,
+    };
   }
 };
