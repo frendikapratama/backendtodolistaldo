@@ -67,6 +67,7 @@ export const createMeeting = async (req, res) => {
       meetingType,
       snackRequest,
       meetingLink,
+      external_factory,
       roomId,
       organizerId,
       participantIds,
@@ -74,9 +75,9 @@ export const createMeeting = async (req, res) => {
       endTime,
     } = req.body;
 
-    // Enforce: internal meeting tidak boleh punya snackRequest
+    // Enforce: internal_department meeting tidak boleh punya snackRequest
     const finalSnackRequest =
-      meetingType === "internal"
+      meetingType === "internal_department"
         ? []
         : Array.isArray(snackRequest)
           ? snackRequest
@@ -104,6 +105,7 @@ export const createMeeting = async (req, res) => {
       meetingType,
       snackRequest: finalSnackRequest,
       meetingLink,
+      external_factory,
       roomId,
       organizerId,
       participantIds,
@@ -317,6 +319,7 @@ export const updateMeeting = async (req, res) => {
       meetingType,
       snackRequest,
       meetingLink,
+      external_factory,
     } = req.body;
 
     const meeting = await Meeting.findById(id);
@@ -350,9 +353,10 @@ export const updateMeeting = async (req, res) => {
       meetingType: meeting.meetingType,
       snackRequest: meeting.snackRequest,
       meetingLink: meeting.meetingLink,
+      external_factory: meeting.external_factory,
     };
     const finalSnackRequest =
-      meetingType === "internal"
+      meetingType === "internal_department"
         ? []
         : Array.isArray(snackRequest)
           ? snackRequest
@@ -364,6 +368,7 @@ export const updateMeeting = async (req, res) => {
     meeting.meetingType = meetingType;
     meeting.snackRequest = finalSnackRequest;
     meeting.meetingLink = meetingLink;
+    meeting.external_factory = external_factory;
 
     await meeting.save();
 
@@ -383,6 +388,7 @@ export const updateMeeting = async (req, res) => {
         meetingType,
         snackRequest,
         meetingLink,
+        external_factory,
       },
     });
 
@@ -395,6 +401,7 @@ export const updateMeeting = async (req, res) => {
         meetingType,
         snackRequest,
         meetingLink,
+        external_factory,
       },
     });
 

@@ -39,9 +39,13 @@ const meetingSchema = new mongoose.Schema(
     },
     meetingType: {
       type: String,
-      enum: ["internal", "external"],
-      default: "internal",
+      enum: ["internal_department", "internal_factory", "external_factory"],
+      default: "internal_department",
       required: true,
+    },
+    external_factory: {
+      type: String,
+      default: null,
     },
     meetingLink: {
       type: String,

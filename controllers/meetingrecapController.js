@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 import Meeting from "../models/Meeting.js";
 
 const buildMatchStage = (query) => {
-  const { startDate, endDate, roomId, organizerId, status } = query;
+  const { startDate, endDate, roomId, organizerId, status, meetingType } =
+    query;
   const match = {};
 
   if (startDate || endDate) {
@@ -42,6 +43,12 @@ const buildMatchStage = (query) => {
     const statusList = Array.isArray(status) ? status : status.split(",");
     match.status = { $in: statusList };
   }
+  if (meetingType) {
+    const meetingTypeList = Array.isArray(meetingType)
+      ? meetingType
+      : meetingType.split(",");
+    match.meetingType = { $in: meetingTypeList };
+  }
 
   return match;
 };
@@ -55,9 +62,28 @@ export const getRecapSummary = async (req, res) => {
       {
         $facet: {
           totalMeetings: [{ $count: "count" }],
-          byStatus: [{ $group: { _id: "$status", count: { $sum: 1 } } }],
+          byStatus: [
+            {
+              $group: {
+                _id: "$status",
+                count: { $sum: 1 },
+              },
+            },
+          ],
+          byMeetingType: [
+            {
+              $group: {
+                _id: "$meetingType",
+                count: { $sum: 1 },
+              },
+            },
+          ],
           totalWithResults: [
-            { $match: { "meetingResults.0": { $exists: true } } },
+            {
+              $match: {
+                "meetingResults.0": { $exists: true },
+              },
+            },
             { $count: "count" },
           ],
         },
@@ -69,12 +95,18 @@ export const getRecapSummary = async (req, res) => {
       return acc;
     }, {});
 
+    const byMeetingType = summary.byMeetingType.reduce((acc, cur) => {
+      acc[cur._id] = cur.count;
+      return acc;
+    }, {});
+
     return res.status(200).json({
       success: true,
       data: {
         totalMeetings: summary.totalMeetings[0]?.count || 0,
         totalWithResults: summary.totalWithResults[0]?.count || 0,
         byStatus,
+        byMeetingType,
       },
     });
   } catch (error) {
@@ -104,7 +136,7 @@ export const getMeetingResultsList = async (req, res) => {
       .populate("organizerId", "email username")
       .populate("meetingResults.uploadedBy", " username email")
       .select(
-        "title description roomId organizerId startTime endTime status meetingType meetingResults",
+        "title description roomId organizerId startTime endTime status meetingType meetingResults external_factory",
       )
       .sort({ startTime: -1 });
 
