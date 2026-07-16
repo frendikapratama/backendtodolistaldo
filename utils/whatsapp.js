@@ -58,38 +58,38 @@ const connectWhatsApp = async () => {
       readyPromiseResolve(sock);
     }
 
-    if (connection === "close") {
-      isConnecting = false;
+    // if (connection === "close") {
+    //   isConnecting = false;
 
-      const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+    //   const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+    //   const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-      console.log(
-        `✗ WhatsApp disconnected (code: ${statusCode}). Reconnect: ${shouldReconnect}`,
-      );
+    //   console.log(
+    //     `✗ WhatsApp disconnected (code: ${statusCode}). Reconnect: ${shouldReconnect}`,
+    //   );
 
-      if (!shouldReconnect) {
-        console.log(
-          "WhatsApp logged out. Hapus folder wa-auth lalu scan ulang.",
-        );
-        return;
-      }
+    //   if (!shouldReconnect) {
+    //     console.log(
+    //       "WhatsApp logged out. Hapus folder wa-auth lalu scan ulang.",
+    //     );
+    //     return;
+    //   }
 
-      readyPromise = new Promise((resolve) => {
-        readyPromiseResolve = resolve;
-      });
+    //   readyPromise = new Promise((resolve) => {
+    //     readyPromiseResolve = resolve;
+    //   });
 
-      if (reconnectTimer) clearTimeout(reconnectTimer);
+    //   if (reconnectTimer) clearTimeout(reconnectTimer);
 
-      console.log(`Reconnect dalam ${reconnectDelay / 1000} detik...`);
+    //   console.log(`Reconnect dalam ${reconnectDelay / 1000} detik...`);
 
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null;
-        connectWhatsApp();
-      }, reconnectDelay);
+    //   reconnectTimer = setTimeout(() => {
+    //     reconnectTimer = null;
+    //     connectWhatsApp();
+    //   }, reconnectDelay);
 
-      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
-    }
+    //   reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+    // }
   });
 };
 

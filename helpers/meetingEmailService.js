@@ -184,80 +184,58 @@ const buildRSVPButtons = (meetingId, participantEmail) => {
   const decline = `${base}/api/meeting/rsvp/${createToken("decline")}`;
 
   return `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
-<tr>
-<td>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px; border-collapse: collapse;">
+  <tr>
+    <!-- Menambahkan padding-bottom agar ada jarak aman sebelum komponen di bawahnya -->
+    <td style="padding-bottom: 28px;">
+      <p style="margin:0 0 16px; font-size:15px; font-weight:600; color:#0F172A; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        Apakah Anda akan menghadiri meeting ini?
+      </p>
 
-<p style="
-  margin:0 0 14px;
-  font-size:15px;
-  font-weight:600;
-  color:#0F172A;
-  ">
-  Apakah Anda akan menghadiri meeting ini?
-</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+        <tr>
+          <!-- Tombol Hadir -->
+          <td style="padding-right:12px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse: separate;">
+              <tr>
+                <td align="center" valign="middle" bgcolor="#2563EB" style="border-radius: 22px; padding: 12px 24px;">
+                  <a href="${accepted}" target="_blank" style="font-size: 14px; font-family: Arial, sans-serif; font-weight: 600; color: #ffffff; text-decoration: none; display: inline-block;">
+                    Hadir
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
 
-<table role="presentation" cellpadding="0" cellspacing="0">
-<tr>
+          <!-- Tombol Mungkin -->
+          <td style="padding-right:12px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse: separate;">
+              <tr>
+                <td align="center" valign="middle" bgcolor="#F3F4F6" style="border-radius: 22px; border: 1px solid #D1D5DB; padding: 11px 23px;">
+                  <a href="${tentative}" target="_blank" style="font-size: 14px; font-family: Arial, sans-serif; font-weight: 600; color: #374151; text-decoration: none; display: inline-block;">
+                    Mungkin
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
 
-<td style="padding-right:10px;">
-<a href="${accepted}"
-style="
-background:#2563EB;
-color:#ffffff;
-text-decoration:none;
-padding:12px 24px;
-font-size:14px;
-font-weight:600;
-border-radius:22px;
-display:inline-block;
-font-family:Arial,sans-serif;
-">
-Hadir
-</a>
-</td>
-
-<td style="padding-right:10px;">
-<a href="${tentative}"
-style="
-background:#F3F4F6;
-color:#374151;
-text-decoration:none;
-padding:12px 24px;
-font-size:14px;
-font-weight:600;
-border-radius:22px;
-display:inline-block;
-border:1px solid #D1D5DB;
-font-family:Arial,sans-serif;
-">
-Mungkin
-</a>
-</td>
-
-<td>
-<a href="${decline}"
-style="
-background:#ffffff;
-color:#DC2626;
-text-decoration:none;
-padding:12px 24px;
-font-size:14px;
-font-weight:600;
-border-radius:22px;
-display:inline-block;
-border:1px solid #FCA5A5;
-font-family:Arial,sans-serif;
-">
-Tidak Hadir
-</a>
-</td>
-
-</tr>
-</table>
-
-</td>
-</tr>
+          <!-- Tombol Tidak Hadir -->
+          <td>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse: separate;">
+              <tr>
+                <td align="center" valign="middle" bgcolor="#ffffff" style="border-radius: 22px; border: 1px solid #FCA5A5; padding: 11px 23px;">
+                  <a href="${decline}" target="_blank" style="font-size: 14px; font-family: Arial, sans-serif; font-weight: 600; color: #DC2626; text-decoration: none; display: inline-block;">
+                    Tidak Hadir
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
 </table>
 `;
 };
