@@ -19,7 +19,6 @@ import {
   endMeeting,
 } from "../controllers/meetingController.js";
 
-// Setup upload directory for meeting results
 const meetingUploadsDir = path.join(
   process.cwd(),
   "uploads",

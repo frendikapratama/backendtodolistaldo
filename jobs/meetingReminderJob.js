@@ -60,19 +60,31 @@ export const startMeetingReminderJob = () => {
         const organizer = meeting.organizerId;
         const organizerIdStr = organizer?._id?.toString();
 
-        // Ambil semua participant meeting (selain organizer jika organizer sudah
-        // didaftarkan sebagai participant — hindari duplikasi)
+        // Ambil semua participant meeting (internal + eksternal)
         const participants = await MeetingParticipant.find({
           meetingId: meeting._id,
         })
           .populate("userId", "nama username email noHp")
           .lean();
 
+        // Peserta internal (User), selain organizer jika organizer sudah
+        // didaftarkan sebagai participant — hindari duplikasi
         const participantUsers = participants
+          .filter((p) => !p.isExternal)
           .map((p) => p.userId)
           .filter(Boolean)
-          // Hilangkan organizer dari list participant agar tidak double notif
           .filter((u) => u._id?.toString() !== organizerIdStr);
+
+        // Peserta eksternal (bukan dari collection User)
+        const externalParticipantUsers = participants
+          .filter((p) => p.isExternal)
+          .map((p) => ({
+            _id: p._id,
+            nama: p.externalName,
+            username: p.externalName,
+            email: p.externalEmail,
+            noHp: p.externalNoHp,
+          }));
 
         // Ambil user dari targetDivisions & targetUserIds yang bukan participant
         // dan bukan organizer
@@ -141,9 +153,13 @@ export const startMeetingReminderJob = () => {
           ]);
         }
 
-        // ── Kirim notif biasa ke PARTICIPANT & TARGET DIVISIONS/USERS
+        // ── Kirim notif biasa ke PARTICIPANT (internal + eksternal) & TARGET DIVISIONS/USERS
         const generalNotifyUsers = [
           ...participantUsers.map((u) => ({ ...u, isParticipant: true })),
+          ...externalParticipantUsers.map((u) => ({
+            ...u,
+            isParticipant: true,
+          })),
           ...targetUsers.map((u) => ({ ...u, isParticipant: false })),
         ];
 

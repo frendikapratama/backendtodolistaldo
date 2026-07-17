@@ -26,7 +26,6 @@ const fmtLocal = (d) => {
 
   return `${get("year")}${get("month")}${get("day")}T${get("hour")}${get("minute")}${get("second")}`;
 };
-
 // Escape karakter khusus RFC 5545 — Outlook gagal parse jika tidak di-escape
 const escapeICS = (text = "") =>
   String(text)
@@ -462,7 +461,10 @@ export const sendMeetingInvitation = async ({
   reminderText = null,
 }) => {
   const senderEmail = process.env.EMAIL_USER;
-  const totalParticipants = participants.length;
+
+  // BARU: hanya hitung peserta asli (isParticipant true), bukan seluruh penerima notifikasi (termasuk FYI/IT)
+  const totalParticipants = participants.filter((p) => p.isParticipant).length;
+
   const safeTitle = meeting.title.replace(/\s+/g, "-").replace(/[^\w-]/g, "");
 
   const results = await Promise.allSettled(

@@ -4,6 +4,7 @@ import MeetingParticipant from "../models/MeetingParticipant.js";
 export async function validateAvailability({
   roomId,
   participantIds = [],
+  externalParticipantEmails = [], // BARU
   startTime,
   endTime,
   excludeMeetingId = null,
@@ -43,20 +44,40 @@ export async function validateAvailability({
       ? "buffer"
       : null;
 
-  const participantConflict = await MeetingParticipant.find({
-    userId: { $in: participantIds },
-  })
-    .populate({
-      path: "meetingId",
-      match: {
-        ...(excludeMeetingId && { _id: { $ne: excludeMeetingId } }),
-        status: { $ne: "cancelled" },
-        startTime: { $lt: endTime },
-        endTime: { $gt: startTime },
+  // Gabungkan kondisi internal (userId) dan eksternal (externalEmail)
+  const orConditions = [];
+  if (participantIds.length > 0) {
+    orConditions.push({ userId: { $in: participantIds } });
+  }
+  if (externalParticipantEmails.length > 0) {
+    orConditions.push({
+      isExternal: true,
+      externalEmail: {
+        $in: externalParticipantEmails.map(
+          (email) => new RegExp(`^${email}$`, "i"),
+        ),
       },
-      select: "title startTime endTime",
-    })
-    .populate("userId", "username email");
+    });
+  }
+
+  const participantConflict =
+    orConditions.length > 0
+      ? await MeetingParticipant.find({
+          $or: orConditions,
+          invitationStatus: { $ne: "decline" }, // BARU: abaikan yang sudah decline
+        })
+          .populate({
+            path: "meetingId",
+            match: {
+              ...(excludeMeetingId && { _id: { $ne: excludeMeetingId } }),
+              status: { $ne: "cancelled" },
+              startTime: { $lt: endTime },
+              endTime: { $gt: startTime },
+            },
+            select: "title startTime endTime",
+          })
+          .populate("userId", "username email")
+      : [];
 
   const participantConflicts = participantConflict.filter(
     (item) => item.meetingId,

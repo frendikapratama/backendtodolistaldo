@@ -12,8 +12,27 @@ const meetingParticipantSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: function () {
+        return !this.isExternal;
+      },
       index: true,
+    },
+
+    isExternal: {
+      type: Boolean,
+      default: false,
+    },
+    externalName: {
+      type: String,
+      default: null,
+    },
+    externalEmail: {
+      type: String,
+      default: null,
+    },
+    externalNoHp: {
+      type: String,
+      default: null,
     },
 
     invitationStatus: {
@@ -37,22 +56,19 @@ const meetingParticipantSchema = new mongoose.Schema(
   },
 );
 
+// unique index lama hanya berlaku untuk peserta internal (userId ada)
 meetingParticipantSchema.index(
-  {
-    meetingId: 1,
-    userId: 1,
-  },
-  {
-    unique: true,
-  },
+  { meetingId: 1, userId: 1 },
+  { unique: true, partialFilterExpression: { userId: { $type: "objectId" } } },
 );
 
-meetingParticipantSchema.index({
-  userId: 1,
-});
+// unique index baru untuk peserta eksternal, berdasarkan email
+meetingParticipantSchema.index(
+  { meetingId: 1, externalEmail: 1 },
+  { unique: true, partialFilterExpression: { isExternal: true } },
+);
 
-meetingParticipantSchema.index({
-  meetingId: 1,
-});
+meetingParticipantSchema.index({ userId: 1 });
+meetingParticipantSchema.index({ meetingId: 1 });
 
 export default mongoose.model("MeetingParticipant", meetingParticipantSchema);

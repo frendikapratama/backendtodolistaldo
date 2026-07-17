@@ -27,13 +27,24 @@ const meetingUploadsDir = path.join(
 
 export const checkAvailability = async (req, res) => {
   try {
-    const { roomId, participantIds, startTime, endTime, excludeMeetingId } =
-      req.body;
+    const {
+      roomId,
+      participantIds,
+      externalParticipants, // BARU
+      startTime,
+      endTime,
+      excludeMeetingId,
+    } = req.body;
+
+    const externalParticipantEmails = (externalParticipants || [])
+      .filter((p) => p.email)
+      .map((p) => p.email); // BARU
 
     const { roomConflict, conflictType, participantConflicts } =
       await validateAvailability({
         roomId,
         participantIds,
+        externalParticipantEmails, // BARU
         startTime,
         endTime,
         excludeMeetingId,
@@ -71,6 +82,7 @@ export const createMeeting = async (req, res) => {
       roomId,
       organizerId,
       participantIds,
+      externalParticipants, // BARU: [{ name, email, noHp }]
       startTime,
       endTime,
     } = req.body;
@@ -83,9 +95,14 @@ export const createMeeting = async (req, res) => {
           ? snackRequest
           : [];
 
+    const externalParticipantEmails = (externalParticipants || [])
+      .filter((p) => p.email)
+      .map((p) => p.email); // BARU
+
     const { roomConflict, conflictType } = await validateAvailability({
       roomId,
       participantIds,
+      externalParticipantEmails, // BARU
       startTime,
       endTime,
     });
@@ -117,7 +134,18 @@ export const createMeeting = async (req, res) => {
       meetingId: meeting._id,
       userId,
     }));
-    await MeetingParticipant.insertMany(participants);
+
+    const externalDocs = (externalParticipants || [])
+      .filter((p) => p.email)
+      .map((p) => ({
+        meetingId: meeting._id,
+        isExternal: true,
+        externalName: p.name || p.email,
+        externalEmail: p.email,
+        externalNoHp: p.noHp || null,
+      }));
+
+    await MeetingParticipant.insertMany([...participants, ...externalDocs]);
 
     const populatedMeeting = await Meeting.findById(meeting._id)
       .populate("roomId", "nama lokasi")
@@ -128,6 +156,15 @@ export const createMeeting = async (req, res) => {
       { _id: { $in: participantIds } },
       "nama username email noHp",
     ).lean();
+
+    const externalInvited = (externalParticipants || [])
+      .filter((p) => p.email)
+      .map((p) => ({
+        nama: p.name || p.email,
+        username: p.name || p.email,
+        email: p.email,
+        noHp: p.noHp || null,
+      }));
 
     // ─── Tambahkan HRD, GA, IT sebagai penerima notifikasi
     const targetDivisions = [/^it$/i];
@@ -147,6 +184,7 @@ export const createMeeting = async (req, res) => {
 
     const allNotifyUsers = [
       ...invitedUsers.map((u) => ({ ...u, isParticipant: true })),
+      ...externalInvited.map((u) => ({ ...u, isParticipant: true })),
       ...ItUsers.map((u) => ({ ...u, isParticipant: false })),
     ];
 
@@ -316,6 +354,7 @@ export const updateMeeting = async (req, res) => {
       description,
       organizerId,
       participantIds,
+      externalParticipants, // BARU: [{ name, email, noHp }]
       meetingType,
       snackRequest,
       meetingLink,
@@ -372,8 +411,8 @@ export const updateMeeting = async (req, res) => {
 
     await meeting.save();
 
-    if (participantIds !== undefined) {
-      await syncParticipants(meeting._id, participantIds);
+    if (participantIds !== undefined || externalParticipants !== undefined) {
+      await syncParticipants(meeting._id, participantIds, externalParticipants);
     }
 
     await MeetingHistory.create({
@@ -429,13 +468,21 @@ export const rescheduleMeeting = async (req, res) => {
       return res.status(404).json({ message: "Meeting not found." });
     }
 
+    // Ambil seluruh participant (internal + eksternal) untuk pengecekan bentrok
     const participants = await MeetingParticipant.find({ meetingId: id });
-    const participantIds = participants.map((item) => item.userId);
+    const participantIds = participants
+      .filter((p) => !p.isExternal)
+      .map((item) => item.userId);
+
+    const externalParticipantEmails = participants
+      .filter((p) => p.isExternal && p.externalEmail)
+      .map((p) => p.externalEmail); // BARU
 
     const { roomConflict, conflictType, participantConflicts } =
       await validateAvailability({
         roomId,
         participantIds,
+        externalParticipantEmails, // BARU
         startTime,
         endTime,
         excludeMeetingId: id,
@@ -481,9 +528,21 @@ export const rescheduleMeeting = async (req, res) => {
     const participantsData = await MeetingParticipant.find({ meetingId: id })
       .populate("userId", "nama username email noHp")
       .lean();
+
     const participantUsers = participantsData
+      .filter((p) => !p.isExternal)
       .map((p) => p.userId)
       .filter((u) => u);
+
+    const externalParticipantUsers = participantsData
+      .filter((p) => p.isExternal)
+      .map((p) => ({
+        _id: p._id,
+        nama: p.externalName,
+        username: p.externalName,
+        email: p.externalEmail,
+        noHp: p.externalNoHp,
+      }));
 
     const targetDivisions = [/^it$/i];
     const targetUserIds = [
@@ -502,6 +561,7 @@ export const rescheduleMeeting = async (req, res) => {
 
     const allNotifyUsers = [
       ...participantUsers.map((u) => ({ ...u, isParticipant: true })),
+      ...externalParticipantUsers.map((u) => ({ ...u, isParticipant: true })),
       ...ItUsers.map((u) => ({ ...u, isParticipant: false })),
     ];
 
@@ -577,8 +637,19 @@ export const cancelMeeting = async (req, res) => {
       .lean();
 
     const participantUsers = participantsData
+      .filter((p) => !p.isExternal)
       .map((p) => p.userId)
       .filter(Boolean);
+
+    const externalParticipantUsers = participantsData
+      .filter((p) => p.isExternal)
+      .map((p) => ({
+        _id: p._id,
+        nama: p.externalName,
+        username: p.externalName,
+        email: p.externalEmail,
+        noHp: p.externalNoHp,
+      }));
 
     // Ambil IT selain participant
     const targetDivisions = [/^it$/i];
@@ -600,6 +671,7 @@ export const cancelMeeting = async (req, res) => {
     // Gabungkan dan hilangkan duplikasi
     const notifyUsers = [
       ...participantUsers.map((u) => ({ ...u, isParticipant: true })),
+      ...externalParticipantUsers.map((u) => ({ ...u, isParticipant: true })),
       ...ItUsers.map((u) => ({ ...u, isParticipant: false })),
     ];
 
@@ -696,27 +768,33 @@ export const getMeetingDetail = async (req, res) => {
       .populate("userId", "username email photo")
       .lean();
 
-    // const history = await MeetingHistory.find({ meetingId: id })
-    //   .sort({ createdAt: -1 })
-    //   .populate("changedBy", "nama username")
-    //   .lean();
-
-    const participantsWithStatus = participants.map((p) => ({
-      _id: p.userId._id,
-      username: p.userId.username,
-      email: p.userId.email,
-      photo: p.userId.photo || null,
-      invitationStatus: p.invitationStatus,
-      responseAt: p.responseAt,
-      // notes: p.notes,
-      // joinedAt: p.createdAt,
-      // participantId: p._id,
-    }));
+    const participantsWithStatus = participants.map((p) => {
+      if (p.isExternal) {
+        return {
+          _id: p._id,
+          username: p.externalName,
+          email: p.externalEmail,
+          noHp: p.externalNoHp,
+          photo: null,
+          isExternal: true,
+          invitationStatus: p.invitationStatus,
+          responseAt: p.responseAt,
+        };
+      }
+      return {
+        _id: p.userId._id,
+        username: p.userId.username,
+        email: p.userId.email,
+        photo: p.userId.photo || null,
+        isExternal: false,
+        invitationStatus: p.invitationStatus,
+        responseAt: p.responseAt,
+      };
+    });
 
     const meetingDetail = {
       ...meeting,
       participants: participantsWithStatus,
-      // history: history,
       summary: {
         total: participants.length,
         accepted: participants.filter((p) => p.invitationStatus === "accepted")
@@ -1020,22 +1098,32 @@ export const handleRSVP = async (req, res) => {
       `);
     }
 
-    const user = await User.findOne({
-      email: { $regex: new RegExp(`^${email}$`, "i") },
-    });
-
-    if (!user) {
-      return res.status(404).send(`
-        <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
-          <h2 style="color:#EF4444;">User not found.</h2>
-        </body></html>
-      `);
-    }
-
-    const participant = await MeetingParticipant.findOne({
+    // ── Coba cari sebagai peserta EKSTERNAL dulu (berdasarkan email)
+    let participant = await MeetingParticipant.findOne({
       meetingId,
-      userId: user._id,
+      isExternal: true,
+      externalEmail: { $regex: new RegExp(`^${email}$`, "i") },
     });
+
+    // ── Kalau bukan eksternal, cari sebagai peserta internal (User)
+    if (!participant) {
+      const user = await User.findOne({
+        email: { $regex: new RegExp(`^${email}$`, "i") },
+      });
+
+      if (!user) {
+        return res.status(404).send(`
+          <html><body style="font-family:sans-serif;text-align:center;padding:60px;">
+            <h2 style="color:#EF4444;">User not found.</h2>
+          </body></html>
+        `);
+      }
+
+      participant = await MeetingParticipant.findOne({
+        meetingId,
+        userId: user._id,
+      });
+    }
 
     if (!participant) {
       return res.status(404).send(`
@@ -1085,7 +1173,10 @@ export const handleRSVP = async (req, res) => {
     const io = req.app.get("io");
     io.emit("meeting:rsvp_updated", {
       meetingId,
-      userId: user._id,
+      userId: participant.userId || null,
+      participantEmail: participant.isExternal
+        ? participant.externalEmail
+        : email,
       status,
       responseAt: updated.responseAt,
     });
