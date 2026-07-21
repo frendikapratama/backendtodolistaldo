@@ -93,15 +93,19 @@ const buildMeetingMessage = ({
       ? "🗓️*Pengingat Meeting - Planify*"
       : "🗓️*Undangan Meeting - Planify*",
     "",
+    "",
     `Halo *${nama}*,`,
+    "",
     "",
     isParticipant
       ? `Anda diundang oleh *${organizer.nama || organizer.username}* untuk menghadiri meeting berikut.`
       : `Pemberitahuan: *${organizer.nama || organizer.username}* telah menjadwalkan meeting yang membutuhkan dukungan departemen Anda.`,
     "",
+    "",
     ...reminderLine,
     `📌 *${meeting.title}*`,
     meeting.description ? `📝 ${meeting.description}` : null,
+    "",
     "",
     `🕒 *Mulai*`,
     `${fmtDate(meeting.startTime)}`,
@@ -113,6 +117,7 @@ const buildMeetingMessage = ({
     `${room?.nama || "-"}`,
     ...meetingLinkLines,
     ...snackLines,
+    "",
     "",
     // ...rsvpLines,
     "Terima kasih.",
@@ -185,11 +190,14 @@ export const sendMeetingCancellationWhatsApp = async ({
       const message = [
         "🚫 *Meeting Dibatalkan - Planify*",
         "",
+        "",
         `Halo *${user.nama || user.username}*,`,
+        "",
         "",
         user.isParticipant
           ? `Meeting berikut telah dibatalkan oleh *${canceller?.nama || canceller?.username || "Admin"}*.`
           : `Pemberitahuan: Meeting yang membutuhkan dukungan departemen Anda berikut telah dibatalkan oleh *${canceller?.nama || canceller?.username || "Admin"}*.`,
+        "",
         "",
         `📌 *${meeting.title}*`,
         "",
@@ -200,8 +208,10 @@ export const sendMeetingCancellationWhatsApp = async ({
         `${meeting.roomId?.nama || "-"}`,
         ...meetingLinkLines, // Tambahkan link meeting di sini
         "",
+        "",
         `📝 *Alasan Pembatalan*`,
         `${cancelledReason || "-"}`,
+        "",
         "",
         "Terima kasih.",
         "",
@@ -247,13 +257,17 @@ export const sendMeetingRescheduleWhatsApp = async ({
       const message = [
         "🔄 *Jadwal Meeting Diubah - Planify*",
         "",
+        "",
         `Halo *${user.nama || user.username}*,`,
+        "",
         "",
         user.isParticipant
           ? `Jadwal meeting berikut telah diubah oleh *${rescheduler?.nama || rescheduler?.username || "Admin"}*.`
           : `Pemberitahuan: Jadwal meeting yang terkait dengan departemen Anda berikut telah diubah oleh *${rescheduler?.nama || rescheduler?.username || "Admin"}*.`,
         "",
+        "",
         `📌 *${meeting.title}*`,
+        "",
         "",
         `🕒 *Jadwal Baru*`,
         `${fmtDate(meeting.startTime)} - ${fmtDate(meeting.endTime)}`,
@@ -261,6 +275,7 @@ export const sendMeetingRescheduleWhatsApp = async ({
         `📍 *Ruangan Baru*`,
         `${room?.nama || "-"}`,
         ...meetingLinkLines, // Tambahkan link meeting di sini
+        "",
         "",
         "Terima kasih.",
         "",
