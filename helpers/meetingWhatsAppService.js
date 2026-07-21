@@ -83,7 +83,6 @@ const buildMeetingMessage = ({
     : null;
 
   const snackLines = snackText ? [`🍿 *Snack Request*`, snackText, ""] : [];
-  // Tambahkan meetingLink jika ada
   const meetingLinkLines = meeting.meetingLink
     ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
     : [];
@@ -138,8 +137,17 @@ export const sendMeetingWhatsAppNotification = async ({
 }) => {
   const validParticipants = participants.filter((p) => p.noHp && p.email);
 
-  const results = await Promise.allSettled(
-    validParticipants.map((participant) => {
+  if (validParticipants.length === 0) {
+    console.log("Tidak ada peserta valid untuk dikirim notifikasi WA");
+    return [];
+  }
+
+  const results = [];
+
+  for (let i = 0; i < validParticipants.length; i++) {
+    const participant = validParticipants[i];
+
+    try {
       const message = buildMeetingMessage({
         nama: participant.nama,
         meeting,
@@ -151,23 +159,47 @@ export const sendMeetingWhatsAppNotification = async ({
         reminderText,
       });
 
-      return sendWhatsAppMessage(participant.noHp, message);
-      console.log("Kirim WA ke :", noHp);
-    }),
-  );
-
-  results.forEach((result, index) => {
-    const participant = validParticipants[index];
-
-    if (result.status === "rejected" || result.value?.success === false) {
-      console.error(
-        `✗ WA gagal → ${participant.noHp}:`,
-        result.reason?.message || result.value?.reason,
+      console.log(
+        `📤 Mengirim WA ke ${participant.noHp} (${i + 1}/${validParticipants.length})`,
       );
-    } else {
-      console.log(`✓ WA terkirim → ${participant.noHp}`);
+
+      const result = await sendWhatsAppMessage(participant.noHp, message);
+
+      if (result?.success === false) {
+        console.error(
+          `✗ WA gagal → ${participant.noHp}:`,
+          result.reason || "Unknown error",
+        );
+        results.push({
+          status: "rejected",
+          value: result,
+          participant: participant.noHp,
+        });
+      } else {
+        console.log(`✓ WA terkirim → ${participant.noHp}`);
+        results.push({
+          status: "fulfilled",
+          value: result,
+          participant: participant.noHp,
+        });
+      }
+    } catch (error) {
+      console.error(`✗ WA error → ${participant.noHp}:`, error.message);
+      results.push({
+        status: "rejected",
+        reason: error,
+        participant: participant.noHp,
+      });
     }
-  });
+
+    if (i < validParticipants.length - 1) {
+      const delay = Math.floor(Math.random() * 30000) + 15000; // 15-45 detik
+      console.log(
+        `⏳ Menunggu ${Math.round(delay / 1000)} detik sebelum kirim berikutnya...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 
   return results;
 };
@@ -180,9 +212,17 @@ export const sendMeetingCancellationWhatsApp = async ({
 }) => {
   const validUsers = users.filter((p) => p.noHp);
 
-  const results = await Promise.allSettled(
-    validUsers.map((user) => {
-      // Tambahkan meetingLink jika ada
+  if (validUsers.length === 0) {
+    console.log("Tidak ada user valid untuk notifikasi pembatalan WA");
+    return [];
+  }
+
+  const results = [];
+
+  for (let i = 0; i < validUsers.length; i++) {
+    const user = validUsers[i];
+
+    try {
       const meetingLinkLines = meeting.meetingLink
         ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
         : [];
@@ -206,7 +246,7 @@ export const sendMeetingCancellationWhatsApp = async ({
         "",
         `📍 *Ruangan*`,
         `${meeting.roomId?.nama || "-"}`,
-        ...meetingLinkLines, // Tambahkan link meeting di sini
+        ...meetingLinkLines,
         "",
         "",
         `📝 *Alasan Pembatalan*`,
@@ -218,22 +258,48 @@ export const sendMeetingCancellationWhatsApp = async ({
         "— *Planify*",
       ].join("\n");
 
-      return sendWhatsAppMessage(user.noHp, message);
-    }),
-  );
-
-  results.forEach((result, index) => {
-    const user = validUsers[index];
-
-    if (result.status === "rejected" || result.value?.success === false) {
-      console.error(
-        `✗ WA Cancel gagal → ${user.noHp}:`,
-        result.reason?.message || result.value?.reason,
+      console.log(
+        `📤 Mengirim WA pembatalan ke ${user.noHp} (${i + 1}/${validUsers.length})`,
       );
-    } else {
-      console.log(`✓ WA Cancel terkirim → ${user.noHp}`);
+
+      const result = await sendWhatsAppMessage(user.noHp, message);
+
+      if (result?.success === false) {
+        console.error(
+          `✗ WA Cancel gagal → ${user.noHp}:`,
+          result.reason || "Unknown error",
+        );
+        results.push({
+          status: "rejected",
+          value: result,
+          user: user.noHp,
+        });
+      } else {
+        console.log(`✓ WA Cancel terkirim → ${user.noHp}`);
+        results.push({
+          status: "fulfilled",
+          value: result,
+          user: user.noHp,
+        });
+      }
+    } catch (error) {
+      console.error(`✗ WA Cancel error → ${user.noHp}:`, error.message);
+      results.push({
+        status: "rejected",
+        reason: error,
+        user: user.noHp,
+      });
     }
-  });
+
+    // Jeda acak 15-45 detik
+    if (i < validUsers.length - 1) {
+      const delay = Math.floor(Math.random() * 30000) + 15000;
+      console.log(
+        `⏳ Menunggu ${Math.round(delay / 1000)} detik sebelum kirim berikutnya...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 
   return results;
 };
@@ -247,9 +313,17 @@ export const sendMeetingRescheduleWhatsApp = async ({
 }) => {
   const validUsers = users.filter((p) => p.noHp);
 
-  const results = await Promise.allSettled(
-    validUsers.map((user) => {
-      // Tambahkan meetingLink jika ada
+  if (validUsers.length === 0) {
+    console.log("Tidak ada user valid untuk notifikasi reschedule WA");
+    return [];
+  }
+
+  const results = [];
+
+  for (let i = 0; i < validUsers.length; i++) {
+    const user = validUsers[i];
+
+    try {
       const meetingLinkLines = meeting.meetingLink
         ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
         : [];
@@ -274,7 +348,7 @@ export const sendMeetingRescheduleWhatsApp = async ({
         "",
         `📍 *Ruangan Baru*`,
         `${room?.nama || "-"}`,
-        ...meetingLinkLines, // Tambahkan link meeting di sini
+        ...meetingLinkLines,
         "",
         "",
         "Terima kasih.",
@@ -282,22 +356,48 @@ export const sendMeetingRescheduleWhatsApp = async ({
         "— *Planify*",
       ].join("\n");
 
-      return sendWhatsAppMessage(user.noHp, message);
-    }),
-  );
-
-  results.forEach((result, index) => {
-    const user = validUsers[index];
-
-    if (result.status === "rejected" || result.value?.success === false) {
-      console.error(
-        `✗ WA Reschedule gagal → ${user.noHp}:`,
-        result.reason?.message || result.value?.reason,
+      console.log(
+        `📤 Mengirim WA reschedule ke ${user.noHp} (${i + 1}/${validUsers.length})`,
       );
-    } else {
-      console.log(`✓ WA Reschedule terkirim → ${user.noHp}`);
+
+      const result = await sendWhatsAppMessage(user.noHp, message);
+
+      if (result?.success === false) {
+        console.error(
+          `✗ WA Reschedule gagal → ${user.noHp}:`,
+          result.reason || "Unknown error",
+        );
+        results.push({
+          status: "rejected",
+          value: result,
+          user: user.noHp,
+        });
+      } else {
+        console.log(`✓ WA Reschedule terkirim → ${user.noHp}`);
+        results.push({
+          status: "fulfilled",
+          value: result,
+          user: user.noHp,
+        });
+      }
+    } catch (error) {
+      console.error(`✗ WA Reschedule error → ${user.noHp}:`, error.message);
+      results.push({
+        status: "rejected",
+        reason: error,
+        user: user.noHp,
+      });
     }
-  });
+
+    // Jeda acak 15-45 detik
+    if (i < validUsers.length - 1) {
+      const delay = Math.floor(Math.random() * 30000) + 15000;
+      console.log(
+        `⏳ Menunggu ${Math.round(delay / 1000)} detik sebelum kirim berikutnya...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 
   return results;
 };
