@@ -59,72 +59,49 @@ const buildMeetingMessage = ({
 
   const rsvpLines = isParticipant
     ? [
-        "Silakan konfirmasi kehadiran Anda:",
-        "",
-        `✅ *Hadir*`,
-        accepted,
-        "",
-        `❓ *Mungkin*`,
-        tentative,
-        "",
-        `❌ *Tidak Hadir*`,
-        decline,
-        "",
-        "_Klik salah satu link di atas untuk memberikan respon._",
-        "",
+        "Silakan konfirmasi kehadiran Anda:\n",
+        `✅ *Hadir*\n${accepted}\n`,
+        `❓ *Mungkin*\n${tentative}\n`,
+        `❌ *Tidak Hadir*\n${decline}\n`,
+        "_\nKlik salah satu link di atas untuk memberikan respon._",
       ]
     : [];
 
   const reminderLine =
-    isReminder && reminderText ? [`⏰ *Pengingat*`, reminderText, ""] : [];
+    isReminder && reminderText ? `⏰ *Pengingat*\n${reminderText}` : null;
 
   const snackText = !isParticipant
     ? fmtSnackRequest(meeting.snackRequest)
     : null;
-
-  const snackLines = snackText ? [`🍿 *Snack Request*`, snackText, ""] : [];
+  const snackLines = snackText ? `🍿 *Snack Request*\n${snackText}` : null;
   const meetingLinkLines = meeting.meetingLink
-    ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
-    : [];
+    ? `🔗 *Link Meeting*\n${meeting.meetingLink}`
+    : null;
 
+  const header = isReminder
+    ? "🗓️ *Pengingat Meeting - Planify*"
+    : "🗓️ *Undangan Meeting - Planify*";
+  const bodyText = isParticipant
+    ? `Anda diundang oleh *${organizer.nama || organizer.username}* untuk menghadiri meeting berikut.`
+    : `Pemberitahuan: *${organizer.nama || organizer.username}* telah menjadwalkan meeting yang membutuhkan dukungan departemen Anda.`;
+
+  // Gabungkan antar-blok paragraf menggunakan ganda \n\n agar ada spasi antar baris
   return [
-    isReminder
-      ? "🗓️*Pengingat Meeting - Planify*"
-      : "🗓️*Undangan Meeting - Planify*",
-    "",
-    "",
+    header,
     `Halo *${nama}*,`,
-    "",
-    "",
-    isParticipant
-      ? `Anda diundang oleh *${organizer.nama || organizer.username}* untuk menghadiri meeting berikut.`
-      : `Pemberitahuan: *${organizer.nama || organizer.username}* telah menjadwalkan meeting yang membutuhkan dukungan departemen Anda.`,
-    "",
-    "",
-    ...reminderLine,
-    `📌 *${meeting.title}*`,
-    meeting.description ? `📝 ${meeting.description}` : null,
-    "",
-    "",
-    `🕒 *Mulai*`,
-    `${fmtDate(meeting.startTime)}`,
-    "",
-    `🕒 *Selesai*`,
-    `${fmtDate(meeting.endTime)}`,
-    "",
-    `📍 *Ruangan*`,
-    `${room?.nama || "-"}`,
-    ...meetingLinkLines,
-    ...snackLines,
-    "",
-    "",
+    bodyText,
+    reminderLine,
+    `📌 *${meeting.title}*${meeting.description ? `\n📝 ${meeting.description}` : ""}`,
+    `🕒 *Mulai*\n${fmtDate(meeting.startTime)}`,
+    `🕒 *Selesai*\n${fmtDate(meeting.endTime)}`,
+    `📍 *Ruangan*\n${room?.nama || "-"}`,
+    meetingLinkLines,
+    snackLines,
     // ...rsvpLines,
-    "Terima kasih.",
-    "",
-    "— *Planify*",
+    "Terima kasih.\n\n— *Planify*",
   ]
     .filter(Boolean)
-    .join("\n");
+    .join("\n\n"); // Menggunakan \n\n untuk memberikan 1 baris kosong antar paragraf
 };
 
 export const sendMeetingWhatsAppNotification = async ({
@@ -224,39 +201,26 @@ export const sendMeetingCancellationWhatsApp = async ({
 
     try {
       const meetingLinkLines = meeting.meetingLink
-        ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
-        : [];
+        ? `🔗 *Link Meeting*\n${meeting.meetingLink}`
+        : null;
+
+      const bodyText = user.isParticipant
+        ? `Meeting berikut telah dibatalkan oleh *${canceller?.nama || canceller?.username || "Admin"}*.`
+        : `Pemberitahuan: Meeting yang membutuhkan dukungan departemen Anda berikut telah dibatalkan oleh *${canceller?.nama || canceller?.username || "Admin"}*.`;
 
       const message = [
         "🚫 *Meeting Dibatalkan - Planify*",
-        "",
-        "",
         `Halo *${user.nama || user.username}*,`,
-        "",
-        "",
-        user.isParticipant
-          ? `Meeting berikut telah dibatalkan oleh *${canceller?.nama || canceller?.username || "Admin"}*.`
-          : `Pemberitahuan: Meeting yang membutuhkan dukungan departemen Anda berikut telah dibatalkan oleh *${canceller?.nama || canceller?.username || "Admin"}*.`,
-        "",
-        "",
+        bodyText,
         `📌 *${meeting.title}*`,
-        "",
-        `🕒 *Jadwal*`,
-        `${fmtDate(meeting.startTime)} - ${fmtDate(meeting.endTime)}`,
-        "",
-        `📍 *Ruangan*`,
-        `${meeting.roomId?.nama || "-"}`,
-        ...meetingLinkLines,
-        "",
-        "",
-        `📝 *Alasan Pembatalan*`,
-        `${cancelledReason || "-"}`,
-        "",
-        "",
-        "Terima kasih.",
-        "",
-        "— *Planify*",
-      ].join("\n");
+        `🕒 *Jadwal*\n${fmtDate(meeting.startTime)} - ${fmtDate(meeting.endTime)}`,
+        `📍 *Ruangan*\n${meeting.roomId?.nama || "-"}`,
+        meetingLinkLines,
+        `📝 *Alasan Pembatalan*\n${cancelledReason || "-"}`,
+        "Terima kasih.\n\n— *Planify*",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
 
       console.log(
         `📤 Mengirim WA pembatalan ke ${user.noHp} (${i + 1}/${validUsers.length})`,
@@ -291,7 +255,6 @@ export const sendMeetingCancellationWhatsApp = async ({
       });
     }
 
-    // Jeda acak 15-45 detik
     if (i < validUsers.length - 1) {
       const delay = Math.floor(Math.random() * 30000) + 15000;
       console.log(
@@ -325,36 +288,25 @@ export const sendMeetingRescheduleWhatsApp = async ({
 
     try {
       const meetingLinkLines = meeting.meetingLink
-        ? ["", `🔗 *Link Meeting*`, meeting.meetingLink, ""]
-        : [];
+        ? `🔗 *Link Meeting*\n${meeting.meetingLink}`
+        : null;
+
+      const bodyText = user.isParticipant
+        ? `Jadwal meeting berikut telah diubah oleh *${rescheduler?.nama || rescheduler?.username || "Admin"}*.`
+        : `Pemberitahuan: Jadwal meeting yang terkait dengan departemen Anda berikut telah diubah oleh *${rescheduler?.nama || rescheduler?.username || "Admin"}*.`;
 
       const message = [
         "🔄 *Jadwal Meeting Diubah - Planify*",
-        "",
-        "",
         `Halo *${user.nama || user.username}*,`,
-        "",
-        "",
-        user.isParticipant
-          ? `Jadwal meeting berikut telah diubah oleh *${rescheduler?.nama || rescheduler?.username || "Admin"}*.`
-          : `Pemberitahuan: Jadwal meeting yang terkait dengan departemen Anda berikut telah diubah oleh *${rescheduler?.nama || rescheduler?.username || "Admin"}*.`,
-        "",
-        "",
+        bodyText,
         `📌 *${meeting.title}*`,
-        "",
-        "",
-        `🕒 *Jadwal Baru*`,
-        `${fmtDate(meeting.startTime)} - ${fmtDate(meeting.endTime)}`,
-        "",
-        `📍 *Ruangan Baru*`,
-        `${room?.nama || "-"}`,
-        ...meetingLinkLines,
-        "",
-        "",
-        "Terima kasih.",
-        "",
-        "— *Planify*",
-      ].join("\n");
+        `🕒 *Jadwal Baru*\n${fmtDate(meeting.startTime)} - ${fmtDate(meeting.endTime)}`,
+        `📍 *Ruangan Baru*\n${room?.nama || "-"}`,
+        meetingLinkLines,
+        "Terima kasih.\n\n— *Planify*",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
 
       console.log(
         `📤 Mengirim WA reschedule ke ${user.noHp} (${i + 1}/${validUsers.length})`,
@@ -389,7 +341,6 @@ export const sendMeetingRescheduleWhatsApp = async ({
       });
     }
 
-    // Jeda acak 15-45 detik
     if (i < validUsers.length - 1) {
       const delay = Math.floor(Math.random() * 30000) + 15000;
       console.log(
