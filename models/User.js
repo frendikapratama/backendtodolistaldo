@@ -49,7 +49,11 @@ const userSchema = new mongoose.Schema(
     photo: String,
     resetOTP: String,
     resetOTPExpire: Date,
-
+    canAccess: {
+      type: [String],
+      enum: ["planify", "ticketra"],
+      default: [],
+    },
     lastLogin: {
       type: Date,
     },

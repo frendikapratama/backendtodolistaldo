@@ -5,61 +5,6 @@ import fs from "fs";
 import path from "path";
 import { handleError } from "../utils/errorHandler.js";
 
-// export async function getUsers(req, res) {
-//   try {
-//     const {
-//       page = 1,
-//       limit = 10,
-//       search,
-//       isSystemAdmin,
-//       departemen,
-//       divisi,
-//     } = req.query;
-
-//     const skip = (parseInt(page) - 1) * parseInt(limit);
-
-//     const filter = {};
-
-//     // Filter system admin
-//     if (isSystemAdmin && isSystemAdmin !== "all") {
-//       filter.isSystemAdmin = isSystemAdmin === "true";
-//     }
-
-//     // Filter departemen & divisi
-//     if (departemen && departemen !== "all") {
-//       filter.departemen = departemen;
-//     }
-//     if (divisi && divisi !== "all") {
-//       filter.divisi = divisi;
-//     }
-
-//     // Search filter
-//     if (search) {
-//       const regex = new RegExp(search, "i");
-//       filter.$or = [{ username: regex }, { email: regex }, { posisi: regex }];
-//     }
-
-//     const users = await User.find(filter)
-//       .select("-__v -password -resetOTP -resetOTPExpire")
-//       .sort({ createdAt: -1 })
-//       .skip(skip)
-//       .limit(parseInt(limit));
-
-//     const total = await User.countDocuments(filter);
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Get users success",
-//       data: users,
-//       total,
-//       page: parseInt(page),
-//       totalPages: Math.ceil(total / parseInt(limit)),
-//     });
-//   } catch (error) {
-//     return handleError(res, error);
-//   }
-// }
-
 export async function getUsers(req, res) {
   try {
     const {
@@ -69,7 +14,7 @@ export async function getUsers(req, res) {
       isSystemAdmin,
       departemen,
       divisi,
-      posisi, 
+      posisi,
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -174,13 +119,22 @@ export async function createUser(req, res) {
       divisi,
       posisi,
       isSystemAdmin,
+      canAccess,
     } = req.body;
 
     // Validasi required fields
-    if (!username || !email || !password || !noHp || !posisi) {
+    if (
+      !username ||
+      !email ||
+      !password ||
+      !noHp ||
+      !posisi ||
+      !Array.isArray(canAccess)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Username, email, password, noHp, and posisi are required",
+        message:
+          "Username, email, password, noHp, canAcces and posisi are required",
       });
     }
 
@@ -200,6 +154,7 @@ export async function createUser(req, res) {
       departemen,
       divisi,
       posisi,
+      canAccess,
       isSystemAdmin: Boolean(isSystemAdmin),
     });
 
@@ -216,6 +171,7 @@ export async function createUser(req, res) {
       posisi: user.posisi,
       isSystemAdmin: user.isSystemAdmin,
       createdAt: user.createdAt,
+      canAccess: user.canAccess,
     };
 
     res.status(201).json({
@@ -258,6 +214,7 @@ export async function updateUser(req, res) {
       "departemen",
       "divisi",
       "posisi",
+      "canAccess",
     ];
 
     if (req.user.isSystemAdmin) {
@@ -306,6 +263,7 @@ export async function updateUser(req, res) {
       isSystemAdmin: user.isSystemAdmin,
       photo: user.photo,
       updatedAt: user.updatedAt,
+      canAccess: user.canAccess,
     };
 
     res.status(200).json({
@@ -395,12 +353,16 @@ export async function addUserToWorkspace(req, res) {
 
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     const workspace = await Workspace.findById(workspaceId);
     if (!workspace) {
-      return res.status(404).json({ success: false, message: "Workspace not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Workspace not found" });
     }
 
     // Check if already a member in Workspace
@@ -415,8 +377,6 @@ export async function addUserToWorkspace(req, res) {
     // Add to Workspace
     workspace.members.push({ user: id, role });
     await workspace.save();
-
-
 
     res.status(200).json({
       success: true,
@@ -433,12 +393,16 @@ export async function removeUserFromWorkspace(req, res) {
 
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     const workspace = await Workspace.findById(workspaceId);
     if (!workspace) {
-      return res.status(404).json({ success: false, message: "Workspace not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Workspace not found" });
     }
 
     // Check if owner
@@ -450,10 +414,10 @@ export async function removeUserFromWorkspace(req, res) {
     }
 
     // Remove from Workspace
-    workspace.members = workspace.members.filter((m) => m.user.toString() !== id);
+    workspace.members = workspace.members.filter(
+      (m) => m.user.toString() !== id,
+    );
     await workspace.save();
-
-
 
     res.status(200).json({
       success: true,
@@ -470,17 +434,23 @@ export async function updateUserWorkspaceRole(req, res) {
     const { role } = req.body;
 
     if (!role) {
-      return res.status(400).json({ success: false, message: "Role is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Role is required" });
     }
 
     const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     const workspace = await Workspace.findById(workspaceId);
     if (!workspace) {
-      return res.status(404).json({ success: false, message: "Workspace not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Workspace not found" });
     }
 
     // Update in Workspace
@@ -493,8 +463,6 @@ export async function updateUserWorkspaceRole(req, res) {
     }
     member.role = role;
     await workspace.save();
-
-
 
     res.status(200).json({
       success: true,
