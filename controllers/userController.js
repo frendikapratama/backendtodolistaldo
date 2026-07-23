@@ -15,6 +15,7 @@ export async function getUsers(req, res) {
       departemen,
       divisi,
       posisi,
+      canAccess,
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -32,6 +33,13 @@ export async function getUsers(req, res) {
         posisiList.length === 1
           ? { $regex: new RegExp(posisiList[0], "i") }
           : { $in: posisiList.map((p) => new RegExp(p, "i")) };
+    }
+
+    if (canAccess && canAccess !== "all") {
+      const accessList = canAccess.split(",").map((a) => a.trim());
+
+      filter.canAccess =
+        accessList.length === 1 ? accessList[0] : { $in: accessList };
     }
 
     if (search) {

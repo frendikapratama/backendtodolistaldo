@@ -1,6 +1,6 @@
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
-import crypto from "crypto"
+import crypto from "crypto";
 import Session from "../models/Session.js";
 import jwt from "jsonwebtoken";
 
@@ -12,57 +12,59 @@ export async function login(req, res) {
   try {
     const { identifier, password } = req.body;
 
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { username: identifier }],
+    });
 
-const user = await User.findOne({
-  $or: [
-    { email: identifier },
-    { username: identifier },
-  ],
-});
+    if (!user) {
+      return res.status(400).json({
+        message: "Invalid username/email or password",
+      });
+    }
 
-    if (!user) return res.status(400).json({
-        message: "Email or Username Not Found",
-    }) 
+    if (!user.canAccess.includes("planify")) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have access to login.",
+      });
+    }
 
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({
-      message:"Wrong Password"
-    })
-    user.lastLogin = new Date()
+    if (!valid)
+      return res.status(400).json({
+        message: "Invalid username/email or password",
+      });
+    user.lastLogin = new Date();
     await user.save();
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      TOKEN_SECRET,
-      {
-        expiresIn:"12h"
-      }
-    );
-    const refreshToken = crypto.randomBytes(64).toString("hex")
+    const token = jwt.sign({ id: user._id, role: user.role }, TOKEN_SECRET, {
+      expiresIn: "12h",
+    });
+    const refreshToken = crypto.randomBytes(64).toString("hex");
     const hashedToken = crypto
       .createHash("sha256")
       .update(refreshToken)
-      .digest("hex")
+      .digest("hex");
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7)
-    
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
     await Session.create({
       user: user._id,
       refreshToken: hashedToken,
-      expiresAt
-    })
+      expiresAt,
+    });
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       // sameSite: "strict",
       expires: expiresAt,
-      path: '/'
-    })
+      path: "/",
+    });
     res.json({ message: "Login Successfully", accessToken: token });
-    }catch (error) {
-      res.status(500).json({message: error.message})
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 }
 
@@ -78,7 +80,7 @@ export async function refresh(req, res) {
 
     const session = await Session.findOne({
       refreshToken: hashed,
-      revoked: false
+      revoked: false,
     });
 
     if (!session) return res.sendStatus(403);
@@ -87,14 +89,11 @@ export async function refresh(req, res) {
       return res.sendStatus(403);
     }
 
-    const token = jwt.sign(
-      { id: session.user },
-      process.env.TOKEN_SECRET,
-      { expiresIn: "12h" }
-    );
+    const token = jwt.sign({ id: session.user }, process.env.TOKEN_SECRET, {
+      expiresIn: "12h",
+    });
 
     res.json({ accessToken: token });
-
   } catch (error) {
     res.sendStatus(500);
   }
@@ -109,10 +108,7 @@ export async function logout(req, res) {
       .createHash("sha256")
       .update(refreshToken)
       .digest("hex");
-    await Session.findOneAndUpdate(
-      { refreshToken: hashed },
-      { revoked: true }
-    );
+    await Session.findOneAndUpdate({ refreshToken: hashed }, { revoked: true });
     res.clearCookie("refreshToken", {
       httpOnly: true,
       sameSite: "strict",
