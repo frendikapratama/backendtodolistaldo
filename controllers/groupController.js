@@ -12,6 +12,45 @@ export async function getGroup(req, res) {
   }
 }
 
+export async function updateGroupPositions(req, res) {
+  try {
+    const { projectId } = req.params;
+    const { groupIds } = req.body;
+
+    if (!Array.isArray(groupIds) || groupIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "groupIds harus berupa array dan tidak boleh kosong",
+      });
+    }
+
+    const groupsInProject = await Group.find({
+      _id: { $in: groupIds },
+      project: projectId,
+    });
+
+    if (groupsInProject.length !== groupIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Beberapa group tidak ada di project ini",
+      });
+    }
+
+    const updatePromises = groupIds.map((id, index) =>
+      Group.findByIdAndUpdate(id, { position: index }, { new: true }),
+    );
+
+    await Promise.all(updatePromises);
+
+    res.status(200).json({
+      success: true,
+      message: "Group positions updated successfully",
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
 export async function createGroup(req, res) {
   try {
     const { projectId } = req.params;

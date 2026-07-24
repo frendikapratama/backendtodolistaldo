@@ -5,6 +5,7 @@ import {
   createGroup,
   updateGroup,
   deleteGroup,
+  updateGroupPositions,
 } from "../controllers/groupController.js";
 import {
   authenticate,
@@ -19,6 +20,12 @@ router.post(
   authenticate,
   checkWorkspaceRoleFromProject(["project_manager", "admin", "member"]),
   createGroup
+);
+router.put(
+  "/:projectId/positions",
+  authenticate,
+  checkWorkspaceRoleFromProject(["project_manager", "admin", "member"]),
+  updateGroupPositions
 );
 router.put(
   "/:groupId",
