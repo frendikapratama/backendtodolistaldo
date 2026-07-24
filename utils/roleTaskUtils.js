@@ -20,6 +20,11 @@ const ROLE_RESTRICTIONS = {
         editTypes: ["Minor", "Major"],
         description: "Can access all types",
     },
+    viewer: {
+        viewTypes: ["Minor", "Major"],
+        editTypes: [],
+        description: "Can view all types but cannot edit any",
+    },
 };
 
 /**
