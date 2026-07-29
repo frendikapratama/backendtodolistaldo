@@ -9,6 +9,7 @@ import pino from "pino";
 import path from "path";
 
 const AUTH_DIR = path.join(process.cwd(), "wa-auth");
+console.log("AUTH_DIR:", AUTH_DIR);
 const logger = pino({ level: "silent" });
 
 let sock = null;
@@ -48,7 +49,6 @@ const connectWhatsApp = async () => {
       console.log("✓ WhatsApp connected");
 
       reconnectDelay = 3000; // reset delay
-
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
