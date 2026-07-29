@@ -27,4 +27,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/frendikapratama/backendtodolistaldo:${{ github.sha }}
-            ghcr.io/frendikapratama/backendtodolistaldo:0.1.50
+            ghcr.io/frendikapratama/backendtodolistaldo:0.1.51

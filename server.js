@@ -187,7 +187,7 @@ startTaskOverdueNotificationJob(io);
 startMeetingReminderJob();
 updateMeetingStatuses(io);
 startReplyListener();
-initWhatsApp();
+// initWhatsApp();
 setInterval(() => updateMeetingStatuses(io), 60 * 1000);
 export default app;
 export { io };
