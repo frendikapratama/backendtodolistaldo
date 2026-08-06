@@ -1271,3 +1271,44 @@ export const endMeeting = async (req, res) => {
     return handleError(res, error);
   }
 };
+
+export const getMeetingToday = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startOfDay = new Date(today);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const participantMeetings = await MeetingParticipant.find({
+      userId: userId,
+    }).select("meetingId");
+
+    const meetings = await Meeting.find({
+      $or: [
+        { _id: { $in: participantMeetings.map((p) => p.meetingId) } },
+        { organizerId: userId },
+      ],
+      startTime: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    })
+      .populate("roomId", "nama lokasi -_id")
+      .populate("organizerId", "username")
+      .select("-createdAt -updatedAt -__v")
+      .sort({ startTime: 1 });
+
+    return res.status(200).json({
+      success: true,
+      data: meetings,
+      total: meetings.length,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};

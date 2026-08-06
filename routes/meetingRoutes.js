@@ -17,7 +17,9 @@ import {
   updateMeetingResult,
   handleRSVP,
   endMeeting,
+  getMeetingToday,
 } from "../controllers/meetingController.js";
+import { authenticate } from "../middleware/auth.js";
 
 const meetingUploadsDir = path.join(
   process.cwd(),
@@ -84,4 +86,5 @@ router.put("/:id/results/:resultId", updateMeetingResult);
 router.delete("/:id/results/:resultId", deleteMeetingResult);
 router.get("/rsvp/:token", handleRSVP);
 router.patch("/:id/end", endMeeting);
+router.get("/today", authenticate, getMeetingToday);
 export default router;
