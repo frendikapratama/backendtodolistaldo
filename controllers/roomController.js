@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import fs from "fs";
 import path from "path";
 import Room from "../models/Room.js";
@@ -160,8 +161,6 @@ export async function updateRoom(req, res) {
   }
 }
 
-// roomController.js - tambahkan function ini
-
 export async function getRoomSchedule(req, res) {
   try {
     const { id } = req.params;
@@ -226,6 +225,98 @@ export async function getRoomSchedule(req, res) {
         },
         schedule,
         total: schedule.length,
+      },
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
+export async function getDetailRoom(req, res) {
+  try {
+    const { id } = req.params;
+    const now = new Date();
+
+    const room = await Room.findById(id)
+      .populate("facilities.facilityId", "nama")
+      .lean();
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found",
+      });
+    }
+
+    // Sederhanakan data fasilitas
+    room.facilities = room.facilities.map((item) => ({
+      nama: item.facilityId?.nama,
+      total: item.total,
+    }));
+
+    const meeting = await Meeting.findOne({
+      roomId: id,
+      status: { $ne: "cancelled" },
+      endTime: { $gt: dayjs(now).subtract(30, "minute").toDate() },
+    })
+      .populate("organizerId", "username")
+      .sort({ endTime: -1 })
+      .lean();
+
+    let roomStatus = {
+      status: "available",
+      isAvailable: true,
+      message: "Available Now",
+      nextAvailableAt: now,
+      remainingMinutes: 0,
+      currentMeeting: null,
+    };
+
+    if (meeting) {
+      // Ambil field yang dibutuhkan saja
+      const currentMeeting = {
+        title: meeting.title,
+        description: meeting.description,
+        roomId: meeting.roomId,
+        organizerId: meeting.organizerId,
+        startTime: meeting.startTime,
+        endTime: meeting.endTime,
+        status: meeting.status,
+      };
+
+      if (meeting.startTime <= now && meeting.endTime > now) {
+        const nextAvailable = dayjs(meeting.endTime).add(30, "minute").toDate();
+
+        roomStatus = {
+          status: "In Progress",
+          isAvailable: false,
+          message: `In Progress until ${dayjs(meeting.endTime).format("HH:mm")}`,
+          nextAvailableAt: nextAvailable,
+          remainingMinutes: dayjs(nextAvailable).diff(now, "minute"),
+          currentMeeting,
+        };
+      } else if (
+        meeting.endTime <= now &&
+        dayjs(meeting.endTime).add(30, "minute").toDate() > now
+      ) {
+        const nextAvailable = dayjs(meeting.endTime).add(30, "minute").toDate();
+
+        roomStatus = {
+          status: "buffer",
+          isAvailable: false,
+          message: `Cleaning until ${dayjs(nextAvailable).format("HH:mm")}`,
+          nextAvailableAt: nextAvailable,
+          remainingMinutes: dayjs(nextAvailable).diff(now, "minute"),
+          currentMeeting,
+        };
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        room,
+        ...roomStatus,
       },
     });
   } catch (error) {

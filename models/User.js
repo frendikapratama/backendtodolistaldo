@@ -12,11 +12,12 @@ const userSchema = new mongoose.Schema(
       required: [true, "username is required"],
       trim: true,
       maxlength: [100, "Max 100 karakter"],
+      unique: [true, "username telah terdaftar"],
+      lowercase: true,
     },
     email: {
       type: String,
       required: [true, "email wajib diisi"],
-      unique: [true, "email telah terdaftar"],
       lowercase: true,
       match: [
         /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,

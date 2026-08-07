@@ -5,6 +5,7 @@ import {
   deleteRoom,
   updateRoom,
   getRoomSchedule,
+  getDetailRoom,
 } from "../controllers/roomController.js";
 import multer from "multer";
 import fs from "fs";
@@ -39,6 +40,7 @@ const upload = multer({
 
 const router = express.Router();
 router.get("/", getRooms);
+router.get("/:id", getDetailRoom);
 router.post("/", upload.single("photo"), createRoom);
 router.delete("/:id", deleteRoom);
 router.put("/:id", upload.single("photo"), updateRoom);
