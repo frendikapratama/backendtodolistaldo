@@ -10,14 +10,51 @@ const workspaceRooms = new Map();
 // const onlineUsers = new Map();
 
 const workspaceActiveUsers = new Map();
-const lastActivityMap = new Map(); 
+const lastActivityMap = new Map();
+
+// const authenticateSocket = async (socket, next) => {
+//   try {
+//     const token = socket.handshake.auth.token || socket.handshake.headers.token;
+
+//     if (!token) {
+//       return next(new Error("Authentication error: No token provided"));
+//     }
+
+//     const SECRET =
+//       process.env.TOKEN_SECRET ||
+//       process.env.JWT_SECRET ||
+//       "48db792b7ced19872b7109589afb94bb084acf4b5ef0879ccc5855395cb44a5e";
+
+//     const decoded = jwt.verify(token, SECRET);
+//     const user = await User.findById(decoded.id).select("-password");
+
+//     if (!user) {
+//       return next(new Error("Authentication error: User not found"));
+//     }
+
+//     socket.userId = user._id.toString();
+//     socket.user = user;
+//     next();
+//   } catch (error) {
+//     console.error("Socket authentication error:", error);
+//     console.error(
+//       "Token:",
+//       socket.handshake.auth.token?.substring(0, 20) + "..."
+//     );
+//     next(new Error("Authentication error: Invalid token"));
+//   }
+// };
 
 const authenticateSocket = async (socket, next) => {
   try {
     const token = socket.handshake.auth.token || socket.handshake.headers.token;
 
     if (!token) {
-      return next(new Error("Authentication error: No token provided"));
+      // Guest — izinkan connect tanpa auth, tandai saja
+      socket.isGuest = true;
+      socket.userId = null;
+      socket.user = null;
+      return next();
     }
 
     const SECRET =
@@ -34,13 +71,15 @@ const authenticateSocket = async (socket, next) => {
 
     socket.userId = user._id.toString();
     socket.user = user;
+    socket.isGuest = false;
     next();
   } catch (error) {
     console.error("Socket authentication error:", error);
     console.error(
       "Token:",
-      socket.handshake.auth.token?.substring(0, 20) + "..."
+      socket.handshake.auth.token?.substring(0, 20) + "...",
     );
+    // token dikirim tapi invalid/expired -> tetap reject
     next(new Error("Authentication error: Invalid token"));
   }
 };
@@ -53,7 +92,7 @@ const isWorkspaceMember = async (userId, workspaceId) => {
     if (workspace.owner.toString() === userId) return true;
 
     return workspace.members.some(
-      (member) => member.user.toString() === userId
+      (member) => member.user.toString() === userId,
     );
   } catch (error) {
     console.error("Error checking workspace membership:", error);
@@ -84,17 +123,29 @@ export const initializeSocket = (io) => {
 
   io.on("connection", (socket) => {
     const userId = socket.userId;
-    lastActivityMap.set(userId, Date.now())
+
+    // ─── Guest: skip semua user-tracking, tapi tetap bisa terima broadcast global
+    if (socket.isGuest || !userId) {
+      console.log(`Guest connected: ${socket.id}`);
+
+      socket.on("disconnect", () => {
+        console.log(`Guest disconnected: ${socket.id}`);
+      });
+
+      return; // stop di sini — guest tidak perlu join room user, tidak perlu heartbeat, dll
+    }
+
+    // ─── Mulai dari sini logic asli kamu, khusus authenticated user
+    lastActivityMap.set(userId, Date.now());
     if (!userSockets.has(userId)) {
       userSockets.set(userId, new Set());
     }
     userSockets.get(userId).add(socket.id);
     io.emit("onlineUsers", Array.from(userSockets.keys()));
-    // socket.emit("onlineUsers", Array.from(userSockets.keys()));
     socket.join(`user:${userId}`);
     socket.on("heartbeat", () => {
-      lastActivityMap.set(userId, Date.now())
-    })
+      lastActivityMap.set(userId, Date.now());
+    });
 
     // yang sebelum nya
     // socket.on("join:workspace", async (workspaceId) => {
@@ -159,7 +210,7 @@ export const initializeSocket = (io) => {
 
         // UBAH INI - Emit ke semua user di workspace tentang active users
         const activeUsers = Array.from(
-          workspaceActiveUsers.get(workspaceId) || []
+          workspaceActiveUsers.get(workspaceId) || [],
         );
         io.to(`workspace:${workspaceId}`).emit("workspace:active-users", {
           activeCount: activeUsers.length,
@@ -203,7 +254,7 @@ export const initializeSocket = (io) => {
 
         // Emit update ke semua user yang masih di workspace
         const activeUsers = Array.from(
-          workspaceActiveUsers.get(workspaceId) || []
+          workspaceActiveUsers.get(workspaceId) || [],
         );
         io.to(`workspace:${workspaceId}`).emit("workspace:active-users", {
           activeCount: activeUsers.length,
@@ -375,7 +426,7 @@ export const initializeSocket = (io) => {
         if (!message) return;
 
         const alreadyRead = message.readBy.some(
-          (read) => read.user.toString() === userId
+          (read) => read.user.toString() === userId,
         );
 
         if (!alreadyRead) {
@@ -505,14 +556,14 @@ export const initializeSocket = (io) => {
                 readAt: new Date(),
               },
             },
-          }
+          },
         );
 
         // TAMBAHKAN INI - Emit updated unread count
         broadcastUnreadCount(io, workspaceId, userId);
 
         console.log(
-          `User ${userId} marked all messages as read in workspace ${workspaceId}`
+          `User ${userId} marked all messages as read in workspace ${workspaceId}`,
         );
       } catch (error) {
         console.error("Error marking all messages as read:", error);
@@ -544,9 +595,8 @@ export const initializeSocket = (io) => {
     // Mark all notifications as read
     socket.on("notification:read-all", async () => {
       try {
-        const { markAllAsRead, getUnreadCount } = await import(
-          "../helpers/notificationHelper.js"
-        );
+        const { markAllAsRead, getUnreadCount } =
+          await import("../helpers/notificationHelper.js");
         await markAllAsRead(userId);
         const unreadCount = await getUnreadCount(userId);
 
@@ -585,7 +635,7 @@ export const initializeSocket = (io) => {
     // });
 
     // yang baru
-    socket.on("disconnect", async() => {
+    socket.on("disconnect", async () => {
       // console.log(`User disconnected: ${userId} (${socket.id})`);
       // console.log("=== DISCONNECT ===");
       // console.log("Socket ID:", socket.id);
@@ -617,7 +667,7 @@ export const initializeSocket = (io) => {
             workspaceActiveUsers.get(workspaceId).delete(userId);
 
             const activeUsers = Array.from(
-              workspaceActiveUsers.get(workspaceId) || []
+              workspaceActiveUsers.get(workspaceId) || [],
             );
             io.to(`workspace:${workspaceId}`).emit("workspace:active-users", {
               activeCount: activeUsers.length,
@@ -645,7 +695,7 @@ export const initializeSocket = (io) => {
       console.log(`User ${socket.userId} left task room: ${taskId}`);
     });
   });
-}
+};
 // Utility function untuk emit notification ke user tertentu
 export const emitNotificationToUser = (io, userId, notification) => {
   io.to(`user:${userId}`).emit("notification:new", notification);

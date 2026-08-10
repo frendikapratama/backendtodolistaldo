@@ -457,7 +457,6 @@ export const updateMeeting = async (req, res) => {
     });
   }
 };
-
 export const rescheduleMeeting = async (req, res) => {
   try {
     const { id } = req.params;
