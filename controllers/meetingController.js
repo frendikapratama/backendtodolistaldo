@@ -1271,7 +1271,7 @@ export const endMeeting = async (req, res) => {
   }
 };
 
-export const getMeetingToday = async (req, res) => {
+export const getMeetingTodayByUserLogin = async (req, res) => {
   try {
     const userId = req.user._id;
 
@@ -1292,6 +1292,35 @@ export const getMeetingToday = async (req, res) => {
         { _id: { $in: participantMeetings.map((p) => p.meetingId) } },
         { organizerId: userId },
       ],
+      startTime: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
+    })
+      .populate("roomId", "nama lokasi -_id")
+      .populate("organizerId", "username")
+      .select("-createdAt -updatedAt -__v")
+      .sort({ startTime: 1 });
+
+    return res.status(200).json({
+      success: true,
+      data: meetings,
+      total: meetings.length,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+export const getMeetingToday = async (req, res) => {
+  try {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const meetings = await Meeting.find({
       startTime: {
         $gte: startOfDay,
         $lte: endOfDay,

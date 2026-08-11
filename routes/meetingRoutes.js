@@ -17,6 +17,7 @@ import {
   updateMeetingResult,
   handleRSVP,
   endMeeting,
+  getMeetingTodayByUserLogin,
   getMeetingToday,
 } from "../controllers/meetingController.js";
 import { authenticate } from "../middleware/auth.js";
@@ -86,5 +87,6 @@ router.put("/:id/results/:resultId", updateMeetingResult);
 router.delete("/:id/results/:resultId", deleteMeetingResult);
 router.get("/rsvp/:token", handleRSVP);
 router.patch("/:id/end", endMeeting);
-router.get("/today", authenticate, getMeetingToday);
+router.get("/today", authenticate, getMeetingTodayByUserLogin);
+router.get("/all/today", getMeetingToday);
 export default router;
