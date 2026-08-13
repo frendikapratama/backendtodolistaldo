@@ -1297,7 +1297,7 @@ export const getMeetingTodayByUserLogin = async (req, res) => {
         $lte: endOfDay,
       },
     })
-      .populate("roomId", "nama lokasi -_id")
+      .populate("roomId", "nama lokasi")
       .populate("organizerId", "username")
       .select("-createdAt -updatedAt -__v")
       .sort({ startTime: 1 });
@@ -1326,7 +1326,7 @@ export const getMeetingToday = async (req, res) => {
         $lte: endOfDay,
       },
     })
-      .populate("roomId", "nama lokasi -_id")
+      .populate("roomId", "nama lokasi")
       .populate("organizerId", "username")
       .select("-createdAt -updatedAt -__v")
       .sort({ startTime: 1 });

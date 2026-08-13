@@ -135,3 +135,183 @@ export function protect(req, res, next) {
     return res.sendStatus(401);
   }
 }
+
+export async function loginMobile(req, res) {
+  try {
+    const { identifier, password } = req.body;
+
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { username: identifier }],
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid username/email or password",
+      });
+    }
+
+    if (!user.canAccess.includes("planify")) {
+      return res.status(403).json({
+        success: false,
+        message: "You don't have access to login.",
+      });
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+
+    if (!valid) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid username/email or password",
+      });
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Access token hanya berlaku 12 jam
+    const accessToken = jwt.sign(
+      {
+        id: user._id,
+        role: user.role,
+      },
+      TOKEN_SECRET,
+      {
+        expiresIn: "12h",
+      },
+    );
+
+    // Refresh token
+    const refreshToken = crypto.randomBytes(64).toString("hex");
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    // Mobile session TIDAK memiliki expiry otomatis
+    await Session.create({
+      user: user._id,
+      refreshToken: hashedToken,
+      revoked: false,
+      // jangan isi expiresAt
+    });
+
+    return res.json({
+      success: true,
+      message: "Login Successfully",
+
+      accessToken,
+      refreshToken,
+
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("loginMobile error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function refreshMobile(req, res) {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token required",
+      });
+    }
+
+    const hashed = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    const session = await Session.findOne({
+      refreshToken: hashed,
+      revoked: false,
+    });
+
+    if (!session) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid refresh token",
+      });
+    }
+
+    // TIDAK mengecek expiresAt
+    // Karena session mobile tidak expired otomatis
+
+    const token = jwt.sign(
+      {
+        id: session.user,
+      },
+      TOKEN_SECRET,
+      {
+        expiresIn: "12h",
+      },
+    );
+
+    return res.json({
+      success: true,
+      accessToken: token,
+    });
+  } catch (error) {
+    console.error("refreshMobile error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function logoutMobile(req, res) {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Refresh token required",
+      });
+    }
+
+    const hashed = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    await Session.findOneAndUpdate(
+      {
+        refreshToken: hashed,
+      },
+      {
+        revoked: true,
+      },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Logout Successfully",
+    });
+  } catch (error) {
+    console.error("logoutMobile error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
