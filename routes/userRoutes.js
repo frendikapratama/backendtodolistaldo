@@ -12,6 +12,7 @@ import {
   addUserToWorkspace,
   removeUserFromWorkspace,
   updateUserWorkspaceRole,
+  changePasswordMobile,
 } from "../controllers/userController.js";
 import { authenticate, requireSystemAdmin } from "../middleware/auth.js";
 import multer from "multer";
@@ -80,5 +81,6 @@ router.put(
 
 router.post("/forget-password", sendOTP);
 router.post("/change-password", changePassword);
+router.post("/change-password/mobile", authenticate, changePasswordMobile);
 
 export default router;

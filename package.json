@@ -19,6 +19,7 @@
     "cors": "^2.8.5",
     "dayjs": "^1.11.20",
     "dotenv": "^17.2.3",
+    "expo-server-sdk": "^7.1.0",
     "express": "^5.1.0",
     "imapflow": "^1.4.3",
     "jsonwebtoken": "^9.0.2",

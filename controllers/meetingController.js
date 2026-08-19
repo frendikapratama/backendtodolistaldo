@@ -18,7 +18,8 @@ import {
   sendMeetingCancellationWhatsApp,
   sendMeetingRescheduleWhatsApp,
 } from "../helpers/meetingWhatsAppService.js";
-
+import { sendPushNotification } from "../utils/expoPushUtils.js";
+import { notifyUser } from "../helpers/notificationBookingMeetingHelper.js";
 const meetingUploadsDir = path.join(
   process.cwd(),
   "uploads",
@@ -82,12 +83,11 @@ export const createMeeting = async (req, res) => {
       roomId,
       organizerId,
       participantIds,
-      externalParticipants, // BARU: [{ name, email, noHp }]
+      externalParticipants,
       startTime,
       endTime,
     } = req.body;
 
-    // Enforce: internal_department meeting tidak boleh punya snackRequest
     const finalSnackRequest =
       meetingType === "internal_department"
         ? []
@@ -228,6 +228,25 @@ export const createMeeting = async (req, res) => {
         if (waResult.status === "rejected")
           console.error("WhatsApp invitation error:", waResult.reason);
       });
+
+      // Push Notification
+      Promise.all(
+        allNotifyUsers.map((u) => {
+          if (u._id) {
+            return notifyUser(
+              u._id,
+              `[Meeting Invitation] ${populatedMeeting.title}`,
+              u.isParticipant 
+                ? `${organizer.nama || organizer.username} has invited you to a meeting.`
+                : `Notice: ${organizer.nama || organizer.username} has scheduled a meeting that requires your department's attention.`,
+              { type: "meeting_invitation", meetingId: populatedMeeting._id },
+              io,
+            );
+          }
+        }),
+      ).catch((err) =>
+        console.error("Push notification error in createMeeting:", err),
+      );
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -354,7 +373,7 @@ export const updateMeeting = async (req, res) => {
       description,
       organizerId,
       participantIds,
-      externalParticipants, // BARU: [{ name, email, noHp }]
+      externalParticipants,
       meetingType,
       snackRequest,
       meetingLink,
@@ -444,6 +463,32 @@ export const updateMeeting = async (req, res) => {
       },
     });
 
+    // Push Notification
+    setImmediate(async () => {
+      try {
+        const participantsData = await MeetingParticipant.find({
+          meetingId: id,
+        });
+        const notifyUserIds = participantsData
+          .filter((p) => !p.isExternal && p.userId)
+          .map((p) => p.userId);
+
+        await Promise.all(
+          notifyUserIds.map((userId) => {
+            return notifyUser(
+              userId,
+              `[Meeting Updated] ${title}`,
+              `Details for meeting "${title}" have been updated.`,
+              { type: "meeting_updated", meetingId: id },
+              req.app.get("io"),
+            );
+          }),
+        );
+      } catch (err) {
+        console.error("Push notification error in updateMeeting:", err);
+      }
+    });
+
     return res.status(200).json({
       success: true,
       message: "Meeting updated successfully.",
@@ -457,6 +502,7 @@ export const updateMeeting = async (req, res) => {
     });
   }
 };
+
 export const rescheduleMeeting = async (req, res) => {
   try {
     const { id } = req.params;
@@ -466,6 +512,7 @@ export const rescheduleMeeting = async (req, res) => {
     if (!meeting) {
       return res.status(404).json({ message: "Meeting not found." });
     }
+    const io = req.app.get("io");
 
     // Ambil seluruh participant (internal + eksternal) untuk pengecekan bentrok
     const participants = await MeetingParticipant.find({ meetingId: id });
@@ -475,13 +522,13 @@ export const rescheduleMeeting = async (req, res) => {
 
     const externalParticipantEmails = participants
       .filter((p) => p.isExternal && p.externalEmail)
-      .map((p) => p.externalEmail); // BARU
+      .map((p) => p.externalEmail);
 
     const { roomConflict, conflictType, participantConflicts } =
       await validateAvailability({
         roomId,
         participantIds,
-        externalParticipantEmails, // BARU
+        externalParticipantEmails,
         startTime,
         endTime,
         excludeMeetingId: id,
@@ -580,10 +627,28 @@ export const rescheduleMeeting = async (req, res) => {
         rescheduler,
         oldData,
       }).catch((err) => console.error("WhatsApp reschedule error:", err));
+
+      // Push Notification
+      Promise.all(
+        allNotifyUsers.map((u) => {
+          if (u._id) {
+            return notifyUser(
+              u._id,
+              `[Meeting Rescheduled] ${populatedMeeting.title}`,
+              u.isParticipant 
+                ? `The meeting ${populatedMeeting.title} has been rescheduled by ${rescheduler?.nama || rescheduler?.username || "Admin"}.`
+                : `Notice: The meeting ${populatedMeeting.title} related to your department has been rescheduled by ${rescheduler?.nama || rescheduler?.username || "Admin"}.`,
+              { type: "meeting_rescheduled", meetingId: id },
+              io,
+            );
+          }
+        }),
+      ).catch((err) =>
+        console.error("Push notification error in rescheduleMeeting:", err),
+      );
     }
 
     // EMIT REALTIME
-    const io = req.app.get("io");
     io.emit("meeting:rescheduled", {
       meetingId: id,
       oldRoomId: oldData.roomId,
@@ -611,6 +676,8 @@ export const cancelMeeting = async (req, res) => {
     if (!meeting) {
       return res.status(404).json({ message: "Meeting not found." });
     }
+    // EMIT REALTIME
+    const io = req.app.get("io");
 
     meeting.status = "cancelled";
     meeting.cancelledReason = cancelledReason;
@@ -688,10 +755,27 @@ export const cancelMeeting = async (req, res) => {
         canceller,
         cancelledReason,
       }).catch((err) => console.error("WhatsApp cancellation error:", err));
+
+      // Push Notification
+      Promise.all(
+        notifyUsers.map((u) => {
+          if (u._id) {
+            return notifyUser(
+              u._id,
+              `[Meeting Cancelled] ${meeting.title}`,
+              u.isParticipant
+                ? `The meeting ${meeting.title} has been cancelled by ${canceller?.nama || canceller?.username || "Admin"}.`
+                : `Notice: The meeting ${meeting.title} that requires your department's support has been cancelled by ${canceller?.nama || canceller?.username || "Admin"}.`,
+              { type: "meeting_cancelled", meetingId: id },
+              io,
+            );
+          }
+        }),
+      ).catch((err) =>
+        console.error("Push notification error in cancelMeeting:", err),
+      );
     }
 
-    // EMIT REALTIME
-    const io = req.app.get("io");
     io.emit("meeting:cancelled", {
       meetingId: id,
       roomId: meeting.roomId ? meeting.roomId._id : undefined,

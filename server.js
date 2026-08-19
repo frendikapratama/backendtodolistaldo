@@ -26,6 +26,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import agendaRoutes from "./routes/agendaRoutes.js";
 import cors from "cors";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import pushNotificationRoutes from "./routes/pushNotificationRoutes.js";
 import { initializeSocket } from "./sockets/socketHandler.js";
 import {
   startTaskDueNotificationJob,
@@ -118,6 +119,7 @@ app.use("/api/members", memberRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/push", pushNotificationRoutes);
 app.use("/api/agenda", agendaRoutes);
 app.use("/api/bookmark", bookmarkRoutes);
 app.use("/api/reports", reportRoutes);
