@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon --ignore wa-auth/ server.js"
+    "dev": "nodemon --ignore wa-auth/ server.js",
+    "seed": "node seeders/index.js"
   },
   "keywords": [],
   "author": "",

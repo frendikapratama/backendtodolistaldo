@@ -58,6 +58,28 @@ export async function getWorkspaceById(req, res) {
 
 export async function createWorkspace(req, res) {
   try {
+    const newWorkspace = await Workspace.create({
+      nama: req.body.nama,
+      owner: req.user._id,
+      members: [
+        {
+          user: req.user._id,
+          role: "admin", // Owner otomatis jadi admin
+        },
+      ],
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Workspace created successfully",
+      data: newWorkspace,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+export async function createWorkspaceByKuarter(req, res) {
+  try {
     const { kuarterId } = req.params;
 
     const kuarter = await Kuarter.findById(kuarterId);
@@ -83,8 +105,6 @@ export async function createWorkspace(req, res) {
     await Kuarter.findByIdAndUpdate(kuarterId, {
       $push: { workspace: newWorkspace._id },
     });
-
- 
 
     res.status(201).json({
       success: true,
@@ -140,8 +160,6 @@ export async function deleteWorkspace(req, res) {
     }
 
     await Project.deleteMany({ workspace: workspaceId });
-
-
 
     const deletedWorkspace = await Workspace.findByIdAndDelete(workspaceId);
 
@@ -203,8 +221,6 @@ export async function inviteMemberByEmail(req, res) {
           },
         },
       });
-
-
 
       console.log(`✅ ${email} langsung ditambahkan sebagai ${role}`);
       return res.status(200).json({
@@ -369,8 +385,6 @@ export async function acceptWorkspaceInvite(req, res) {
       { new: true },
     );
 
-
-
     return res.status(200).json({
       success: true,
       message: "Successfully joined the division",
@@ -402,8 +416,6 @@ export async function updateMemberRole(req, res) {
       { $set: { "members.$.role": role } },
     );
 
-
-
     res.status(200).json({
       success: true,
       message: "Role berhasil diupdate",
@@ -432,8 +444,6 @@ export async function removeMember(req, res) {
     await Workspace.findByIdAndUpdate(workspaceId, {
       $pull: { members: { user: userId } },
     });
-
-
 
     res.status(200).json({
       success: true,
