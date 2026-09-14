@@ -23,7 +23,7 @@ const projectSchema = new mongoose.Schema(
       type: [
         {
           type: String,
-          enum: ["site 1", "site 2", "site 3"],
+          enum: ["PT", "HPC", "PBPG"],
         },
       ],
       default: [],

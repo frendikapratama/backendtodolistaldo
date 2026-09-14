@@ -200,6 +200,7 @@ export async function updateProject(req, res) {
       dueDate,
       status,
       sites,
+      parties,
     } = req.body;
 
     // Cari project
@@ -210,6 +211,54 @@ export async function updateProject(req, res) {
         success: false,
         message: "Project not found",
       });
+    }
+
+    // Validasi parties jika dikirim
+    if (parties !== undefined) {
+      if (!Array.isArray(parties)) {
+        return res.status(400).json({
+          success: false,
+          message: "parties must be an array",
+        });
+      }
+
+      const hasInvalidParty = parties.some(
+        (party) =>
+          !party ||
+          !mongoose.isValidObjectId(party.party) ||
+          !["client", "vendor"].includes(party.role),
+      );
+      const partyIds = parties.map((party) => party.party);
+
+      if (hasInvalidParty || new Set(partyIds).size !== partyIds.length) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Each party must contain a valid party and role; duplicate parties are not allowed",
+        });
+      }
+
+      if (partyIds.length > 0) {
+        const partyCount = await Party.countDocuments({ _id: { $in: partyIds } });
+        if (partyCount !== partyIds.length) {
+          return res.status(400).json({
+            success: false,
+            message: "One or more parties do not exist",
+          });
+        }
+      }
+
+      // Sinkronkan ProjectParty untuk project ini
+      await ProjectParty.deleteMany({ project: projectId });
+      if (parties.length > 0) {
+        await ProjectParty.insertMany(
+          parties.map(({ party, role }) => ({
+            project: projectId,
+            party,
+            role,
+          })),
+        );
+      }
     }
 
     // Field yang boleh di-update
@@ -257,8 +306,15 @@ export async function updateProject(req, res) {
       },
     )
       .populate("groups", "nama")
-      .populate("projectManager", "username")
-      .populate("divisionId", "name");
+      .populate("projectManager", "username email photo")
+      .populate("divisionId", "nama")
+      .populate({
+        path: "parties",
+        populate: {
+          path: "party",
+          select: "name email phone address",
+        },
+      });
 
     return res.status(200).json({
       success: true,

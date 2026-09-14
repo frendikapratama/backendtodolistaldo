@@ -47,10 +47,19 @@ export async function getUsers(req, res) {
       filter.$or = [{ username: regex }, { email: regex }, { posisi: regex }];
     }
 
+    const sortOptions = {};
+    if (req.query.sortBy) {
+      sortOptions[req.query.sortBy] = req.query.sortOrder === "desc" ? -1 : 1;
+    } else if (canAccess && canAccess !== "all") {
+      sortOptions.username = 1;
+    } else {
+      sortOptions.username = 1;
+    }
+
     const [users, total] = await Promise.all([
       User.find(filter)
         .select("-__v -password -resetOTP -resetOTPExpire")
-        .sort({ createdAt: -1 })
+        .sort(sortOptions)
         .skip(skip)
         .limit(parseInt(limit)),
       User.countDocuments(filter),
