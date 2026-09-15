@@ -44,6 +44,7 @@ import scheduleRoutes from "./routes/scheduleRoutes.js";
 import meetingrecapRoutes from "./routes/meetingrecapRoutes.js";
 import divisionRoutes from "./routes/divisionRoutes.js";
 import partyRoutes from "./routes/partyRoutes.js";
+import boqRoutes from "./routes/boqRoutes.js";
 import { updateMeetingStatuses } from "./helpers/meetingStatusUpdater.js";
 import { startReplyListener } from "./helpers/meetingReplyListener.js";
 import { initWhatsApp } from "./utils/whatsapp.js";
@@ -132,6 +133,7 @@ app.use("/api/schedule", scheduleRoutes);
 app.use("/api/meeting-recap", meetingrecapRoutes);
 app.use("/api/divisions", divisionRoutes);
 app.use("/api/party", partyRoutes);
+app.use("/api/boq", boqRoutes);
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
