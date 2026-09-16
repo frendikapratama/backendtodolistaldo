@@ -810,12 +810,66 @@ export const getDashboardData = async (req, res) => {
         .lean(),
     ]);
 
+    const now = new Date();
     const dashboardData = rooms.map((room) => {
       const roomMeetings = todaysMeetings.filter(
         (m) => m.roomId.toString() === room._id.toString(),
       );
+
+      // Check current in-progress meeting
+      const activeMeeting = roomMeetings.find(
+        (m) =>
+          m.status === "in_progress" ||
+          (new Date(m.startTime) <= now && new Date(m.endTime) > now),
+      );
+
+      // Check cleaning buffer (meeting ended <= 30 mins ago)
+      const cleaningMeeting = !activeMeeting
+        ? roomMeetings.find((m) => {
+            const end = new Date(m.endTime);
+            const bufferEnd = new Date(end.getTime() + 30 * 60 * 1000);
+            return end <= now && bufferEnd > now;
+          })
+        : null;
+
+      let roomStatus = {
+        status: "available",
+        isAvailable: true,
+        message: "Available Now",
+      };
+
+      if (activeMeeting) {
+        roomStatus = {
+          status: "in_progress",
+          isAvailable: false,
+          message: `In Progress until ${new Date(activeMeeting.endTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`,
+          currentMeeting: {
+            _id: activeMeeting._id,
+            title: activeMeeting.title,
+            startTime: activeMeeting.startTime,
+            endTime: activeMeeting.endTime,
+          },
+        };
+      } else if (cleaningMeeting) {
+        const bufferEnd = new Date(
+          new Date(cleaningMeeting.endTime).getTime() + 30 * 60 * 1000,
+        );
+        roomStatus = {
+          status: "cleaning_buffer",
+          isAvailable: false,
+          message: `Cleaning until ${bufferEnd.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`,
+          bufferUntil: bufferEnd,
+          lastMeeting: {
+            _id: cleaningMeeting._id,
+            title: cleaningMeeting.title,
+            endTime: cleaningMeeting.endTime,
+          },
+        };
+      }
+
       return {
         ...room,
+        ...roomStatus,
         todaysBookings: roomMeetings,
       };
     });
