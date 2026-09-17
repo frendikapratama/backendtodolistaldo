@@ -66,7 +66,7 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"], // Explicitly set transports
+  transports: ["websocket", "polling"],
   allowEIO3: true, // Enable compatibility with Engine.IO v3 clients
 });
 
@@ -189,7 +189,7 @@ startTaskOverdueNotificationJob(io);
 startMeetingReminderJob();
 updateMeetingStatuses(io);
 startReplyListener();
-// initWhatsApp();
+initWhatsApp();
 setInterval(() => updateMeetingStatuses(io), 60 * 1000);
 export default app;
 export { io };
