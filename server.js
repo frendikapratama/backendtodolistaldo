@@ -71,7 +71,7 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"], // Explicitly set transports
+  transports: ["websocket", "polling"],
   allowEIO3: true, // Enable compatibility with Engine.IO v3 clients
 });
 
@@ -138,6 +138,7 @@ app.use("/api/party", partyRoutes);
 app.use("/api/boq", boqRoutes);
 app.use("/api/budgets", budgetRoutes);
 app.use("/api/costs", costRoutes);
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
