@@ -10,6 +10,20 @@ import Comment from "../models/Comment.js";
 import Party from "../models/Party.js";
 import ProjectParty from "../models/ProjectParty.js";
 
+const normalizeProjectStatus = (status) => {
+  const normalizedStatus = String(status || "draft")
+    .trim()
+    .toLowerCase()
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ");
+
+  const statusAliases = {
+    "on hold": "hold",
+  };
+
+  return statusAliases[normalizedStatus] || normalizedStatus;
+};
+
 export async function getProject(req, res) {
   try {
     let {
@@ -37,6 +51,22 @@ export async function getProject(req, res) {
       }),
     };
 
+    const summaryFilter = {
+      ...filter,
+      ...(projectManager &&
+        mongoose.isValidObjectId(projectManager) && {
+          projectManager: new mongoose.Types.ObjectId(projectManager),
+        }),
+      ...(divisionId && {
+        divisionId: {
+          $in: divisionId
+            .split(",")
+            .filter(mongoose.isValidObjectId)
+            .map((id) => new mongoose.Types.ObjectId(id)),
+        },
+      }),
+    };
+
     const [data, total, summaryResult] = await Promise.all([
       Project.find(filter)
         .sort({ createdAt: -1 })
@@ -56,7 +86,7 @@ export async function getProject(req, res) {
       Project.countDocuments(filter),
 
       Project.aggregate([
-        { $match: filter },
+        { $match: summaryFilter },
         {
           $group: {
             _id: "$status",
@@ -67,7 +97,7 @@ export async function getProject(req, res) {
     ]);
 
     const summary = {
-      total: 0,
+      total,
       draft: 0,
       planning: 0,
       "in progress": 0,
@@ -77,9 +107,10 @@ export async function getProject(req, res) {
     };
 
     summaryResult.forEach(({ _id, count }) => {
-      if (_id in summary) {
-        summary[_id] = count;
-        summary.total += count;
+      const normalizedStatus = normalizeProjectStatus(_id);
+
+      if (normalizedStatus in summary) {
+        summary[normalizedStatus] += count;
       }
     });
 
