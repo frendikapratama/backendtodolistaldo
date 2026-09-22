@@ -128,7 +128,6 @@ app.use("/api/rooms", roomRoutes);
 app.use("/api/meeting", meetingRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/meeting-recap", meetingrecapRoutes);
-
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
