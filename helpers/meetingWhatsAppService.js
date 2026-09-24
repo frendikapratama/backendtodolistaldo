@@ -79,8 +79,8 @@ const buildMeetingMessage = ({
     : null;
 
   const header = isReminder
-    ? "🗓️ *Pengingat Meeting - BOOKING MEETING APP - IT ALDO*"
-    : "🗓️ *Undangan Meeting - BOOKING MEETING APP - IT ALDO*";
+    ? "🗓️ *Pengingat Meeting - Planify*"
+    : "🗓️ *Undangan Meeting - Planify*";
   const bodyText = isParticipant
     ? `Anda diundang oleh *${organizer.nama || organizer.username}* untuk menghadiri meeting berikut.`
     : `Pemberitahuan: *${organizer.nama || organizer.username}* telah menjadwalkan meeting yang membutuhkan dukungan departemen Anda.`;
@@ -98,7 +98,7 @@ const buildMeetingMessage = ({
     meetingLinkLines,
     snackLines,
     // ...rsvpLines,
-    "Terima kasih.\n\n— *BOOKING MEETING APP - IT ALDO*",
+    "Terima kasih.\n\n— *Planify*",
   ]
     .filter(Boolean)
     .join("\n\n"); // Menggunakan \n\n untuk memberikan 1 baris kosong antar paragraf
@@ -209,7 +209,7 @@ export const sendMeetingCancellationWhatsApp = async ({
         : `Pemberitahuan: Meeting yang membutuhkan dukungan departemen Anda berikut telah dibatalkan oleh *${canceller?.nama || canceller?.username || "Admin"}*.`;
 
       const message = [
-        "🚫 *Meeting Dibatalkan - BOOKING MEETING APP - IT ALDO*",
+        "🚫 *Meeting Dibatalkan - Planify*",
         `Halo *${user.nama || user.username}*,`,
         bodyText,
         `📌 *${meeting.title}*`,
@@ -217,7 +217,7 @@ export const sendMeetingCancellationWhatsApp = async ({
         `📍 *Ruangan*\n${meeting.roomId?.nama || "-"}`,
         meetingLinkLines,
         `📝 *Alasan Pembatalan*\n${cancelledReason || "-"}`,
-        "Terima kasih.\n\n— *BOOKING MEETING APP - IT ALDO*",
+        "Terima kasih.\n\n— *Planify*",
       ]
         .filter(Boolean)
         .join("\n\n");
@@ -296,14 +296,14 @@ export const sendMeetingRescheduleWhatsApp = async ({
         : `Pemberitahuan: Jadwal meeting yang terkait dengan departemen Anda berikut telah diubah oleh *${rescheduler?.nama || rescheduler?.username || "Admin"}*.`;
 
       const message = [
-        "🔄 *Jadwal Meeting Diubah - BOOKING MEETING APP - IT ALDO*",
+        "🔄 *Jadwal Meeting Diubah - Planify*",
         `Halo *${user.nama || user.username}*,`,
         bodyText,
         `📌 *${meeting.title}*`,
         `🕒 *Jadwal Baru*\n${fmtDate(meeting.startTime)} - ${fmtDate(meeting.endTime)}`,
         `📍 *Ruangan Baru*\n${room?.nama || "-"}`,
         meetingLinkLines,
-        "Terima kasih.\n\n— *BOOKING MEETING APP - IT ALDO*",
+        "Terima kasih.\n\n— *Planify*",
       ]
         .filter(Boolean)
         .join("\n\n");
