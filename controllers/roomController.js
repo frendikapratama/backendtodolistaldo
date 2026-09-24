@@ -248,7 +248,6 @@ export async function getDetailRoom(req, res) {
       });
     }
 
-    // Sederhanakan data fasilitas
     room.facilities = room.facilities.map((item) => ({
       nama: item.facilityId?.nama,
       total: item.total,
@@ -257,11 +256,32 @@ export async function getDetailRoom(req, res) {
     const meeting = await Meeting.findOne({
       roomId: id,
       status: { $ne: "cancelled" },
+      startTime: { $lte: now },
       endTime: { $gt: dayjs(now).subtract(30, "minute").toDate() },
     })
-      .populate("organizerId", "username")
+      .populate("organizerId", "nama username")
       .sort({ endTime: -1 })
       .lean();
+
+    const nextMeetingDocs = await Meeting.find({
+      roomId: id,
+      status: { $ne: "cancelled" },
+      startTime: { $gt: now },
+    })
+      .populate("organizerId", "nama username")
+      .sort({ startTime: 1 })
+      .lean();
+
+    const nextMeetings = nextMeetingDocs.map((m) => ({
+      _id: m._id,
+      title: m.title,
+      organizer: m.organizerId?.nama || m.organizerId?.username || null,
+      startTime: m.startTime,
+      endTime: m.endTime,
+      date: dayjs(m.startTime).format("YYYY-MM-DD"),
+      startTimeLabel: dayjs(m.startTime).format("HH:mm"),
+      endTimeLabel: dayjs(m.endTime).format("HH:mm"),
+    }));
 
     let roomStatus = {
       status: "available",
@@ -273,7 +293,6 @@ export async function getDetailRoom(req, res) {
     };
 
     if (meeting) {
-      // Ambil field yang dibutuhkan saja
       const currentMeeting = {
         title: meeting.title,
         description: meeting.description,
@@ -317,6 +336,7 @@ export async function getDetailRoom(req, res) {
       data: {
         room,
         ...roomStatus,
+        nextMeetings,
       },
     });
   } catch (error) {
