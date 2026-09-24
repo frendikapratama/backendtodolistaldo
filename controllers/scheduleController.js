@@ -9,6 +9,9 @@ export const getMySchedule = async (req, res) => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 25;
     const skip = (page - 1) * limit;
+    const search = String(req.query.search || "")
+      .trim()
+      .toLowerCase();
 
     const participantMeetings = await MeetingParticipant.find({ userId })
       .select("meetingId")
@@ -22,10 +25,20 @@ export const getMySchedule = async (req, res) => {
       $or: [{ organizerId: userId }, { _id: { $in: meetingIds } }],
     };
 
-    const meetings = await Meeting.find(filter)
+    let meetings = await Meeting.find(filter)
       .populate("roomId", "nama")
       .populate("organizerId", "username")
       .lean();
+
+    // Filter search (setelah populate, jadi nama room & organizer ikut bisa dicari)
+    if (search) {
+      meetings = meetings.filter((m) =>
+        [m.title, m.description]
+          // [m.title, m.description, m.roomId?.nama, m.organizerId?.username]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search)),
+      );
+    }
 
     const now = new Date();
 
