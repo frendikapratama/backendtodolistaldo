@@ -50,7 +50,7 @@ import costRoutes from "./routes/costRoutes.js";
 import { updateMeetingStatuses } from "./helpers/meetingStatusUpdater.js";
 import { startReplyListener } from "./helpers/meetingReplyListener.js";
 import { initWhatsApp } from "./utils/whatsapp.js";
-
+//
 dotenv.config({ debug: true, override: true });
 
 const app = express();
@@ -200,7 +200,7 @@ startTaskOverdueNotificationJob(io);
 startMeetingReminderJob();
 updateMeetingStatuses(io);
 startReplyListener();
-initWhatsApp();
+// initWhatsApp();
 setInterval(() => updateMeetingStatuses(io), 60 * 1000);
 export default app;
 export { io };

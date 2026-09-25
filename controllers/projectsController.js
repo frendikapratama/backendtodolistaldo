@@ -73,7 +73,7 @@ export async function getProject(req, res) {
         .skip((page - 1) * limit)
         .limit(limit)
         .populate("groups", "nama")
-        .populate("projectManager", "username email photo")
+        .populate("projectManager", "username email photo divisi")
         .populate("divisionId", "nama")
         .populate({
           path: "parties",
@@ -270,7 +270,9 @@ export async function updateProject(req, res) {
       }
 
       if (partyIds.length > 0) {
-        const partyCount = await Party.countDocuments({ _id: { $in: partyIds } });
+        const partyCount = await Party.countDocuments({
+          _id: { $in: partyIds },
+        });
         if (partyCount !== partyIds.length) {
           return res.status(400).json({
             success: false,
