@@ -102,7 +102,7 @@ export async function getUserById(req, res) {
 
     const workspacesWithRole = userWorkspaces.map((workspace) => {
       const workspaceObj = workspace.toObject();
-      if (workspace.owner._id.toString() === id) {
+      if (workspace.owner?._id?.toString() === id) {
         workspaceObj.userRole = "owner";
       } else {
         const member = workspace.members.find((m) => m.user.toString() === id);
@@ -423,7 +423,7 @@ export async function removeUserFromWorkspace(req, res) {
     }
 
     // Check if owner
-    if (workspace.owner.toString() === id) {
+    if (workspace.owner?.toString() === id) {
       return res.status(400).json({
         success: false,
         message: "Cannot remove owner of workspace. Transfer ownership first.",

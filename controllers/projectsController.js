@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import Workspace from "../models/Workspace.js";
+import Division from "../models/Division.js";
 import Group from "../models/Group.js";
 import { handleError } from "../utils/errorHandler.js";
 import Task from "../models/Task.js";
@@ -9,6 +10,72 @@ import Subtask from "../models/Subtask.js";
 import Comment from "../models/Comment.js";
 import Party from "../models/Party.js";
 import ProjectParty from "../models/ProjectParty.js";
+
+const toId = (value) => value?._id || value;
+const normalizeDivisionIds = (value) =>
+  [...new Map(
+    (Array.isArray(value) ? value : value ? String(value).split(",") : [])
+      .map(toId)
+      .filter(Boolean)
+      .map((id) => [String(id), id]),
+  ).values()];
+
+const getWorkspaceDivisionIds = (workspace) =>
+  normalizeDivisionIds(workspace.divisionId).map(String);
+
+const addProjectManagerToWorkspace = (workspace, projectManagerId) => {
+  const membership = workspace.members.find(
+    (member) => String(toId(member.user)) === String(projectManagerId),
+  );
+
+  if (membership) membership.role = "admin";
+  else workspace.members.push({ user: projectManagerId, role: "admin" });
+};
+
+const findOrCreateDivisionWorkspaces = async ({
+  divisionIds,
+  projectManagerId,
+  preferredWorkspaceId,
+  session,
+}) => {
+  const workspaces = [];
+
+  for (const divisionId of divisionIds) {
+    let workspace = null;
+
+    if (preferredWorkspaceId) {
+      const preferredWorkspace = await Workspace.findById(preferredWorkspaceId).session(session);
+      if (
+        preferredWorkspace &&
+        getWorkspaceDivisionIds(preferredWorkspace).length === 1 &&
+        getWorkspaceDivisionIds(preferredWorkspace)[0] === String(divisionId)
+      ) {
+        workspace = preferredWorkspace;
+      }
+    }
+
+    if (!workspace) {
+      workspace = await Workspace.findOne({
+        divisionId,
+        $expr: { $eq: [{ $size: "$divisionId" }, 1] },
+      })
+        .sort({ createdAt: 1, _id: 1 })
+        .session(session);
+    }
+
+    if (!workspace) {
+      [workspace] = await Workspace.create(
+        [{ divisionId: [divisionId], members: [] }],
+        { session },
+      );
+    }
+
+    addProjectManagerToWorkspace(workspace, projectManagerId);
+    workspaces.push(workspace);
+  }
+
+  return workspaces;
+};
 
 const normalizeProjectStatus = (status) => {
   const normalizedStatus = String(status || "draft")
@@ -74,7 +141,8 @@ export async function getProject(req, res) {
         .limit(limit)
         .populate("groups", "nama")
         .populate("projectManager", "username email photo divisi")
-        .populate("divisionId", "nama")
+        .populate("workspace", "_id nama owner")
+        .populate("divisionId", "name")
         .populate({
           path: "parties",
           populate: {
@@ -135,8 +203,60 @@ export async function createProject(req, res) {
   let session;
 
   try {
-    const { parties = [], ...projectData } = req.body;
+    const { parties = [], workspace: requestedWorkspace, workspaceId, ...projectData } = req.body;
 
+    const projectManagerId = toId(projectData.projectManager) || req.user?._id;
+    if (!mongoose.isValidObjectId(projectManagerId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Project Manager harus dipilih atau user login harus valid",
+      });
+    }
+
+    const projectManagerExists = await User.exists({ _id: projectManagerId });
+    if (!projectManagerExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Project Manager tidak ditemukan",
+      });
+    }
+    projectData.projectManager = projectManagerId;
+
+    const projectDivisionIds = normalizeDivisionIds(projectData.divisionId);
+    if (projectDivisionIds.some((id) => !mongoose.isValidObjectId(id))) {
+      return res.status(400).json({
+        success: false,
+        message: "divisionId project tidak valid",
+      });
+    }
+    if (projectDivisionIds.length) {
+      const divisionsCount = await Division.countDocuments({
+        _id: { $in: projectDivisionIds },
+      });
+      if (divisionsCount !== new Set(projectDivisionIds.map(String)).size) {
+        return res.status(404).json({
+          success: false,
+          message: "Satu atau lebih Division project tidak ditemukan",
+        });
+      }
+    }
+
+    const existingWorkspaceId = toId(requestedWorkspace) || workspaceId;
+    if (existingWorkspaceId && !mongoose.isValidObjectId(existingWorkspaceId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Workspace tidak valid",
+      });
+    }
+    if (
+      existingWorkspaceId &&
+      !(await Workspace.exists({ _id: existingWorkspaceId }))
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: "Workspace tidak ditemukan",
+      });
+    }
     if (!Array.isArray(parties)) {
       return res.status(400).json({
         success: false,
@@ -170,9 +290,42 @@ export async function createProject(req, res) {
 
     session = await mongoose.startSession();
     let project;
+    let projectWorkspaces;
 
     await session.withTransaction(async () => {
       [project] = await Project.create([projectData], { session });
+
+      if (projectDivisionIds.length) {
+        projectWorkspaces = await findOrCreateDivisionWorkspaces({
+          divisionIds: projectDivisionIds,
+          projectManagerId,
+          preferredWorkspaceId: existingWorkspaceId,
+          session,
+        });
+      } else if (existingWorkspaceId) {
+        const workspace = await Workspace.findById(existingWorkspaceId).session(session);
+        addProjectManagerToWorkspace(workspace, projectManagerId);
+        projectWorkspaces = [workspace];
+      } else {
+        const [workspace] = await Workspace.create(
+          [{ members: [{ user: projectManagerId, role: "admin" }] }],
+          { session },
+        );
+        projectWorkspaces = [workspace];
+      }
+
+      project.workspace = projectWorkspaces[0]._id;
+      project.otherWorkspaces = projectWorkspaces.slice(1).map(({ _id }) => _id);
+      await project.save({ session });
+
+      for (const workspace of projectWorkspaces) {
+        if (!workspace.projects.some(
+          (projectId) => String(projectId) === String(project._id),
+        )) {
+          workspace.projects.push(project._id);
+        }
+        await workspace.save({ session });
+      }
 
       const [defaultGroup] = await Group.create(
         [{ nama: "New Group", project: project._id }],
@@ -199,6 +352,12 @@ export async function createProject(req, res) {
         path: "groups",
         populate: { path: "task" },
       })
+      .populate("projectManager", "username email photo")
+      .populate({
+        path: "workspace",
+        select: "_id nama owner members",
+        populate: { path: "owner", select: "username email" },
+      })
       .lean();
     const projectParties = await ProjectParty.find({ project: project._id })
       .populate("party", "name email phone")
@@ -210,6 +369,12 @@ export async function createProject(req, res) {
       data: { ...populatedProject, parties: projectParties },
     });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
     return handleError(res, error);
   } finally {
     if (session) {
@@ -314,11 +479,29 @@ export async function updateProject(req, res) {
     }
 
     if (projectManager !== undefined) {
-      updateData.projectManager = projectManager;
+      updateData.projectManager = toId(projectManager);
     }
 
     if (divisionId !== undefined) {
-      updateData.divisionId = divisionId;
+      const nextDivisionIds = normalizeDivisionIds(divisionId);
+      if (nextDivisionIds.some((id) => !mongoose.isValidObjectId(id))) {
+        return res.status(400).json({
+          success: false,
+          message: "divisionId project tidak valid",
+        });
+      }
+      if (nextDivisionIds.length) {
+        const divisionsCount = await Division.countDocuments({
+          _id: { $in: nextDivisionIds },
+        });
+        if (divisionsCount !== new Set(nextDivisionIds.map(String)).size) {
+          return res.status(404).json({
+            success: false,
+            message: "Satu atau lebih Division project tidak ditemukan",
+          });
+        }
+      }
+      updateData.divisionId = nextDivisionIds;
     }
 
     if (groups !== undefined) {
@@ -329,18 +512,97 @@ export async function updateProject(req, res) {
       updateData.sites = sites;
     }
 
-    // Update project
-    const updatedProject = await Project.findByIdAndUpdate(
-      projectId,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
-      },
-    )
+    const projectManagerId =
+      updateData.projectManager || toId(oldProject.projectManager) || req.user?._id;
+    if (!mongoose.isValidObjectId(projectManagerId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Project Manager tidak valid",
+      });
+    }
+    if (!(await User.exists({ _id: projectManagerId }))) {
+      return res.status(404).json({
+        success: false,
+        message: "Project Manager tidak ditemukan",
+      });
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const project = await Project.findById(projectId).session(session);
+        if (!project) {
+          throw Object.assign(new Error("Project not found"), {
+            statusCode: 404,
+          });
+        }
+
+        const nextDivisionIds = normalizeDivisionIds(
+          updateData.divisionId !== undefined
+            ? updateData.divisionId
+            : project.divisionId,
+        );
+        const previousWorkspaceIds = [project.workspace, ...(project.otherWorkspaces || [])]
+          .map(toId)
+          .filter(Boolean);
+        let projectWorkspaces;
+
+        if (nextDivisionIds.length) {
+          projectWorkspaces = await findOrCreateDivisionWorkspaces({
+            divisionIds: nextDivisionIds,
+            projectManagerId,
+            preferredWorkspaceId: project.workspace,
+            session,
+          });
+        } else if (project.workspace) {
+          const workspace = await Workspace.findById(project.workspace).session(session);
+          addProjectManagerToWorkspace(workspace, projectManagerId);
+          projectWorkspaces = [workspace];
+        } else {
+          const [workspace] = await Workspace.create(
+            [{ members: [{ user: projectManagerId, role: "admin" }] }],
+            { session },
+          );
+          projectWorkspaces = [workspace];
+        }
+
+        const nextWorkspaceIds = projectWorkspaces.map(({ _id }) => _id);
+        const removedWorkspaceIds = previousWorkspaceIds.filter(
+          (workspaceId) => !nextWorkspaceIds.some((id) => String(id) === String(workspaceId)),
+        );
+        if (removedWorkspaceIds.length) {
+          await Workspace.updateMany(
+            { _id: { $in: removedWorkspaceIds } },
+            { $pull: { projects: project._id } },
+            { session },
+          );
+        }
+
+        for (const [field, value] of Object.entries(updateData)) {
+          project[field] = value;
+        }
+        project.projectManager = projectManagerId;
+        project.workspace = nextWorkspaceIds[0];
+        project.otherWorkspaces = nextWorkspaceIds.slice(1);
+
+        for (const workspace of projectWorkspaces) {
+          if (!workspace.projects.some((id) => String(id) === String(project._id))) {
+            workspace.projects.push(project._id);
+          }
+          await workspace.save({ session });
+        }
+
+        await project.save({ session });
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    const updatedProject = await Project.findById(projectId)
       .populate("groups", "nama")
       .populate("projectManager", "username email photo")
-      .populate("divisionId", "nama")
+      .populate("workspace", "_id nama owner")
+      .populate("divisionId", "name")
       .populate({
         path: "parties",
         populate: {
@@ -355,6 +617,12 @@ export async function updateProject(req, res) {
       data: updatedProject,
     });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
     return handleError(res, error);
   }
 }
@@ -363,7 +631,9 @@ export async function deleteProject(req, res) {
   try {
     const { projectId } = req.params;
 
-    const projectRef = await Project.findById(projectId).select("workspace");
+    const projectRef = await Project.findById(projectId).select(
+      "workspace otherWorkspaces",
+    );
 
     if (!projectRef) {
       return res.status(404).json({
@@ -411,6 +681,15 @@ export async function deleteProject(req, res) {
     // 8. Hapus project
     await Project.findByIdAndDelete(projectId);
 
+    await Workspace.updateMany(
+      {
+        _id: {
+          $in: [projectRef.workspace, ...(projectRef.otherWorkspaces || [])].filter(Boolean),
+        },
+      },
+      { $pull: { projects: projectRef._id } },
+    );
+
     return res.status(200).json({
       success: true,
       message:
@@ -427,6 +706,8 @@ export async function getProjectById(req, res) {
 
     const project = await Project.findById(projectId)
       .populate("groups", "nama")
+      .populate("projectManager", "username email photo")
+      .populate("workspace", "_id nama owner")
       .lean();
 
     if (!project) {

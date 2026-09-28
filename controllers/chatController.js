@@ -6,7 +6,7 @@ const isWorkspaceMember = async (userId, workspaceId) => {
   const workspace = await Workspace.findById(workspaceId);
   if (!workspace) return false;
 
-  if (workspace.owner.toString() === userId) return true;
+  if (workspace.owner?.toString() === userId) return true;
 
   return workspace.members.some((member) => member.user.toString() === userId);
 };

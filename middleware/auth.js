@@ -141,7 +141,7 @@ export function checkWorkspaceRole(allowedRoles = []) {
         });
       }
 
-      if (workspace.owner.toString() === userId.toString()) {
+      if (workspace.owner?.toString() === userId.toString()) {
         req.userWorkspaceRole = "admin";
         req.workspace = workspace;
         return next();
@@ -214,7 +214,7 @@ export function checkWorkspaceRoleFromProject(allowedRoles = []) {
 
       const workspace = project.workspace;
 
-      if (workspace.owner.toString() === userId.toString()) {
+      if (workspace.owner?.toString() === userId.toString()) {
         req.userWorkspaceRole = "admin";
         req.workspace = workspace;
         req.project = project;
@@ -325,7 +325,7 @@ export function checkWorkspaceRoleFromTask(allowedRoles = []) {
 
       const workspace = project.workspace;
 
-      if (workspace.owner.toString() === userId.toString()) {
+      if (workspace.owner?.toString() === userId.toString()) {
         req.userWorkspaceRole = "admin";
         req.workspace = workspace;
         req.task = task;
@@ -452,7 +452,7 @@ export function checkWorkspaceRoleFromSubtask(allowedRoles = []) {
 
       const workspace = project.workspace;
 
-      if (workspace.owner.toString() === userId.toString()) {
+      if (workspace.owner?.toString() === userId.toString()) {
         req.userWorkspaceRole = "admin";
         req.workspace = workspace;
         req.subtask = subtask;
@@ -618,7 +618,7 @@ export function checkWorkspaceRoleFromGroup(allowedRoles = []) {
 
       const workspace = project.workspace;
 
-      if (workspace.owner.toString() === userId.toString()) {
+      if (workspace.owner?.toString() === userId.toString()) {
         req.userWorkspaceRole = "admin";
         req.workspace = workspace;
         req.group = group;
@@ -708,7 +708,7 @@ export function checkWorkspaceRoleForCollaboration(allowedRoles = []) {
         });
       }
 
-      if (workspace.owner.toString() === userId.toString()) {
+      if (workspace.owner?.toString() === userId.toString()) {
         req.userWorkspaceRole = "admin";
         req.workspace = workspace;
         return next();
@@ -779,7 +779,7 @@ export function checkTaskTypeAccess() {
         });
       }
       const workspace = project.workspace;
-      if (workspace.owner.toString() === userId.toString()) {
+      if (workspace.owner?.toString() === userId.toString()) {
         return next();
       }
       const member = workspace.members.find(
@@ -850,7 +850,7 @@ export function checkSubtaskTypeAccess() {
       }
 
       const workspace = project.workspace;
-      if (workspace.owner.toString() === userId.toString()) {
+      if (workspace.owner?.toString() === userId.toString()) {
         return next();
       }
 

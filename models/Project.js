@@ -19,6 +19,10 @@ const projectSchema = new mongoose.Schema(
       default: "draft",
     },
     projectManager: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    workspace: { type: mongoose.Schema.Types.ObjectId, ref: "Workspace" },
+    otherWorkspaces: [
+      { type: mongoose.Schema.Types.ObjectId, ref: "Workspace" },
+    ],
     sites: {
       type: [
         {
@@ -28,13 +32,9 @@ const projectSchema = new mongoose.Schema(
       ],
       default: [],
     },
-    // workspace: { type: mongoose.Schema.Types.ObjectId, ref: "Workspace" },
     divisionId: [{ type: mongoose.Schema.Types.ObjectId, ref: "Division" }],
     groups: [{ type: mongoose.Schema.Types.ObjectId, ref: "Group" }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    // otherWorkspaces: [
-    //   { type: mongoose.Schema.Types.ObjectId, ref: "Workspace" },
-    // ],
   },
   { timestamps: true },
 );
