@@ -66,6 +66,8 @@ const io = new Server(httpServer, {
       "https://planify.itvault.cloud",
       "https://ticketra.itvault.cloud",
       "https://ticketra.itvault.cloud/api",
+      "https://ws.itvault.cloud",
+      "https://ws.itvault.cloud/api",
       process.env.CLIENT_URL,
     ].filter(Boolean), // Remove undefined values
     methods: ["GET", "POST"],
