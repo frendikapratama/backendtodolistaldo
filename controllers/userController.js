@@ -97,7 +97,8 @@ export async function getUserById(req, res) {
     const userWorkspaces = await Workspace.find({
       $or: [{ owner: id }, { "members.user": id }],
     })
-      .select("nama owner members")
+      .select("nama divisionId owner members")
+      .populate("divisionId", "name")
       .populate("owner", "username email");
 
     const workspacesWithRole = userWorkspaces.map((workspace) => {
