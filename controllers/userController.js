@@ -47,10 +47,19 @@ export async function getUsers(req, res) {
       filter.$or = [{ username: regex }, { email: regex }, { posisi: regex }];
     }
 
+    const sortOptions = {};
+    if (req.query.sortBy) {
+      sortOptions[req.query.sortBy] = req.query.sortOrder === "desc" ? -1 : 1;
+    } else if (canAccess && canAccess !== "all") {
+      sortOptions.username = 1;
+    } else {
+      sortOptions.username = 1;
+    }
+
     const [users, total] = await Promise.all([
       User.find(filter)
         .select("-__v -password -resetOTP -resetOTPExpire")
-        .sort({ createdAt: -1 })
+        .sort(sortOptions)
         .skip(skip)
         .limit(parseInt(limit)),
       User.countDocuments(filter),
@@ -88,12 +97,13 @@ export async function getUserById(req, res) {
     const userWorkspaces = await Workspace.find({
       $or: [{ owner: id }, { "members.user": id }],
     })
-      .select("nama owner members")
+      .select("nama divisionId owner members")
+      .populate("divisionId", "name")
       .populate("owner", "username email");
 
     const workspacesWithRole = userWorkspaces.map((workspace) => {
       const workspaceObj = workspace.toObject();
-      if (workspace.owner._id.toString() === id) {
+      if (workspace.owner?._id?.toString() === id) {
         workspaceObj.userRole = "owner";
       } else {
         const member = workspace.members.find((m) => m.user.toString() === id);
@@ -414,7 +424,7 @@ export async function removeUserFromWorkspace(req, res) {
     }
 
     // Check if owner
-    if (workspace.owner.toString() === id) {
+    if (workspace.owner?.toString() === id) {
       return res.status(400).json({
         success: false,
         message: "Cannot remove owner of workspace. Transfer ownership first.",
