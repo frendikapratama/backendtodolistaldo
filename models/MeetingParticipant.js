@@ -46,6 +46,13 @@ const meetingParticipantSchema = new mongoose.Schema(
       default: null,
     },
 
+    declineReason: {
+      type: String,
+      default: "",
+      maxlength: 500,
+      trim: true,
+    },
+
     notes: {
       type: String,
       default: "",
