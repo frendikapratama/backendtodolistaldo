@@ -2,7 +2,7 @@ name: Build & Push Backend Planify
 
 on:
   push:
-    branches: [project_man]
+    branches: [project]
 
 permissions:
   contents: read
