@@ -1,7 +1,9 @@
+import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import Kuarter from "../models/Kuarter.js";
 import Group from "../models/Group.js";
 import Workspace from "../models/Workspace.js";
+import Division from "../models/Division.js";
 import User from "../models/User.js";
 import Task from "../models/Task.js";
 import Subtask from "../models/Subtask.js";
@@ -14,9 +16,22 @@ import { findOrCreateUser } from "../utils/userUtils.js";
 import { sendWorkspaceInvitationEmail } from "../utils/emailUtils.js";
 import { handleError } from "../utils/errorHandler.js";
 
+function canManageWorkspace(workspace, userId) {
+  return (
+    workspace.owner?.toString() === userId.toString() ||
+    workspace.members.some(
+      (member) =>
+        member.user.toString() === userId.toString() &&
+        ["admin", "project_manager"].includes(member.role),
+    )
+  );
+}
+
 export async function getWorkspace(req, res) {
   try {
-    const data = await Workspace.find().populate("projects", "nama");
+    const data = await Workspace.find()
+      .populate("projects", "nama")
+      .populate("divisionId", "name");
 
     res.status(200).json({
       success: true,
@@ -44,7 +59,8 @@ export async function getWorkspaceById(req, res) {
       .populate({
         path: "members.user",
         select: "username email",
-      });
+      })
+      .populate("divisionId", "name");
 
     res.status(200).json({
       success: true,
@@ -58,7 +74,51 @@ export async function getWorkspaceById(req, res) {
 
 export async function createWorkspace(req, res) {
   try {
+    const { divisionId } = req.body;
+    if (
+      divisionId &&
+      (!mongoose.isValidObjectId(divisionId) ||
+        !(await Division.exists({ _id: divisionId })))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Division tidak valid atau tidak ditemukan",
+      });
+    }
+    const newWorkspace = await Workspace.create({
+      ...(req.body.nama !== undefined && { nama: req.body.nama }),
+      ...(divisionId && { divisionId: [divisionId] }),
+      members: [
+        {
+          user: req.user._id,
+          role: "admin",
+        },
+      ],
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Workspace created successfully",
+      data: newWorkspace,
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+export async function createWorkspaceByKuarter(req, res) {
+  try {
     const { kuarterId } = req.params;
+    const { divisionId } = req.body;
+    if (
+      divisionId &&
+      (!mongoose.isValidObjectId(divisionId) ||
+        !(await Division.exists({ _id: divisionId })))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Division tidak valid atau tidak ditemukan",
+      });
+    }
 
     const kuarter = await Kuarter.findById(kuarterId);
     if (!kuarter) {
@@ -69,12 +129,12 @@ export async function createWorkspace(req, res) {
     }
 
     const newWorkspace = await Workspace.create({
-      nama: req.body.nama,
-      owner: req.user._id,
+      ...(req.body.nama !== undefined && { nama: req.body.nama }),
+      ...(divisionId && { divisionId: [divisionId] }),
       members: [
         {
           user: req.user._id,
-          role: "admin", // Owner otomatis jadi admin
+          role: "admin",
         },
       ],
       kuarter: kuarterId,
@@ -83,8 +143,6 @@ export async function createWorkspace(req, res) {
     await Kuarter.findByIdAndUpdate(kuarterId, {
       $push: { workspace: newWorkspace._id },
     });
-
- 
 
     res.status(201).json({
       success: true,
@@ -99,11 +157,27 @@ export async function createWorkspace(req, res) {
 export async function updateWorkspace(req, res) {
   try {
     const { workspaceId } = req.params;
-    const { nama } = req.body;
+    const { nama, divisionId } = req.body;
+    if (
+      divisionId &&
+      (!mongoose.isValidObjectId(divisionId) ||
+        !(await Division.exists({ _id: divisionId })))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Division tidak valid atau tidak ditemukan",
+      });
+    }
+
+    const updateData = {};
+    if (nama !== undefined) updateData.nama = nama;
+    if (divisionId !== undefined) {
+      updateData.divisionId = divisionId ? [divisionId] : [];
+    }
 
     const updatedWorkspaces = await Workspace.findByIdAndUpdate(
       workspaceId,
-      { nama },
+      updateData,
       { new: true, runValidators: true },
     );
 
@@ -141,8 +215,6 @@ export async function deleteWorkspace(req, res) {
 
     await Project.deleteMany({ workspace: workspaceId });
 
-
-
     const deletedWorkspace = await Workspace.findByIdAndDelete(workspaceId);
 
     if (!deletedWorkspace) {
@@ -176,7 +248,7 @@ export async function inviteMemberByEmail(req, res) {
     if (!workspace)
       return res.status(404).json({ message: "Workspace tidak ditemukan" });
 
-    if (workspace.owner._id.toString() !== requesterId.toString()) {
+    if (!canManageWorkspace(workspace, requesterId)) {
       return res
         .status(403)
         .json({ message: "Only the owner can invite members" });
@@ -204,8 +276,6 @@ export async function inviteMemberByEmail(req, res) {
         },
       });
 
-
-
       console.log(`✅ ${email} langsung ditambahkan sebagai ${role}`);
       return res.status(200).json({
         success: true,
@@ -230,7 +300,7 @@ export async function inviteMemberByEmail(req, res) {
       to: email,
       workspaceName: workspace.nama,
       inviteUrl,
-      inviterName: workspace.owner.username,
+      inviterName: workspace.owner?.username || "Admin",
       role,
     });
 
@@ -369,8 +439,6 @@ export async function acceptWorkspaceInvite(req, res) {
       { new: true },
     );
 
-
-
     return res.status(200).json({
       success: true,
       message: "Successfully joined the division",
@@ -391,7 +459,7 @@ export async function updateMemberRole(req, res) {
     if (!workspace)
       return res.status(404).json({ message: "Division not found" });
 
-    if (workspace.owner.toString() !== requesterId.toString()) {
+    if (!canManageWorkspace(workspace, requesterId)) {
       return res
         .status(403)
         .json({ message: "Only the owner can change roles" });
@@ -401,8 +469,6 @@ export async function updateMemberRole(req, res) {
       { _id: workspaceId, "members.user": userId },
       { $set: { "members.$.role": role } },
     );
-
-
 
     res.status(200).json({
       success: true,
@@ -423,7 +489,7 @@ export async function removeMember(req, res) {
     if (!workspace)
       return res.status(404).json({ message: "Division not found" });
 
-    if (workspace.owner.toString() !== requesterId.toString()) {
+    if (!canManageWorkspace(workspace, requesterId)) {
       return res
         .status(403)
         .json({ message: "Only the owner can remove members" });
@@ -432,8 +498,6 @@ export async function removeMember(req, res) {
     await Workspace.findByIdAndUpdate(workspaceId, {
       $pull: { members: { user: userId } },
     });
-
-
 
     res.status(200).json({
       success: true,
@@ -457,7 +521,7 @@ export async function getMyworkspace(req, res) {
 
     const workspaces = await Workspace.find({
       $or: [{ owner: userId }, { "members.user": userId }],
-    }).select("nama members owner");
+    }).select("nama members owner divisionId");
 
     const formattedWorkspaces = workspaces.map((w) => {
       let role = "member";
@@ -471,7 +535,11 @@ export async function getMyworkspace(req, res) {
       }
 
       return {
-        workspace: { _id: w._id, nama: w.nama },
+        workspace: {
+          _id: w._id,
+          nama: w.nama,
+          divisionId: w.divisionId || null,
+        },
         role,
       };
     });

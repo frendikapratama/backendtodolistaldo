@@ -78,7 +78,7 @@ export async function getTasksByProjectSimple(req, res) {
         // if (!req.user.isSystemAdmin && project && project.workspace) {
         //   const workspace = project.workspace;
         //   const userId = req.user._id;
-        //   const isOwner = workspace.owner.toString() === userId.toString();
+        //   const isOwner = workspace.owner?.toString() === userId.toString();
         //   if (!isOwner) {
         //     const member = workspace.members.find(
         //       (m) => m.user.toString() === userId.toString()
@@ -630,7 +630,7 @@ export const getTasksByGroup = async (req, res) => {
         const userId = req.user._id;
         const isAdmin =
           req.user.isSystemAdmin === true ||
-          workspace.owner.toString() === userId.toString();
+          workspace.owner?.toString() === userId.toString();
         if (!isAdmin) {
           const member = workspace.members.find(
             (m) => m.user.toString() === userId.toString(),

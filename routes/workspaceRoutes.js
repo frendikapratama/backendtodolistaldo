@@ -11,6 +11,7 @@ import {
   verifyWorkspaceInvite,
   acceptWorkspaceInvite,
   getMyworkspace,
+  createWorkspaceByKuarter,
 } from "../controllers/workspaceController.js";
 import {
   authenticate,
@@ -22,7 +23,13 @@ const router = express.Router();
 
 router.get("/", authenticate, getWorkspace);
 router.get("/me", authenticate, getMyworkspace);
-router.post("/:kuarterId", authenticate, requireSystemAdmin, createWorkspace);
+router.post("/", authenticate, createWorkspace);
+router.post(
+  "/:kuarterId",
+  authenticate,
+  requireSystemAdmin,
+  createWorkspaceByKuarter,
+);
 
 router.get("/:workspaceId/verify-invite", verifyWorkspaceInvite);
 router.post("/:workspaceId/accept-invite", acceptWorkspaceInvite);

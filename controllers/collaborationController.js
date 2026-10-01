@@ -131,19 +131,25 @@ export const getWorkspaceProjects = async (req, res) => {
         { otherWorkspaces: { $exists: false } },
         { otherWorkspaces: { $size: 0 } },
       ],
-    }).select("nama description createdAt otherWorkspaces");
+    }).select(
+      "nama createdAt startedAt dueDate status projectManager otherWorkspaces",
+    );
 
     const ownedButCollaborated = await Project.find({
       workspace: workspaceId,
       otherWorkspaces: { $exists: true, $ne: [] },
     })
-      .select("nama description createdAt otherWorkspaces")
+      .select(
+        "nama createdAt startedAt dueDate status projectManager otherWorkspaces",
+      )
       .populate("otherWorkspaces", "nama");
 
     const collaboratedFromOthers = await Project.find({
       otherWorkspaces: workspaceId,
     })
-      .select("nama description createdAt workspace")
+      .select(
+        "nama createdAt startedAt dueDate status projectManager workspace",
+      )
       .populate("workspace", "nama");
 
     res.json({

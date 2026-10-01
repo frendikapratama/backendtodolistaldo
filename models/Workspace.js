@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 
 const workspaceSchema = new mongoose.Schema(
   {
-    nama: { type: String, required: true },
+    nama: { type: String },
+    divisionId: [{ type: mongoose.Schema.Types.ObjectId, ref: "Division" }],
     projects: [{ type: mongoose.Schema.Types.ObjectId, ref: "Project" }],
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     members: [

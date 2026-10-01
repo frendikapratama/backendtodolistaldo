@@ -8,6 +8,11 @@ import {
   getProjectList,
 } from "../controllers/projectsController.js";
 import {
+  addProjectParty,
+  updateProjectParty,
+  deleteProjectParty,
+} from "../controllers/projectPartyController.js";
+import {
   authenticate,
   requireSystemAdmin,
   checkWorkspaceRole,
@@ -17,25 +22,42 @@ import {
 const router = express.Router();
 
 router.get("/", authenticate, getProject);
-router.get("/project-list", authenticate, getProjectList)
+router.get("/project-list", authenticate, getProjectList);
 router.post(
-  "/:workspaceId",
+  "/",
   authenticate,
-  checkWorkspaceRole(["admin", "project_manager"]),
-  createProject
+  // checkWorkspaceRole(["admin", "project_manager"]),
+  createProject,
+);
+router.post("/:projectId/parties", authenticate, addProjectParty);
+router.patch(
+  "/:projectId/parties/:projectPartyId",
+  authenticate,
+  updateProjectParty,
+);
+router.delete(
+  "/:projectId/parties/:projectPartyId",
+  authenticate,
+  deleteProjectParty,
 );
 router.get("/:projectId", authenticate, getProjectById);
+router.patch(
+  "/:projectId",
+  authenticate,
+  // checkWorkspaceRoleFromProject(["admin", "project_manager"]),
+  updateProject,
+);
 router.put(
   "/:projectId",
   authenticate,
-  checkWorkspaceRoleFromProject(["admin", "project_manager"]),
-  updateProject
+  // checkWorkspaceRoleFromProject(["admin", "project_manager"]),
+  updateProject,
 );
 router.delete(
   "/:projectId",
   authenticate,
-  checkWorkspaceRoleFromProject(["admin", "project_manager"]),
-  deleteProject
+  // checkWorkspaceRoleFromProject(["admin", "project_manager"]),
+  deleteProject,
 );
 
 export default router;
