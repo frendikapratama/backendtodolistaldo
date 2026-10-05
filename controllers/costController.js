@@ -4,9 +4,6 @@ import BOQItem from "../models/BOQItem.js";
 import Project from "../models/Project.js";
 import { handleError } from "../utils/errorHandler.js";
 
-/**
- * Get costs by project with pagination, server-side search, status filter, and summary calculations
- */
 export const getCostsByProject = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -44,7 +41,8 @@ export const getCostsByProject = async (req, res) => {
     let allCosts = await Cost.find(filter)
       .populate({
         path: "boqItem",
-        select: "itemCode section description unit quantity unitPrice totalPrice",
+        select:
+          "itemCode section description unit quantity unitPrice totalPrice",
       })
       .populate({
         path: "budget",
@@ -89,7 +87,13 @@ export const getCostsByProject = async (req, res) => {
           ? valA.localeCompare(valB)
           : valB.localeCompare(valA);
       }
-      return sortOrder === "asc" ? (valA > valB ? 1 : -1) : valA < valB ? 1 : -1;
+      return sortOrder === "asc"
+        ? valA > valB
+          ? 1
+          : -1
+        : valA < valB
+          ? 1
+          : -1;
     });
 
     // Summary calculations
@@ -149,9 +153,6 @@ export const getCostsByProject = async (req, res) => {
   }
 };
 
-/**
- * Get single cost by ID
- */
 export const getCostById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -179,9 +180,6 @@ export const getCostById = async (req, res) => {
   }
 };
 
-/**
- * Create a new Cost entry based on BOQ Item and linked Budget
- */
 export const createCost = async (req, res) => {
   try {
     const {
@@ -194,10 +192,17 @@ export const createCost = async (req, res) => {
       status = "Draft",
     } = req.body;
 
-    if (!projectId || !boqItemId || !costDate || !description || amount === undefined) {
+    if (
+      !projectId ||
+      !boqItemId ||
+      !costDate ||
+      !description ||
+      amount === undefined
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Semua field wajib (Project, BOQ Item, Tanggal, Deskripsi, Amount) harus diisi",
+        message:
+          "Semua field wajib (Project, BOQ Item, Tanggal, Deskripsi, Amount) harus diisi",
       });
     }
 
@@ -210,11 +215,15 @@ export const createCost = async (req, res) => {
     }
 
     // Find linked Budget for this boqItem
-    const budget = await Budget.findOne({ project: projectId, boqItem: boqItemId });
+    const budget = await Budget.findOne({
+      project: projectId,
+      boqItem: boqItemId,
+    });
     if (!budget) {
       return res.status(400).json({
         success: false,
-        message: "Item BOQ ini belum memiliki Budget. Buat Budget terlebih dahulu sebelum mencatat Cost.",
+        message:
+          "Item BOQ ini belum memiliki Budget. Buat Budget terlebih dahulu sebelum mencatat Cost.",
       });
     }
 
@@ -242,7 +251,7 @@ export const createCost = async (req, res) => {
       const overAmount = numAmount - remainingBudget;
       warning = `Perhatian: Cost melebihi Remaining Budget sebesar ${new Intl.NumberFormat(
         "id-ID",
-        { style: "currency", currency: "IDR", maximumFractionDigits: 0 }
+        { style: "currency", currency: "IDR", maximumFractionDigits: 0 },
       ).format(overAmount)}.`;
     }
 
@@ -280,9 +289,6 @@ export const createCost = async (req, res) => {
   }
 };
 
-/**
- * Update cost
- */
 export const updateCost = async (req, res) => {
   try {
     const { id } = req.params;
@@ -319,7 +325,9 @@ export const updateCost = async (req, res) => {
 
     await cost.save();
 
-    const updated = await Cost.findById(id).populate("boqItem").populate("budget");
+    const updated = await Cost.findById(id)
+      .populate("boqItem")
+      .populate("budget");
 
     return res.status(200).json({
       success: true,
@@ -331,9 +339,6 @@ export const updateCost = async (req, res) => {
   }
 };
 
-/**
- * Update cost status (Approval Workflow)
- */
 export const updateCostStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -367,9 +372,6 @@ export const updateCostStatus = async (req, res) => {
   }
 };
 
-/**
- * Delete cost
- */
 export const deleteCost = async (req, res) => {
   try {
     const { id } = req.params;
@@ -385,7 +387,8 @@ export const deleteCost = async (req, res) => {
     if (cost.status === "Approved") {
       return res.status(400).json({
         success: false,
-        message: "Cost dengan status Approved tidak boleh dihapus demi integritas audit biaya.",
+        message:
+          "Cost dengan status Approved tidak boleh dihapus demi integritas audit biaya.",
       });
     }
 

@@ -4,9 +4,6 @@ import BOQItem from "../models/BOQItem.js";
 import Project from "../models/Project.js";
 import { handleError } from "../utils/errorHandler.js";
 
-/**
- * Get budgets by project with pagination, server-side search, status filter, and summary calculations
- */
 export const getBudgetsByProject = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -42,7 +39,8 @@ export const getBudgetsByProject = async (req, res) => {
     let query = Budget.find(filter)
       .populate({
         path: "boqItem",
-        select: "itemCode section description unit quantity unitPrice totalPrice status",
+        select:
+          "itemCode section description unit quantity unitPrice totalPrice status",
       })
       .populate({
         path: "createdBy",
@@ -129,18 +127,35 @@ export const getBudgetsByProject = async (req, res) => {
           ? valA.localeCompare(valB)
           : valB.localeCompare(valA);
       }
-      return sortOrder === "asc" ? (valA > valB ? 1 : -1) : valA < valB ? 1 : -1;
+      return sortOrder === "asc"
+        ? valA > valB
+          ? 1
+          : -1
+        : valA < valB
+          ? 1
+          : -1;
     });
 
     // Overall Project Summary
     // Total BOQ Value of the project from BOQItems
-    const allProjectBOQ = await BOQItem.find({ project: projectId }).select("totalPrice");
-    const totalBOQValue = allProjectBOQ.reduce((acc, curr) => acc + (curr.totalPrice || 0), 0);
+    const allProjectBOQ = await BOQItem.find({ project: projectId }).select(
+      "totalPrice",
+    );
+    const totalBOQValue = allProjectBOQ.reduce(
+      (acc, curr) => acc + (curr.totalPrice || 0),
+      0,
+    );
 
     // Sum of Planned & Approved Budgets
     const allProjectBudgets = await Budget.find({ project: projectId });
-    const totalPlannedBudget = allProjectBudgets.reduce((acc, curr) => acc + (curr.plannedAmount || 0), 0);
-    const totalApprovalBudget = allProjectBudgets.reduce((acc, curr) => acc + (curr.approvedAmount || 0), 0);
+    const totalPlannedBudget = allProjectBudgets.reduce(
+      (acc, curr) => acc + (curr.plannedAmount || 0),
+      0,
+    );
+    const totalApprovalBudget = allProjectBudgets.reduce(
+      (acc, curr) => acc + (curr.approvedAmount || 0),
+      0,
+    );
 
     // Total Actual Cost of the project (All Approved Costs)
     const totalProjectActualCosts = await Cost.aggregate([
@@ -176,7 +191,10 @@ export const getBudgetsByProject = async (req, res) => {
     // Pagination slice
     const total = enrichedBudgets.length;
     const totalPages = Math.ceil(total / limit) || 1;
-    const paginatedItems = enrichedBudgets.slice((page - 1) * limit, page * limit);
+    const paginatedItems = enrichedBudgets.slice(
+      (page - 1) * limit,
+      page * limit,
+    );
 
     return res.status(200).json({
       success: true,
@@ -201,16 +219,14 @@ export const getBudgetsByProject = async (req, res) => {
   }
 };
 
-/**
- * Get single budget by ID with related costs breakdown
- */
 export const getBudgetById = async (req, res) => {
   try {
     const { id } = req.params;
     const budget = await Budget.findById(id)
       .populate({
         path: "boqItem",
-        select: "itemCode section description unit quantity unitPrice totalPrice status",
+        select:
+          "itemCode section description unit quantity unitPrice totalPrice status",
       })
       .populate({
         path: "createdBy",
@@ -251,9 +267,6 @@ export const getBudgetById = async (req, res) => {
   }
 };
 
-/**
- * Create a new Budget for a BOQ Item
- */
 export const createBudget = async (req, res) => {
   try {
     const {
@@ -320,9 +333,6 @@ export const createBudget = async (req, res) => {
   }
 };
 
-/**
- * Update budget
- */
 export const updateBudget = async (req, res) => {
   try {
     const { id } = req.params;
@@ -339,7 +349,8 @@ export const updateBudget = async (req, res) => {
     if (budget.status === "Approved") {
       return res.status(400).json({
         success: false,
-        message: "Budget yang sudah Approved tidak dapat diedit secara langsung.",
+        message:
+          "Budget yang sudah Approved tidak dapat diedit secara langsung.",
       });
     }
 
@@ -364,9 +375,6 @@ export const updateBudget = async (req, res) => {
   }
 };
 
-/**
- * Update budget approval status
- */
 export const updateBudgetStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -411,9 +419,6 @@ export const updateBudgetStatus = async (req, res) => {
   }
 };
 
-/**
- * Delete budget
- */
 export const deleteBudget = async (req, res) => {
   try {
     const { id } = req.params;
@@ -435,7 +440,8 @@ export const deleteBudget = async (req, res) => {
     if (existingApprovedCost) {
       return res.status(400).json({
         success: false,
-        message: "Budget tidak dapat dihapus karena sudah memiliki Cost yang disetujui (Approved).",
+        message:
+          "Budget tidak dapat dihapus karena sudah memiliki Cost yang disetujui (Approved).",
       });
     }
 

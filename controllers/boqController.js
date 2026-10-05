@@ -2,9 +2,6 @@ import BOQItem from "../models/BOQItem.js";
 import Project from "../models/Project.js";
 import { handleError } from "../utils/errorHandler.js";
 
-/**
- * Get distinct sections for a project (reusable dropdown)
- */
 export const getBOQSections = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -18,9 +15,6 @@ export const getBOQSections = async (req, res) => {
   }
 };
 
-/**
- * Get BOQ items with backend pagination, search, filter, sorting, section grouping, and totals
- */
 export const getBOQByProject = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -115,7 +109,13 @@ export const getBOQByProject = async (req, res) => {
     // Calculate Grand Total across all project items (or filtered items)
     const grandTotalAgg = await BOQItem.aggregate([
       { $match: { project: project._id } },
-      { $group: { _id: null, grandTotal: { $sum: "$totalPrice" }, totalCount: { $sum: 1 } } },
+      {
+        $group: {
+          _id: null,
+          grandTotal: { $sum: "$totalPrice" },
+          totalCount: { $sum: 1 },
+        },
+      },
     ]);
 
     const overallGrandTotal = grandTotalAgg[0]?.grandTotal || 0;
@@ -129,7 +129,9 @@ export const getBOQByProject = async (req, res) => {
     const filteredGrandTotal = filteredGrandTotalAgg[0]?.grandTotal || 0;
 
     // Status counts across the whole project
-    const allProjectItems = await BOQItem.find({ project: projectId }).select("status");
+    const allProjectItems = await BOQItem.find({ project: projectId }).select(
+      "status",
+    );
     const statusCounts = {
       Draft: 0,
       Submitted: 0,
@@ -143,7 +145,9 @@ export const getBOQByProject = async (req, res) => {
     });
 
     // All available sections for this project (for dropdown filters)
-    const allSections = await BOQItem.distinct("section", { project: projectId });
+    const allSections = await BOQItem.distinct("section", {
+      project: projectId,
+    });
 
     return res.status(200).json({
       success: true,
@@ -169,13 +173,13 @@ export const getBOQByProject = async (req, res) => {
   }
 };
 
-/**
- * Get single BOQ item detail
- */
 export const getBOQItemById = async (req, res) => {
   try {
     const { id } = req.params;
-    const item = await BOQItem.findById(id).populate("createdBy", "username email avatar");
+    const item = await BOQItem.findById(id).populate(
+      "createdBy",
+      "username email avatar",
+    );
 
     if (!item) {
       return res.status(404).json({
@@ -193,9 +197,6 @@ export const getBOQItemById = async (req, res) => {
   }
 };
 
-/**
- * Create a new BOQ Item
- */
 export const createBOQItem = async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -287,9 +288,6 @@ export const createBOQItem = async (req, res) => {
   }
 };
 
-/**
- * Update an existing BOQ Item
- */
 export const updateBOQItem = async (req, res) => {
   try {
     const { id } = req.params;
@@ -396,9 +394,6 @@ export const updateBOQItem = async (req, res) => {
   }
 };
 
-/**
- * Update BOQ item status only
- */
 export const updateBOQStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -415,7 +410,7 @@ export const updateBOQStatus = async (req, res) => {
     const item = await BOQItem.findByIdAndUpdate(
       id,
       { status },
-      { new: true }
+      { new: true },
     ).populate("createdBy", "username email avatar");
 
     if (!item) {
@@ -435,9 +430,6 @@ export const updateBOQStatus = async (req, res) => {
   }
 };
 
-/**
- * Delete a BOQ Item
- */
 export const deleteBOQItem = async (req, res) => {
   try {
     const { id } = req.params;
