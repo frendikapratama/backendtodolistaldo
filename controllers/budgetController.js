@@ -39,8 +39,7 @@ export const getBudgetsByProject = async (req, res) => {
     let query = Budget.find(filter)
       .populate({
         path: "boqItem",
-        select:
-          "itemCode section description unit quantity unitPrice totalPrice status",
+        select: "itemCode section description specification unit quantity status",
       })
       .populate({
         path: "createdBy",
@@ -98,11 +97,9 @@ export const getBudgetsByProject = async (req, res) => {
       const actualCost = actualCostMap[b._id.toString()] || 0;
       const approvalBudget = bObj.approvedAmount || 0;
       const remainingBudget = approvalBudget - actualCost;
-      const boqValue = bObj.boqItem?.totalPrice || 0;
 
       return {
         ...bObj,
-        boqValue,
         actualCost,
         remainingBudget,
         approvedCostCount: costCountMap[b._id.toString()] || 0,
@@ -117,9 +114,6 @@ export const getBudgetsByProject = async (req, res) => {
       if (sortBy === "boqItem") {
         valA = a.boqItem?.description || "";
         valB = b.boqItem?.description || "";
-      } else if (sortBy === "boqValue") {
-        valA = a.boqValue || 0;
-        valB = b.boqValue || 0;
       }
 
       if (typeof valA === "string") {
@@ -137,15 +131,6 @@ export const getBudgetsByProject = async (req, res) => {
     });
 
     // Overall Project Summary
-    // Total BOQ Value of the project from BOQItems
-    const allProjectBOQ = await BOQItem.find({ project: projectId }).select(
-      "totalPrice",
-    );
-    const totalBOQValue = allProjectBOQ.reduce(
-      (acc, curr) => acc + (curr.totalPrice || 0),
-      0,
-    );
-
     // Sum of Planned & Approved Budgets
     const allProjectBudgets = await Budget.find({ project: projectId });
     const totalPlannedBudget = allProjectBudgets.reduce(
@@ -200,7 +185,6 @@ export const getBudgetsByProject = async (req, res) => {
       success: true,
       data: paginatedItems,
       summary: {
-        totalBOQValue,
         totalPlannedBudget,
         totalApprovalBudget,
         totalActualCost,
@@ -225,8 +209,7 @@ export const getBudgetById = async (req, res) => {
     const budget = await Budget.findById(id)
       .populate({
         path: "boqItem",
-        select:
-          "itemCode section description unit quantity unitPrice totalPrice status",
+        select: "itemCode section description specification unit quantity status",
       })
       .populate({
         path: "createdBy",
@@ -253,7 +236,6 @@ export const getBudgetById = async (req, res) => {
       .reduce((sum, c) => sum + (c.amount || 0), 0);
 
     const bObj = budget.toObject();
-    bObj.boqValue = bObj.boqItem?.totalPrice || 0;
     bObj.actualCost = approvedCostSum;
     bObj.remainingBudget = (bObj.approvedAmount || 0) - approvedCostSum;
     bObj.costs = costs;
@@ -336,7 +318,7 @@ export const createBudget = async (req, res) => {
 export const updateBudget = async (req, res) => {
   try {
     const { id } = req.params;
-    const { plannedAmount, notes } = req.body;
+    const { plannedAmount, notes } = req.body || {};
 
     const budget = await Budget.findById(id);
     if (!budget) {
@@ -378,9 +360,9 @@ export const updateBudget = async (req, res) => {
 export const updateBudgetStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, approvedAmount, approvalNote } = req.body;
+    const { status, approvedAmount, approvalNote } = req.body || {};
 
-    if (!["Draft", "Submitted", "Approved", "Rejected"].includes(status)) {
+    if (!status || !["Draft", "Submitted", "Approved", "Rejected"].includes(status)) {
       return res.status(400).json({
         success: false,
         message: "Status tidak valid",

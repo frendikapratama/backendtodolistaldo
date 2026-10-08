@@ -47,6 +47,7 @@ import partyRoutes from "./routes/partyRoutes.js";
 import boqRoutes from "./routes/boqRoutes.js";
 import budgetRoutes from "./routes/budgetRoutes.js";
 import costRoutes from "./routes/costRoutes.js";
+import biddingRoutes from "./routes/biddingRoutes.js";
 import { updateMeetingStatuses } from "./helpers/meetingStatusUpdater.js";
 import { startReplyListener } from "./helpers/meetingReplyListener.js";
 import { initWhatsApp } from "./utils/whatsapp.js";
@@ -140,6 +141,7 @@ app.use("/api/party", partyRoutes);
 app.use("/api/boq", boqRoutes);
 app.use("/api/budgets", budgetRoutes);
 app.use("/api/costs", costRoutes);
+app.use("/api/biddings", biddingRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

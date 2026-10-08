@@ -3,6 +3,7 @@ import Budget from "../models/Budget.js";
 import BOQItem from "../models/BOQItem.js";
 import Project from "../models/Project.js";
 import { handleError } from "../utils/errorHandler.js";
+import Bidding from "../models/Bidding.js";
 
 export const getCostsByProject = async (req, res) => {
   try {
@@ -11,6 +12,7 @@ export const getCostsByProject = async (req, res) => {
       search = "",
       status = "all",
       budgetId = "all",
+      sourceId = "all",
       sortBy = "costDate",
       sortOrder = "desc",
       page = 1,
@@ -37,12 +39,12 @@ export const getCostsByProject = async (req, res) => {
     if (budgetId && budgetId !== "all") {
       filter.budget = budgetId;
     }
+    if (sourceId && sourceId !== "all") filter.sourceId = sourceId;
 
     let allCosts = await Cost.find(filter)
       .populate({
         path: "boqItem",
-        select:
-          "itemCode section description unit quantity unitPrice totalPrice",
+        select: "itemCode section description specification unit quantity",
       })
       .populate({
         path: "budget",
@@ -52,6 +54,8 @@ export const getCostsByProject = async (req, res) => {
         path: "createdBy",
         select: "username nama email photo",
       })
+      .populate({ path: "sourceId", select: "title finishedAt" })
+      .populate({ path: "supplier", select: "name email phone" })
       .exec();
 
     // Search filter
@@ -162,7 +166,9 @@ export const getCostById = async (req, res) => {
       .populate({
         path: "createdBy",
         select: "username nama email",
-      });
+      })
+      .populate({ path: "sourceId", select: "title finishedAt" })
+      .populate({ path: "supplier", select: "name email phone" });
 
     if (!cost) {
       return res.status(404).json({
@@ -289,10 +295,97 @@ export const createCost = async (req, res) => {
   }
 };
 
+export const createCostsFromBidding = async (req, res) => {
+  try {
+    const bidding = await Bidding.findById(req.params.biddingId)
+      .populate("items.boqItem", "description quantity")
+      .populate("items.selectedSupplier", "name");
+
+    if (!bidding || bidding.status !== "FINISHED")
+      return res.status(400).json({
+        success: false,
+        message: "Cost hanya dapat dibuat dari bidding yang sudah FINISHED",
+      });
+
+    // Duplicate protection (PRD §38)
+    const existing = await Cost.find({
+      sourceType: "bidding",
+      sourceId: bidding._id,
+    });
+    if (existing.length)
+      return res.status(409).json({
+        success: false,
+        message: "Cost dari bidding ini sudah pernah dibuat",
+        data: existing,
+      });
+
+    const rows = [];
+    for (const item of bidding.items) {
+      if (!item.boqItem || !item.selectedSupplier)
+        return res.status(400).json({
+          success: false,
+          message: `Item ${item.boqItem?.description || item.boqItem} belum memiliki supplier terpilih`,
+        });
+
+      const quotation = item.quotations.find(
+        (q) =>
+          String(q.supplier) ===
+          String(item.selectedSupplier?._id || item.selectedSupplier),
+      );
+      if (!quotation)
+        return res.status(400).json({
+          success: false,
+          message: `Quotation untuk ${item.boqItem.description} tidak ditemukan`,
+        });
+
+      const qty = item.boqItem.quantity || 0;
+      const unitPrice = quotation.unitPrice || 0;
+      const totalAmount = qty * unitPrice; // backend calculation (PRD §33)
+
+      const budget = await Budget.findOne({
+        project: bidding.project,
+        boqItem: item.boqItem._id,
+      });
+      const count = await Cost.countDocuments({ project: bidding.project });
+      const supplierName =
+        item.selectedSupplier?.name || String(item.selectedSupplier);
+
+      rows.push({
+        project: bidding.project,
+        budget: budget?._id,
+        boqItem: item.boqItem._id,
+        costCode: `CST-${String(count + rows.length + 1).padStart(3, "0")}`,
+        costDate: bidding.finishedAt || new Date(),
+        description: `${item.boqItem.description} — ${bidding.title}`,
+        amount: totalAmount,
+        supplier: item.selectedSupplier?._id || item.selectedSupplier,
+        unitPrice,
+        quantity: qty,
+        status: "Submitted",
+        sourceType: "bidding",
+        sourceId: bidding._id,
+        notes: item.selectionReason
+          ? `Supplier: ${supplierName}; ${item.selectionReason}`
+          : `Supplier: ${supplierName}`,
+        createdBy: req.user?._id,
+      });
+    }
+
+    const costs = await Cost.insertMany(rows);
+    res.status(201).json({
+      success: true,
+      message: "Cost berhasil dibentuk dari hasil bidding",
+      data: costs,
+    });
+  } catch (error) {
+    handleError(res, error);
+  }
+};
+
 export const updateCost = async (req, res) => {
   try {
     const { id } = req.params;
-    const { costDate, description, amount, notes } = req.body;
+    const { costDate, description, amount, notes } = req.body || {};
 
     const cost = await Cost.findById(id);
     if (!cost) {
@@ -342,9 +435,12 @@ export const updateCost = async (req, res) => {
 export const updateCostStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
 
-    if (!["Draft", "Submitted", "Approved", "Rejected"].includes(status)) {
+    if (
+      !status ||
+      !["Draft", "Submitted", "Approved", "Rejected"].includes(status)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Status tidak valid",

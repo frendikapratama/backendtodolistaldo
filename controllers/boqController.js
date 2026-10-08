@@ -1,5 +1,8 @@
 import BOQItem from "../models/BOQItem.js";
 import Project from "../models/Project.js";
+import Budget from "../models/Budget.js";
+import Bidding from "../models/Bidding.js";
+import Cost from "../models/Cost.js";
 import { handleError } from "../utils/errorHandler.js";
 
 export const getBOQSections = async (req, res) => {
@@ -67,9 +70,8 @@ export const getBOQByProject = async (req, res) => {
       "itemCode",
       "section",
       "description",
+      "specification",
       "quantity",
-      "unitPrice",
-      "totalPrice",
       "status",
     ];
 
@@ -89,7 +91,7 @@ export const getBOQByProject = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-    // Group items by Section and calculate section subtotals for the current paginated view
+    // Group requirement items by section for display.
     const sectionMap = {};
     items.forEach((item) => {
       const secName = item.section || "Tanpa Kategori";
@@ -97,36 +99,16 @@ export const getBOQByProject = async (req, res) => {
         sectionMap[secName] = {
           name: secName,
           items: [],
-          subtotal: 0,
           itemCount: 0,
         };
       }
       sectionMap[secName].items.push(item);
-      sectionMap[secName].subtotal += item.totalPrice || 0;
       sectionMap[secName].itemCount += 1;
     });
 
-    // Calculate Grand Total across all project items (or filtered items)
-    const grandTotalAgg = await BOQItem.aggregate([
-      { $match: { project: project._id } },
-      {
-        $group: {
-          _id: null,
-          grandTotal: { $sum: "$totalPrice" },
-          totalCount: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const overallGrandTotal = grandTotalAgg[0]?.grandTotal || 0;
-    const overallTotalCount = grandTotalAgg[0]?.totalCount || 0;
-
-    // Filtered grand total
-    const filteredGrandTotalAgg = await BOQItem.aggregate([
-      { $match: filter },
-      { $group: { _id: null, grandTotal: { $sum: "$totalPrice" } } },
-    ]);
-    const filteredGrandTotal = filteredGrandTotalAgg[0]?.grandTotal || 0;
+    const overallTotalCount = await BOQItem.countDocuments({
+      project: projectId,
+    });
 
     // Status counts across the whole project
     const allProjectItems = await BOQItem.find({ project: projectId }).select(
@@ -155,8 +137,6 @@ export const getBOQByProject = async (req, res) => {
         items,
         sections: Object.values(sectionMap),
         allSections: allSections.filter(Boolean).sort(),
-        grandTotal: Math.round(overallGrandTotal * 100) / 100,
-        filteredGrandTotal: Math.round(filteredGrandTotal * 100) / 100,
         statusCounts,
         pagination: {
           page,
@@ -204,9 +184,9 @@ export const createBOQItem = async (req, res) => {
       itemCode,
       section,
       description,
+      specification = "",
       unit,
       quantity,
-      unitPrice,
       notes,
       status,
     } = req.body;
@@ -228,19 +208,10 @@ export const createBOQItem = async (req, res) => {
     }
 
     const numQty = Number(quantity);
-    const numPrice = Number(unitPrice);
-
     if (isNaN(numQty) || numQty < 0) {
       return res.status(400).json({
         success: false,
         message: "Quantity harus berupa angka dan tidak boleh negatif",
-      });
-    }
-
-    if (isNaN(numPrice) || numPrice < 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Unit Price harus berupa angka dan tidak boleh negatif",
       });
     }
 
@@ -258,17 +229,14 @@ export const createBOQItem = async (req, res) => {
       });
     }
 
-    const totalPrice = Math.round(numQty * numPrice * 100) / 100;
-
     const newItem = new BOQItem({
       project: projectId,
       itemCode: itemCode ? itemCode.trim() : "",
       section: cleanSection,
       description: description.trim(),
+      specification: specification.trim(),
       unit: unit.trim(),
       quantity: numQty,
-      unitPrice: numPrice,
-      totalPrice,
       notes: notes ? notes.trim() : "",
       status: status || "Draft",
       createdBy: req.user?._id,
@@ -295,9 +263,9 @@ export const updateBOQItem = async (req, res) => {
       itemCode,
       section,
       description,
+      specification,
       unit,
       quantity,
-      unitPrice,
       notes,
       status,
     } = req.body;
@@ -333,6 +301,8 @@ export const updateBOQItem = async (req, res) => {
       item.description = description.trim();
     }
 
+    if (specification !== undefined) item.specification = specification.trim();
+
     if (unit !== undefined) {
       if (!unit.trim()) {
         return res.status(400).json({
@@ -353,20 +323,6 @@ export const updateBOQItem = async (req, res) => {
       }
       item.quantity = numQty;
     }
-
-    if (unitPrice !== undefined) {
-      const numPrice = Number(unitPrice);
-      if (isNaN(numPrice) || numPrice < 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Unit Price harus berupa angka dan tidak boleh negatif",
-        });
-      }
-      item.unitPrice = numPrice;
-    }
-
-    // Auto calculate Total Price
-    item.totalPrice = Math.round(item.quantity * item.unitPrice * 100) / 100;
 
     if (notes !== undefined) item.notes = notes ? notes.trim() : "";
     if (status !== undefined) {
@@ -397,10 +353,10 @@ export const updateBOQItem = async (req, res) => {
 export const updateBOQStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
 
     const validStatuses = ["Draft", "Submitted", "Approved", "Rejected"];
-    if (!validStatuses.includes(status)) {
+    if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
         message: `Status tidak valid. Pilihan: ${validStatuses.join(", ")}`,
@@ -434,13 +390,30 @@ export const deleteBOQItem = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const item = await BOQItem.findByIdAndDelete(id);
+    const item = await BOQItem.findById(id);
     if (!item) {
       return res.status(404).json({
         success: false,
         message: "Item BOQ tidak ditemukan",
       });
     }
+
+    const [budget, bidding, cost] = await Promise.all([
+      Budget.exists({ boqItem: item._id }),
+      Bidding.exists({ "items.boqItem": item._id }),
+      Cost.exists({ boqItem: item._id }),
+    ]);
+    if (budget || bidding || cost) {
+      return res
+        .status(409)
+        .json({
+          success: false,
+          message:
+            "BOQ item sudah dipakai Budget, Bidding, atau Cost dan tidak dapat dihapus.",
+        });
+    }
+
+    await item.deleteOne();
 
     return res.status(200).json({
       success: true,

@@ -11,7 +11,6 @@ const costSchema = new mongoose.Schema(
     budget: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Budget",
-      required: [true, "Budget wajib dipilih"],
       index: true,
     },
     boqItem: {
@@ -43,6 +42,25 @@ const costSchema = new mongoose.Schema(
       min: [0.01, "Amount harus lebih besar dari 0"],
       default: 0,
     },
+    supplier: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Party",
+      index: true,
+    },
+    unitPrice: { type: Number, min: 0 }, // harga satuan dari quotation supplier terpilih
+    quantity: { type: Number, min: 0 }, // quantity dari BOQ item saat bidding selesai
+    // Source tracking (PRD §38)
+    sourceType: {
+      type: String,
+      enum: ["manual", "bidding"],
+      default: "manual",
+      index: true,
+    },
+    sourceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Bidding",
+      index: true,
+    },
     status: {
       type: String,
       enum: ["Draft", "Submitted", "Approved", "Rejected"],
@@ -61,11 +79,15 @@ const costSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 costSchema.index({ project: 1, budget: 1, status: 1 });
 costSchema.index({ project: 1, costCode: 1 }, { unique: true });
 costSchema.index({ project: 1, costDate: -1 });
+costSchema.index(
+  { sourceId: 1, boqItem: 1 },
+  { unique: true, partialFilterExpression: { sourceType: "bidding" } },
+);
 
 export default mongoose.model("Cost", costSchema);
