@@ -233,6 +233,9 @@ const buildRSVPButtons = (meetingId, participantEmail) => {
           </td>
         </tr>
       </table>
+      <p style="margin:12px 0 0;font-size:12px;color:#64748B;font-family:Arial,sans-serif;">
+        Jika memilih Tidak Hadir, Anda akan diminta mengisi alasan singkat.
+      </p>
     </td>
   </tr>
 </table>
@@ -279,7 +282,7 @@ const buildPlainText = ({
     meeting.description ? `Detail: ${meeting.description}` : null,
     "",
     isParticipant
-      ? "Buka email ini di Outlook dan gunakan Hadir/Tidak Hadir untuk menambahkannya ke kalender Anda."
+      ? "Untuk menolak undangan dengan alasan, pilih tombol Tidak Hadir pada versi HTML email. Anda juga dapat membuka undangan ini di Outlook untuk merespons kehadiran."
       : "",
   ]
     .filter(Boolean)

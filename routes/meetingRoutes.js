@@ -86,6 +86,7 @@ router.post("/:id/results", upload.single("file"), addMeetingResult);
 router.put("/:id/results/:resultId", updateMeetingResult);
 router.delete("/:id/results/:resultId", deleteMeetingResult);
 router.get("/rsvp/:token", handleRSVP);
+router.post("/rsvp/:token", handleRSVP);
 router.patch("/:id/end", endMeeting);
 router.get("/today", authenticate, getMeetingTodayByUserLogin);
 router.get("/all/today", getMeetingToday);

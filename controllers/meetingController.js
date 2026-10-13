@@ -916,6 +916,7 @@ export const getMeetingDetail = async (req, res) => {
           isExternal: true,
           invitationStatus: p.invitationStatus,
           responseAt: p.responseAt,
+          declineReason: p.declineReason || "",
         };
       }
       return {
@@ -926,6 +927,7 @@ export const getMeetingDetail = async (req, res) => {
         isExternal: false,
         invitationStatus: p.invitationStatus,
         responseAt: p.responseAt,
+        declineReason: p.declineReason || "",
       };
     });
 
@@ -1286,6 +1288,47 @@ export const handleRSVP = async (req, res) => {
       `);
     }
 
+    if (status === "decline" && req.method === "GET") {
+      const action = req.originalUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+      return res.status(200).send(`
+        <!DOCTYPE html>
+        <html lang="id">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Alasan Tidak Hadir</title>
+          </head>
+          <body style="margin:0;background:#F8FAFC;font-family:Arial,sans-serif;color:#0F172A;">
+            <main style="max-width:480px;margin:8vh auto;padding:32px;background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.08);">
+              <p style="margin:0 0 8px;color:#4F46E5;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Planify · Respons Meeting</p>
+              <h1 style="margin:0 0 8px;font-size:22px;">Anda tidak dapat hadir?</h1>
+              <p style="margin:0 0 24px;color:#64748B;line-height:1.5;">Beri tahu penyelenggara alasan Anda tidak dapat menghadiri meeting ini.</p>
+              <form method="POST" action="${action}">
+                <label for="declineReason" style="display:block;margin-bottom:8px;font-size:14px;font-weight:600;">Alasan tidak hadir <span style="color:#DC2626;">*</span></label>
+                <textarea id="declineReason" name="declineReason" required minlength="3" maxlength="500" rows="4" placeholder="Contoh: Ada agenda lain yang tidak bisa ditinggalkan" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #CBD5E1;border-radius:10px;font:14px Arial,sans-serif;resize:vertical;"></textarea>
+                <p style="margin:6px 0 20px;color:#94A3B8;font-size:12px;">Maksimal 500 karakter.</p>
+                <button type="submit" style="width:100%;padding:12px;border:0;border-radius:10px;background:#DC2626;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Kirim alasan & konfirmasi</button>
+              </form>
+            </main>
+          </body>
+        </html>
+      `);
+    }
+
+    const declineReason = String(req.body?.declineReason || "").trim();
+    if (status === "decline" && req.method === "POST" && (declineReason.length < 3 || declineReason.length > 500)) {
+      return res.status(400).send(`
+        <html lang="id"><body style="font-family:Arial,sans-serif;text-align:center;padding:60px;">
+          <h2 style="color:#DC2626;">Alasan belum lengkap.</h2>
+          <p>Masukkan alasan 3 sampai 500 karakter, lalu kirim kembali.</p>
+          <a href="${req.originalUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}">Kembali ke formulir</a>
+        </body></html>
+      `);
+    }
+    if (req.method === "POST" && status !== "decline") {
+      return res.status(405).send("Method not allowed");
+    }
+
     const updated = await MeetingParticipant.findOneAndUpdate(
       {
         _id: participant._id,
@@ -1294,6 +1337,7 @@ export const handleRSVP = async (req, res) => {
       {
         invitationStatus: status,
         responseAt: new Date(),
+        declineReason: status === "decline" ? declineReason.slice(0, 500) : "",
       },
       { new: true },
     );
@@ -1316,6 +1360,7 @@ export const handleRSVP = async (req, res) => {
         : email,
       status,
       responseAt: updated.responseAt,
+      declineReason: updated.declineReason,
     });
 
     const labelMap = {
