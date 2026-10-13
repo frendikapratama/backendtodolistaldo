@@ -17,10 +17,47 @@ const populateBidding = (query) =>
 
 export const listBiddings = async (req, res) => {
   try {
+    const { search = "", status = "ALL", page = 1, limit = 6 } = req.query;
+    
+    let query = { project: req.params.projectId };
+    
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } }
+      ];
+    }
+    
+    if (status !== "ALL") {
+      if (status === "FINISHED") {
+        query.status = "FINISHED";
+      } else if (status === "IN_PROGRESS") {
+        query.status = { $in: ["IN_PROGRESS", "QUOTATION", "EVALUATION"] };
+      } else if (status === "DRAFT") {
+        query.status = "DRAFT";
+      }
+    }
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const total = await Bidding.countDocuments(query);
+    
     const rows = await populateBidding(
-      Bidding.find({ project: req.params.projectId }).sort({ createdAt: -1 }),
+      Bidding.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum)
     );
-    res.json({ success: true, data: rows });
+    
+    res.json({ 
+      success: true, 
+      data: rows,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
   } catch (error) {
     handleError(res, error);
   }
