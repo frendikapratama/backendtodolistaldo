@@ -257,22 +257,94 @@ export async function getDetailRoom(req, res) {
       roomId: id,
       status: { $ne: "cancelled" },
       startTime: { $lte: now },
-      endTime: { $gt: dayjs(now).subtract(30, "minute").toDate() },
+      endTime: {
+        $gt: dayjs(now).subtract(30, "minute").toDate(),
+      },
     })
       .populate("organizerId", "nama username")
       .sort({ endTime: -1 })
       .lean();
 
+    // Rentang minggu: Senin 00:00 sampai Senin minggu berikutnya
+    const today = dayjs(now);
+    const startOfThisWeek = today
+      .startOf("day")
+      .subtract((today.day() + 6) % 7, "day");
+
+    const startOfNextWeek = startOfThisWeek.add(1, "week");
+    const startOfWeekAfterNext = startOfThisWeek.add(2, "week");
+
+    const startOfToday = today.startOf("day");
+    const startOfTomorrow = startOfToday.add(1, "day");
+    const startOfDayAfterTomorrow = startOfToday.add(2, "day");
+
+    const [totalMeetingToday, totalMeetingTomorrow] = await Promise.all([
+      Meeting.countDocuments({
+        roomId: id,
+        status: "scheduled",
+        startTime: {
+          $gte: startOfToday.toDate(),
+          $lt: startOfTomorrow.toDate(),
+        },
+      }),
+      Meeting.countDocuments({
+        roomId: id,
+        status: "scheduled",
+        startTime: {
+          $gte: startOfTomorrow.toDate(),
+          $lt: startOfDayAfterTomorrow.toDate(),
+        },
+      }),
+    ]);
+    const dailyMeetingDocs = await Meeting.find({
+      roomId: id,
+      status: "scheduled",
+      startTime: {
+        $gte: startOfThisWeek.toDate(),
+        $lt: startOfNextWeek.toDate(),
+      },
+    })
+      .select("startTime")
+      .lean();
+
+    const dayNames = [
+      "Senin",
+      "Selasa",
+      "Rabu",
+      "Kamis",
+      "Jumat",
+      "Sabtu",
+      "Minggu",
+    ];
+
+    const dailyMeetings = Array.from({ length: 7 }, (_, index) => {
+      const date = startOfThisWeek.add(index, "day");
+
+      const total = dailyMeetingDocs.filter((meeting) =>
+        dayjs(meeting.startTime).isSame(date, "day"),
+      ).length;
+
+      return {
+        day: dayNames[index],
+        date: date.format("YYYY-MM-DD"),
+        total,
+      };
+    });
+
+    // Ambil meeting terjadwal sampai akhir minggu depan
     const nextMeetingDocs = await Meeting.find({
       roomId: id,
-      status: { $ne: "cancelled" },
-      startTime: { $gt: now },
+      status: "scheduled",
+      startTime: {
+        $gte: now,
+        $lt: startOfWeekAfterNext.toDate(),
+      },
     })
       .populate("organizerId", "nama username")
       .sort({ startTime: 1 })
       .lean();
 
-    const nextMeetings = nextMeetingDocs.map((m) => ({
+    const formatMeeting = (m) => ({
       _id: m._id,
       title: m.title,
       organizer: m.organizerId?.nama || m.organizerId?.username || null,
@@ -281,7 +353,21 @@ export async function getDetailRoom(req, res) {
       date: dayjs(m.startTime).format("YYYY-MM-DD"),
       startTimeLabel: dayjs(m.startTime).format("HH:mm"),
       endTimeLabel: dayjs(m.endTime).format("HH:mm"),
-    }));
+    });
+
+    const nextMeetings = {
+      thisWeek: nextMeetingDocs
+        .filter((m) => dayjs(m.startTime).isBefore(startOfNextWeek))
+        .map(formatMeeting),
+
+      nextWeek: nextMeetingDocs
+        .filter(
+          (m) =>
+            !dayjs(m.startTime).isBefore(startOfNextWeek) &&
+            dayjs(m.startTime).isBefore(startOfWeekAfterNext),
+        )
+        .map(formatMeeting),
+    };
 
     let roomStatus = {
       status: "available",
@@ -337,6 +423,9 @@ export async function getDetailRoom(req, res) {
         room,
         ...roomStatus,
         nextMeetings,
+        dailyMeetings,
+        totalMeetingToday,
+        totalMeetingTomorrow,
       },
     });
   } catch (error) {
