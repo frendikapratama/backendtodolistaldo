@@ -178,7 +178,6 @@ io.use((socket, next) => {
 
 // Initialize Socket.IO handlers
 initializeSocket(io);
-
 // Start server
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(
