@@ -355,6 +355,11 @@ export async function getDetailRoom(req, res) {
       endTimeLabel: dayjs(m.endTime).format("HH:mm"),
     });
 
+    // Next meeting terdekat (single)
+    const nextMeeting = nextMeetingDocs.length > 0
+      ? formatMeeting(nextMeetingDocs[0])
+      : null;
+
     const nextMeetings = {
       thisWeek: nextMeetingDocs
         .filter((m) => dayjs(m.startTime).isBefore(startOfNextWeek))
@@ -423,6 +428,7 @@ export async function getDetailRoom(req, res) {
         room,
         ...roomStatus,
         nextMeetings,
+        nextMeeting,
         dailyMeetings,
         totalMeetingToday,
         totalMeetingTomorrow,
