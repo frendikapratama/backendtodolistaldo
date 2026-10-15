@@ -125,24 +125,56 @@ export const getWorkspaceProjects = async (req, res) => {
   try {
     const { workspaceId } = req.params;
 
-    const owned = await Project.find({
-      workspace: workspaceId,
-      $or: [
-        { otherWorkspaces: { $exists: false } },
-        { otherWorkspaces: { $size: 0 } },
-      ],
-    }).select(
-      "nama createdAt startedAt dueDate status projectManager otherWorkspaces",
-    );
-
-    const ownedButCollaborated = await Project.find({
-      workspace: workspaceId,
-      otherWorkspaces: { $exists: true, $ne: [] },
-    })
+    const allOwnedProjects = await Project.find({ workspace: workspaceId })
       .select(
         "nama createdAt startedAt dueDate status projectManager otherWorkspaces",
       )
       .populate("otherWorkspaces", "nama");
+
+    // Dapatkan project ID yang benar-benar memiliki collaboration request approved
+    const approvedCollabs = await CollaborationRequest.find({
+      fromWorkspace: workspaceId,
+      status: "approved",
+    }).select("project toWorkspace");
+
+    const approvedMap = new Map();
+    approvedCollabs.forEach((c) => {
+      const pId = String(c.project);
+      if (!approvedMap.has(pId)) approvedMap.set(pId, new Set());
+      approvedMap.get(pId).add(String(c.toWorkspace));
+    });
+
+    const owned = [];
+    const ownedButCollaborated = [];
+
+    for (const project of allOwnedProjects) {
+      const validCollabWorkspaces = (project.otherWorkspaces || []).filter(
+        (ws) => {
+          const wsId = String(ws._id || ws);
+          return (
+            wsId !== String(workspaceId) &&
+            approvedMap.get(String(project._id))?.has(wsId)
+          );
+        },
+      );
+
+      // Jika ada otherWorkspaces di DB tanpa request collaboration approved, bersihkan
+      if (
+        (project.otherWorkspaces || []).length > 0 &&
+        validCollabWorkspaces.length !== project.otherWorkspaces.length
+      ) {
+        await Project.findByIdAndUpdate(project._id, {
+          otherWorkspaces: validCollabWorkspaces.map((w) => w._id || w),
+        });
+        project.otherWorkspaces = validCollabWorkspaces;
+      }
+
+      if (validCollabWorkspaces.length > 0) {
+        ownedButCollaborated.push(project);
+      } else {
+        owned.push(project);
+      }
+    }
 
     const collaboratedFromOthers = await Project.find({
       otherWorkspaces: workspaceId,

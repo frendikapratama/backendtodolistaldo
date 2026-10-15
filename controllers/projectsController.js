@@ -12,13 +12,14 @@ import Party from "../models/Party.js";
 import ProjectParty from "../models/ProjectParty.js";
 
 const toId = (value) => value?._id || value;
-const normalizeDivisionIds = (value) =>
-  [...new Map(
+const normalizeDivisionIds = (value) => [
+  ...new Map(
     (Array.isArray(value) ? value : value ? String(value).split(",") : [])
       .map(toId)
       .filter(Boolean)
       .map((id) => [String(id), id]),
-  ).values()];
+  ).values(),
+];
 
 const getWorkspaceDivisionIds = (workspace) =>
   normalizeDivisionIds(workspace.divisionId).map(String);
@@ -44,7 +45,8 @@ const findOrCreateDivisionWorkspaces = async ({
     let workspace = null;
 
     if (preferredWorkspaceId) {
-      const preferredWorkspace = await Workspace.findById(preferredWorkspaceId).session(session);
+      const preferredWorkspace =
+        await Workspace.findById(preferredWorkspaceId).session(session);
       if (
         preferredWorkspace &&
         getWorkspaceDivisionIds(preferredWorkspace).length === 1 &&
@@ -122,8 +124,8 @@ export async function getProject(req, res) {
       ...filter,
       ...(projectManager &&
         mongoose.isValidObjectId(projectManager) && {
-          projectManager: new mongoose.Types.ObjectId(projectManager),
-        }),
+        projectManager: new mongoose.Types.ObjectId(projectManager),
+      }),
       ...(divisionId && {
         divisionId: {
           $in: divisionId
@@ -203,7 +205,9 @@ export async function createProject(req, res) {
   let session;
 
   try {
-    const { parties = [], workspace: requestedWorkspace, workspaceId, ...projectData } = req.body;
+    const workspaceId =
+      req.params.workspaceId || req.body.workspaceId || req.body.workspace;
+    const { parties = [], ...projectData } = req.body;
 
     const projectManagerId = toId(projectData.projectManager) || req.user?._id;
     if (!mongoose.isValidObjectId(projectManagerId)) {
@@ -221,6 +225,29 @@ export async function createProject(req, res) {
       });
     }
     projectData.projectManager = projectManagerId;
+    projectData.createdBy = req.user?._id;
+
+    const existingWorkspaceId = toId(workspaceId);
+    if (existingWorkspaceId && !mongoose.isValidObjectId(existingWorkspaceId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Workspace tidak valid",
+      });
+    }
+
+    let existingWorkspace = null;
+    if (existingWorkspaceId) {
+      existingWorkspace = await Workspace.findById(existingWorkspaceId);
+      if (!existingWorkspace) {
+        return res.status(404).json({
+          success: false,
+          message: "Workspace tidak ditemukan",
+        });
+      }
+      if (!projectData.divisionId && existingWorkspace.divisionId?.length) {
+        projectData.divisionId = existingWorkspace.divisionId;
+      }
+    }
 
     const projectDivisionIds = normalizeDivisionIds(projectData.divisionId);
     if (projectDivisionIds.some((id) => !mongoose.isValidObjectId(id))) {
@@ -241,22 +268,6 @@ export async function createProject(req, res) {
       }
     }
 
-    const existingWorkspaceId = toId(requestedWorkspace) || workspaceId;
-    if (existingWorkspaceId && !mongoose.isValidObjectId(existingWorkspaceId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Workspace tidak valid",
-      });
-    }
-    if (
-      existingWorkspaceId &&
-      !(await Workspace.exists({ _id: existingWorkspaceId }))
-    ) {
-      return res.status(404).json({
-        success: false,
-        message: "Workspace tidak ditemukan",
-      });
-    }
     if (!Array.isArray(parties)) {
       return res.status(400).json({
         success: false,
@@ -280,60 +291,79 @@ export async function createProject(req, res) {
       });
     }
 
-    const partyCount = await Party.countDocuments({ _id: { $in: partyIds } });
-    if (partyCount !== partyIds.length) {
-      return res.status(400).json({
-        success: false,
-        message: "One or more parties do not exist",
-      });
+    if (partyIds.length > 0) {
+      const partyCount = await Party.countDocuments({ _id: { $in: partyIds } });
+      if (partyCount !== partyIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: "One or more parties do not exist",
+        });
+      }
     }
 
     session = await mongoose.startSession();
     let project;
-    let projectWorkspaces;
+    let projectWorkspaces = [];
 
-    await session.withTransaction(async () => {
-      [project] = await Project.create([projectData], { session });
+    const executeCreate = async (activeSession) => {
+      const sessionOption = activeSession ? { session: activeSession } : {};
 
-      if (projectDivisionIds.length) {
-        projectWorkspaces = await findOrCreateDivisionWorkspaces({
+      projectWorkspaces = [];
+      if (existingWorkspaceId) {
+        const workspace = activeSession
+          ? await Workspace.findById(existingWorkspaceId).session(activeSession)
+          : await Workspace.findById(existingWorkspaceId);
+        if (workspace) {
+          addProjectManagerToWorkspace(workspace, projectManagerId);
+          projectWorkspaces.push(workspace);
+        }
+      }
+
+      // Only search or create other division workspaces if NOT created from an existing workspace
+      if (!existingWorkspaceId && projectDivisionIds.length) {
+        const divisionWorkspaces = await findOrCreateDivisionWorkspaces({
           divisionIds: projectDivisionIds,
           projectManagerId,
           preferredWorkspaceId: existingWorkspaceId,
-          session,
+          session: activeSession,
         });
-      } else if (existingWorkspaceId) {
-        const workspace = await Workspace.findById(existingWorkspaceId).session(session);
-        addProjectManagerToWorkspace(workspace, projectManagerId);
-        projectWorkspaces = [workspace];
-      } else {
+        for (const dw of divisionWorkspaces) {
+          if (!projectWorkspaces.some((w) => String(w._id) === String(dw._id))) {
+            projectWorkspaces.push(dw);
+          }
+        }
+      } else if (!projectWorkspaces.length) {
         const [workspace] = await Workspace.create(
           [{ members: [{ user: projectManagerId, role: "admin" }] }],
-          { session },
+          sessionOption,
         );
         projectWorkspaces = [workspace];
       }
 
+      [project] = await Project.create([projectData], sessionOption);
+
       project.workspace = projectWorkspaces[0]._id;
       project.otherWorkspaces = projectWorkspaces.slice(1).map(({ _id }) => _id);
-      await project.save({ session });
+      await project.save(sessionOption);
 
       for (const workspace of projectWorkspaces) {
-        if (!workspace.projects.some(
-          (projectId) => String(projectId) === String(project._id),
-        )) {
+        if (
+          !workspace.projects.some(
+            (projectId) => String(projectId) === String(project._id),
+          )
+        ) {
           workspace.projects.push(project._id);
         }
-        await workspace.save({ session });
+        await workspace.save(sessionOption);
       }
 
       const [defaultGroup] = await Group.create(
         [{ nama: "New Group", project: project._id }],
-        { session },
+        sessionOption,
       );
 
       project.groups.push(defaultGroup._id);
-      await project.save({ session });
+      await project.save(sessionOption);
 
       if (parties.length > 0) {
         await ProjectParty.insertMany(
@@ -342,10 +372,26 @@ export async function createProject(req, res) {
             party,
             role,
           })),
-          { session },
+          sessionOption,
         );
       }
-    });
+    };
+
+    try {
+      await session.withTransaction(async () => {
+        await executeCreate(session);
+      });
+    } catch (transactionError) {
+      if (
+        transactionError.message &&
+        (transactionError.message.includes("replica set") ||
+          transactionError.message.includes("Transaction numbers"))
+      ) {
+        await executeCreate(null);
+      } else {
+        throw transactionError;
+      }
+    }
 
     const populatedProject = await Project.findById(project._id)
       .populate({
@@ -359,6 +405,7 @@ export async function createProject(req, res) {
         populate: { path: "owner", select: "username email" },
       })
       .lean();
+
     const projectParties = await ProjectParty.find({ project: project._id })
       .populate("party", "name email phone")
       .lean();
@@ -513,7 +560,9 @@ export async function updateProject(req, res) {
     }
 
     const projectManagerId =
-      updateData.projectManager || toId(oldProject.projectManager) || req.user?._id;
+      updateData.projectManager ||
+      toId(oldProject.projectManager) ||
+      req.user?._id;
     if (!mongoose.isValidObjectId(projectManagerId)) {
       return res.status(400).json({
         success: false,
@@ -542,7 +591,10 @@ export async function updateProject(req, res) {
             ? updateData.divisionId
             : project.divisionId,
         );
-        const previousWorkspaceIds = [project.workspace, ...(project.otherWorkspaces || [])]
+        const previousWorkspaceIds = [
+          project.workspace,
+          ...(project.otherWorkspaces || []),
+        ]
           .map(toId)
           .filter(Boolean);
         let projectWorkspaces;
@@ -555,7 +607,9 @@ export async function updateProject(req, res) {
             session,
           });
         } else if (project.workspace) {
-          const workspace = await Workspace.findById(project.workspace).session(session);
+          const workspace = await Workspace.findById(project.workspace).session(
+            session,
+          );
           addProjectManagerToWorkspace(workspace, projectManagerId);
           projectWorkspaces = [workspace];
         } else {
@@ -568,7 +622,8 @@ export async function updateProject(req, res) {
 
         const nextWorkspaceIds = projectWorkspaces.map(({ _id }) => _id);
         const removedWorkspaceIds = previousWorkspaceIds.filter(
-          (workspaceId) => !nextWorkspaceIds.some((id) => String(id) === String(workspaceId)),
+          (workspaceId) =>
+            !nextWorkspaceIds.some((id) => String(id) === String(workspaceId)),
         );
         if (removedWorkspaceIds.length) {
           await Workspace.updateMany(
@@ -586,7 +641,9 @@ export async function updateProject(req, res) {
         project.otherWorkspaces = nextWorkspaceIds.slice(1);
 
         for (const workspace of projectWorkspaces) {
-          if (!workspace.projects.some((id) => String(id) === String(project._id))) {
+          if (
+            !workspace.projects.some((id) => String(id) === String(project._id))
+          ) {
             workspace.projects.push(project._id);
           }
           await workspace.save({ session });
@@ -684,7 +741,10 @@ export async function deleteProject(req, res) {
     await Workspace.updateMany(
       {
         _id: {
-          $in: [projectRef.workspace, ...(projectRef.otherWorkspaces || [])].filter(Boolean),
+          $in: [
+            projectRef.workspace,
+            ...(projectRef.otherWorkspaces || []),
+          ].filter(Boolean),
         },
       },
       { $pull: { projects: projectRef._id } },
