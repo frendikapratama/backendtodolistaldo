@@ -281,7 +281,7 @@ export async function getDetailRoom(req, res) {
     const [totalMeetingToday, totalMeetingTomorrow] = await Promise.all([
       Meeting.countDocuments({
         roomId: id,
-        status: "scheduled",
+        status: { $ne: "cancelled" },
         startTime: {
           $gte: startOfToday.toDate(),
           $lt: startOfTomorrow.toDate(),
@@ -289,7 +289,7 @@ export async function getDetailRoom(req, res) {
       }),
       Meeting.countDocuments({
         roomId: id,
-        status: "scheduled",
+        status: { $ne: "cancelled" },
         startTime: {
           $gte: startOfTomorrow.toDate(),
           $lt: startOfDayAfterTomorrow.toDate(),
@@ -298,7 +298,7 @@ export async function getDetailRoom(req, res) {
     ]);
     const dailyMeetingDocs = await Meeting.find({
       roomId: id,
-      status: "scheduled",
+      status: { $ne: "cancelled" },
       startTime: {
         $gte: startOfThisWeek.toDate(),
         $lt: startOfNextWeek.toDate(),
