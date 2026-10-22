@@ -169,13 +169,6 @@ export const sendMeetingWhatsAppNotification = async ({
       });
     }
 
-    if (i < validParticipants.length - 1) {
-      const delay = Math.floor(Math.random() * 30000) + 15000; // 15-45 detik
-      console.log(
-        `⏳ Menunggu ${Math.round(delay / 1000)} detik sebelum kirim berikutnya...`,
-      );
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
   }
 
   return results;
@@ -254,14 +247,6 @@ export const sendMeetingCancellationWhatsApp = async ({
         user: user.noHp,
       });
     }
-
-    if (i < validUsers.length - 1) {
-      const delay = Math.floor(Math.random() * 30000) + 15000;
-      console.log(
-        `⏳ Menunggu ${Math.round(delay / 1000)} detik sebelum kirim berikutnya...`,
-      );
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
   }
 
   return results;
@@ -339,14 +324,6 @@ export const sendMeetingRescheduleWhatsApp = async ({
         reason: error,
         user: user.noHp,
       });
-    }
-
-    if (i < validUsers.length - 1) {
-      const delay = Math.floor(Math.random() * 30000) + 15000;
-      console.log(
-        `⏳ Menunggu ${Math.round(delay / 1000)} detik sebelum kirim berikutnya...`,
-      );
-      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 
