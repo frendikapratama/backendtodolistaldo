@@ -121,15 +121,52 @@ export const getCollaborationRequests = async (req, res) => {
   }
 };
 
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const getWorkspaceProjects = async (req, res) => {
   try {
     const { workspaceId } = req.params;
+    const search = req.query.search?.trim();
 
-    const allOwnedProjects = await Project.find({ workspace: workspaceId })
+    let ownedFilter = { workspace: workspaceId };
+    let collabFilter = { otherWorkspaces: workspaceId };
+
+    if (search) {
+      const searchRegex = { $regex: escapeRegex(search), $options: "i" };
+
+      // Cari workspace yang namanya sesuai query pencarian untuk relasi kolaborasi
+      const matchingWorkspaces = await Workspace.find({
+        nama: searchRegex,
+      }).select("_id");
+      const matchingWsIds = matchingWorkspaces.map((w) => w._id);
+
+      ownedFilter = {
+        workspace: workspaceId,
+        $or: [
+          { nama: searchRegex },
+          ...(matchingWsIds.length > 0
+            ? [{ otherWorkspaces: { $in: matchingWsIds } }]
+            : []),
+        ],
+      };
+
+      collabFilter = {
+        otherWorkspaces: workspaceId,
+        $or: [
+          { nama: searchRegex },
+          ...(matchingWsIds.length > 0
+            ? [{ workspace: { $in: matchingWsIds } }]
+            : []),
+        ],
+      };
+    }
+
+    const allOwnedProjects = await Project.find(ownedFilter)
       .select(
-        "nama createdAt startedAt dueDate status projectManager otherWorkspaces",
+        "nama description createdAt startedAt dueDate status projectManager otherWorkspaces",
       )
-      .populate("otherWorkspaces", "nama");
+      .populate("otherWorkspaces", "nama")
+      .sort({ createdAt: -1 });
 
     // Dapatkan project ID yang benar-benar memiliki collaboration request approved
     const approvedCollabs = await CollaborationRequest.find({
@@ -172,17 +209,22 @@ export const getWorkspaceProjects = async (req, res) => {
       if (validCollabWorkspaces.length > 0) {
         ownedButCollaborated.push(project);
       } else {
-        owned.push(project);
+        // Jika sedang search dan proyek masuk karena matching otherWorkspaces yang tidak valid, jangan masukkan ke owned
+        if (
+          !search ||
+          new RegExp(escapeRegex(search), "i").test(project.nama)
+        ) {
+          owned.push(project);
+        }
       }
     }
 
-    const collaboratedFromOthers = await Project.find({
-      otherWorkspaces: workspaceId,
-    })
+    const collaboratedFromOthers = await Project.find(collabFilter)
       .select(
-        "nama createdAt startedAt dueDate status projectManager workspace",
+        "nama description createdAt startedAt dueDate status projectManager workspace",
       )
-      .populate("workspace", "nama");
+      .populate("workspace", "nama")
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
