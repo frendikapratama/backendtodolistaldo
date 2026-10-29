@@ -2,7 +2,7 @@ name: Build & Push Backend Planify
 
 on:
   push:
-    branches: [wa-api]
+    branches: [memberWorkspace]
 
 permissions:
   contents: read

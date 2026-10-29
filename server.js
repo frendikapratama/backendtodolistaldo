@@ -139,7 +139,6 @@ app.use("/api/party", partyRoutes);
 app.use("/api/boq", boqRoutes);
 app.use("/api/budgets", budgetRoutes);
 app.use("/api/costs", costRoutes);
-
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
