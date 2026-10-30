@@ -656,7 +656,10 @@ export async function updateProject(req, res) {
     }
 
     const updatedProject = await Project.findById(projectId)
-      .populate("groups", "nama")
+      .populate({
+        path: "groups",
+        select: "nama description position isOpen createdAt",
+      })
       .populate("projectManager", "username email photo")
       .populate("workspace", "_id nama owner")
       .populate("divisionId", "name")
@@ -765,7 +768,10 @@ export async function getProjectById(req, res) {
     const { projectId } = req.params;
 
     const project = await Project.findById(projectId)
-      .populate("groups", "nama")
+      .populate({
+        path: "groups",
+        select: "nama description position isOpen createdAt",
+      })
       .populate("projectManager", "username email photo")
       .populate("workspace", "_id nama owner")
       .lean();
@@ -774,6 +780,14 @@ export async function getProjectById(req, res) {
       return res.status(404).json({
         success: false,
         message: "Project not found",
+      });
+    }
+
+    if (Array.isArray(project.groups)) {
+      project.groups.sort((a, b) => {
+        const posA = a.position !== undefined && a.position !== null ? Number(a.position) : 0;
+        const posB = b.position !== undefined && b.position !== null ? Number(b.position) : 0;
+        return posA - posB;
       });
     }
 

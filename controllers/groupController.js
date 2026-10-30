@@ -3,6 +3,7 @@ import Project from "../models/Project.js";
 import Task from "../models/Task.js";
 import { handleError } from "../utils/errorHandler.js";
 import { createActivity } from "../helpers/activityhelper.js";
+
 export async function getGroup(req, res) {
   try {
     const data = await Group.find().populate("task", "nama");
@@ -24,6 +25,14 @@ export async function updateGroupPositions(req, res) {
       });
     }
 
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project tidak ditemukan",
+      });
+    }
+
     const groupsInProject = await Group.find({
       _id: { $in: groupIds },
       project: projectId,
@@ -41,6 +50,14 @@ export async function updateGroupPositions(req, res) {
     );
 
     await Promise.all(updatePromises);
+
+    // Sinkronkan urutan groups pada dokumen Project
+    const remainingGroupIds = (project.groups || []).filter(
+      (gId) => !groupIds.map(String).includes(String(gId)),
+    );
+    const updatedProjectGroups = [...groupIds, ...remainingGroupIds];
+
+    await Project.findByIdAndUpdate(projectId, { groups: updatedProjectGroups });
 
     res.status(200).json({
       success: true,
@@ -63,9 +80,12 @@ export async function createGroup(req, res) {
       });
     }
 
+    const nextPosition = (project.groups && project.groups.length) || 0;
+
     const group = await Group.create({
       nama: "New Group",
       project: projectId,
+      position: nextPosition,
     });
 
     project.groups.push(group._id);
