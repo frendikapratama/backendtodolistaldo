@@ -95,6 +95,29 @@ export async function updateSubTask(req, res) {
         .json({ success: false, message: "Subtask not found" });
     }
 
+    if (updateData.status === "Done-In review") {
+      const effectiveStartDate =
+        updateData.start_date !== undefined
+          ? updateData.start_date
+          : oldSubTask.start_date;
+      const effectiveDueDate =
+        updateData.due_date !== undefined
+          ? updateData.due_date
+          : oldSubTask.due_date;
+      const effectiveFinishDate =
+        updateData.finish_date !== undefined
+          ? updateData.finish_date
+          : oldSubTask.finish_date;
+
+      if (!effectiveStartDate || !effectiveDueDate || !effectiveFinishDate) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Start date, due date, dan finish date wajib diisi sebelum mengubah status ke Done-In review",
+        });
+      }
+    }
+
     if (picEmail) {
       const emails = Array.isArray(picEmail) ? picEmail : [picEmail];
       const io = req.app.get("io"); // Ambil io instance

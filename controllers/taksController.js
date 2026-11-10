@@ -243,6 +243,29 @@ export async function updateTask(req, res) {
       }
     }
 
+    if (updateData.status === "Done-In review") {
+      const effectiveStartDate =
+        updateData.start_date !== undefined
+          ? updateData.start_date
+          : oldTask.start_date;
+      const effectiveDueDate =
+        updateData.due_date !== undefined
+          ? updateData.due_date
+          : oldTask.due_date;
+      const effectiveFinishDate =
+        updateData.finish_date !== undefined
+          ? updateData.finish_date
+          : oldTask.finish_date;
+
+      if (!effectiveStartDate || !effectiveDueDate || !effectiveFinishDate) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Start date, due date, dan finish date wajib diisi sebelum mengubah status ke Done-In review",
+        });
+      }
+    }
+
     if (picEmail) {
       const emails = Array.isArray(picEmail) ? picEmail : [picEmail];
       const io = req.app.get("io");
