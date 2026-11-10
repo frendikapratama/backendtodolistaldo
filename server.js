@@ -49,7 +49,7 @@ import budgetRoutes from "./routes/budgetRoutes.js";
 import costRoutes from "./routes/costRoutes.js";
 import { updateMeetingStatuses } from "./helpers/meetingStatusUpdater.js";
 import { startReplyListener } from "./helpers/meetingReplyListener.js";
-//
+
 dotenv.config({ debug: true, override: true });
 
 const app = express();
