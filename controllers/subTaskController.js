@@ -100,10 +100,10 @@ export async function updateSubTask(req, res) {
         updateData.start_date !== undefined
           ? updateData.start_date
           : oldSubTask.start_date;
-      const effectiveDueDate =
-        updateData.due_date !== undefined
-          ? updateData.due_date
-          : oldSubTask.due_date;
+      // const effectiveDueDate =
+      //   updateData.due_date !== undefined
+      //     ? updateData.due_date
+      //     : oldSubTask.due_date;
       const effectiveFinishDate =
         updateData.finish_date !== undefined
           ? updateData.finish_date
@@ -113,7 +113,7 @@ export async function updateSubTask(req, res) {
         return res.status(400).json({
           success: false,
           message:
-            "Start date, due date, dan finish date wajib diisi sebelum mengubah status ke Done-In review",
+            "Start date,  and finish date are required before changing the status to Done-In review",
         });
       }
     }
@@ -288,7 +288,6 @@ async function handleSubtaskPicAssignment(
       await Subtask.findByIdAndUpdate(subTaskId, {
         $addToSet: { pic: targetUser._id },
       });
-
 
       const updatedSubtask = await Subtask.findById(subTaskId).populate("pic");
       if (updatedSubtask.scale && updatedSubtask.due_date) {
@@ -500,8 +499,6 @@ export async function removeSubtaskPic(req, res) {
         `Subtask ${subTaskId} PIC removed - New Score: ${fibonacciScore}, Priority: ${priorityData.level}`,
       );
     }
-
-
 
     const workspaceResult = await getWorkspaceFromSubtask(subTaskId);
     if (workspaceResult.success) {

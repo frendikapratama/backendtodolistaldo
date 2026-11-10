@@ -248,10 +248,10 @@ export async function updateTask(req, res) {
         updateData.start_date !== undefined
           ? updateData.start_date
           : oldTask.start_date;
-      const effectiveDueDate =
-        updateData.due_date !== undefined
-          ? updateData.due_date
-          : oldTask.due_date;
+      // const effectiveDueDate =
+      //   updateData.due_date !== undefined
+      //     ? updateData.due_date
+      //     : oldTask.due_date;
       const effectiveFinishDate =
         updateData.finish_date !== undefined
           ? updateData.finish_date
@@ -261,7 +261,7 @@ export async function updateTask(req, res) {
         return res.status(400).json({
           success: false,
           message:
-            "Start date, due date, dan finish date wajib diisi sebelum mengubah status ke Done-In review",
+            "Start date, and finish date are required before changing the status to Done-In review",
         });
       }
     }
@@ -722,8 +722,6 @@ async function handlePicAssignment(taskId, picEmail, task, requesterId) {
         $addToSet: { pic: targetUser._id },
       });
 
-
-
       const updatedTask = await Task.findById(taskId).populate("pic");
       if (updatedTask.scale && updatedTask.due_date) {
         const fibonacciScore = calculateFibonacciScore(
@@ -873,8 +871,6 @@ export async function acceptPicInvite(req, res) {
       });
     }
 
-
-
     await Task.findByIdAndUpdate(taskId, {
       $addToSet: { pic: userId },
       $pull: { pendingPicInvites: { token: token } },
@@ -950,8 +946,6 @@ export async function removePic(req, res) {
       );
     }
 
-
-
     const group = await Group.findById(task.groups);
     await createActivity({
       user: req.user._id,
@@ -985,8 +979,6 @@ export async function removeAllPics(req, res) {
         message: "Task tidak ditemukan",
       });
     }
-
-
 
     task.pic = [];
     await task.save();
