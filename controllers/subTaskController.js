@@ -100,10 +100,10 @@ export async function updateSubTask(req, res) {
         updateData.start_date !== undefined
           ? updateData.start_date
           : oldSubTask.start_date;
-      // const effectiveDueDate =
-      //   updateData.due_date !== undefined
-      //     ? updateData.due_date
-      //     : oldSubTask.due_date;
+      const effectiveDueDate =
+        updateData.due_date !== undefined
+          ? updateData.due_date
+          : oldSubTask.due_date;
       const effectiveFinishDate =
         updateData.finish_date !== undefined
           ? updateData.finish_date

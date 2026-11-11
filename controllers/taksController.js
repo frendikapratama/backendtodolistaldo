@@ -248,10 +248,10 @@ export async function updateTask(req, res) {
         updateData.start_date !== undefined
           ? updateData.start_date
           : oldTask.start_date;
-      // const effectiveDueDate =
-      //   updateData.due_date !== undefined
-      //     ? updateData.due_date
-      //     : oldTask.due_date;
+      const effectiveDueDate =
+        updateData.due_date !== undefined
+          ? updateData.due_date
+          : oldTask.due_date;
       const effectiveFinishDate =
         updateData.finish_date !== undefined
           ? updateData.finish_date
