@@ -95,6 +95,31 @@ export async function updateSubTask(req, res) {
         .json({ success: false, message: "Subtask not found" });
     }
 
+    const effectiveStartDate =
+      updateData.start_date !== undefined
+        ? updateData.start_date
+        : oldSubTask.start_date;
+    const effectiveFinishDate =
+      updateData.finish_date !== undefined
+        ? updateData.finish_date
+        : oldSubTask.finish_date;
+    if (updateData.finish_date && !effectiveStartDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Start date is required before setting finish date",
+      });
+    }
+    if (
+      effectiveStartDate &&
+      effectiveFinishDate &&
+      new Date(effectiveFinishDate) < new Date(effectiveStartDate)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Finish date must be the same as or later than start date",
+      });
+    }
+
     if (updateData.status === "Done-In review") {
       const effectiveStartDate =
         updateData.start_date !== undefined

@@ -232,6 +232,31 @@ export async function updateTask(req, res) {
       });
     }
 
+    const effectiveStartDate =
+      updateData.start_date !== undefined
+        ? updateData.start_date
+        : oldTask.start_date;
+    const effectiveFinishDate =
+      updateData.finish_date !== undefined
+        ? updateData.finish_date
+        : oldTask.finish_date;
+    if (updateData.finish_date && !effectiveStartDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Start date is required before setting finish date",
+      });
+    }
+    if (
+      effectiveStartDate &&
+      effectiveFinishDate &&
+      new Date(effectiveFinishDate) < new Date(effectiveStartDate)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Finish date must be the same as or later than start date",
+      });
+    }
+
     if (updateData.status && updateData.status !== oldTask.status) {
       isStatusChanged = true;
 
