@@ -452,16 +452,14 @@ export async function updateTask(req, res) {
         const newStatus = updatedTask.status;
 
         // PIC IDs (sebagai string)
-        const picIds = updatedTask.pic.map((p) =>
-          (p._id || p).toString(),
-        );
+        const picIds = updatedTask.pic.map((p) => (p._id || p).toString());
 
         let recipientIds;
 
         if (newStatus === "Done-In review") {
-          // Done-In Review: kirim hanya ke admin, project_manager, management, owner
-          // — BUKAN ke member biasa, BUKAN ke PIC sendiri, BUKAN ke sender
-          const reviewerRoles = ["admin", "project_manager", "management"];
+          // Done-In Review: kirim HANYA ke member dengan role admin
+          // — BUKAN ke role lain, BUKAN ke PIC sendiri, BUKAN ke sender
+          const reviewerRoles = ["admin"];
 
           recipientIds = workspace.members
             .filter((m) => {
@@ -473,17 +471,6 @@ export async function updateTask(req, res) {
               );
             })
             .map((m) => m.user);
-
-          // Tambahkan owner jika bukan sender dan bukan PIC
-          const ownerId = workspace.owner?.toString();
-          if (
-            ownerId &&
-            ownerId !== req.user._id.toString() &&
-            !picIds.includes(ownerId) &&
-            !recipientIds.some((id) => id.toString() === ownerId)
-          ) {
-            recipientIds.push(workspace.owner);
-          }
         } else {
           // Status lain: kirim ke semua member kecuali sender
           recipientIds = workspace.members
@@ -521,7 +508,7 @@ export async function updateTask(req, res) {
         });
 
         console.log(
-          `Sent ${notifications.length} status change notifications (${newStatus === "Done-In review" ? "reviewers only" : "all members"})`,
+          `Sent ${notifications.length} status change notifications (${newStatus === "Done-In review" ? "admin only" : "all members"})`,
         );
       } catch (notifError) {
         console.error("Error sending notifications:", notifError);
