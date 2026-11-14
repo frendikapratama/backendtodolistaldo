@@ -449,9 +449,47 @@ export async function updateTask(req, res) {
         });
 
         const workspace = group.project.workspace;
-        const recipientIds = workspace.members
-          .map((member) => member.user)
-          .filter((userId) => userId.toString() !== req.user._id.toString());
+        const newStatus = updatedTask.status;
+
+        // PIC IDs (sebagai string)
+        const picIds = updatedTask.pic.map((p) =>
+          (p._id || p).toString(),
+        );
+
+        let recipientIds;
+
+        if (newStatus === "Done-In review") {
+          // Done-In Review: kirim hanya ke admin, project_manager, management, owner
+          // — BUKAN ke member biasa, BUKAN ke PIC sendiri, BUKAN ke sender
+          const reviewerRoles = ["admin", "project_manager", "management"];
+
+          recipientIds = workspace.members
+            .filter((m) => {
+              const userId = m.user.toString();
+              return (
+                reviewerRoles.includes(m.role) &&
+                userId !== req.user._id.toString() &&
+                !picIds.includes(userId)
+              );
+            })
+            .map((m) => m.user);
+
+          // Tambahkan owner jika bukan sender dan bukan PIC
+          const ownerId = workspace.owner?.toString();
+          if (
+            ownerId &&
+            ownerId !== req.user._id.toString() &&
+            !picIds.includes(ownerId) &&
+            !recipientIds.some((id) => id.toString() === ownerId)
+          ) {
+            recipientIds.push(workspace.owner);
+          }
+        } else {
+          // Status lain: kirim ke semua member kecuali sender
+          recipientIds = workspace.members
+            .map((member) => member.user)
+            .filter((userId) => userId.toString() !== req.user._id.toString());
+        }
 
         const notifications = await createTaskStatusNotification({
           taskId: updatedTask._id,
@@ -464,7 +502,8 @@ export async function updateTask(req, res) {
           senderName: req.user.username,
           recipients: recipientIds,
           oldStatus: oldTask.status,
-          newStatus: updatedTask.status,
+          newStatus,
+          itemType: "Task",
         });
 
         const io = req.app.get("io");
@@ -482,7 +521,7 @@ export async function updateTask(req, res) {
         });
 
         console.log(
-          `Sent ${notifications.length} status change notifications to all workspace members`,
+          `Sent ${notifications.length} status change notifications (${newStatus === "Done-In review" ? "reviewers only" : "all members"})`,
         );
       } catch (notifError) {
         console.error("Error sending notifications:", notifError);

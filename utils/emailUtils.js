@@ -289,6 +289,41 @@ export async function sendTaskOverdueEmail({
   console.log(`📨 Email overdue task terkirim ke: ${to}`);
 }
 
+export async function sendDoneInReviewEmail({
+  to,
+  taskName,
+  subtaskName = null,
+  projectName,
+  workspaceName,
+  changerName,
+  itemType = "Task",
+}) {
+  const itemLabel = subtaskName ? `Subtask "${subtaskName}" (Task: "${taskName}")` : `Task "${taskName}"`;
+
+  const mailOptions = {
+    from: `"Planify" <${process.env.EMAIL_USER}>`,
+    to,
+    subject: `✅ ${itemType} needs review: ${subtaskName || taskName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #7c3aed;">✅ Item Needs Your Review</h2>
+        <p>Hello,</p>
+        <p><strong>${changerName}</strong> has marked the following item as <strong>Done-In Review</strong> and it requires your attention:</p>
+        <div style="background-color: #f5f3ff; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #7c3aed;">
+          <h3 style="margin: 0; color: #1f2937;">${itemLabel}</h3>
+          <p style="margin: 5px 0; color: #6b7280;">Project: ${projectName}</p>
+          <p style="margin: 5px 0; color: #6b7280;">Workspace: ${workspaceName}</p>
+          <p style="margin-top: 10px; color: #5b21b6; font-weight: bold;">📋 Status: Done-In Review — awaiting your approval</p>
+        </div>
+        <p>Please log in to Planify to review and approve or reject this item.</p>
+      </div>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+  console.log(`📨 Email Done-In Review terkirim ke: ${to}`);
+}
+
 export async function sendSubtaskAssignedEmail({
   to,
   subtaskName,

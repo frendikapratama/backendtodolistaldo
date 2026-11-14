@@ -5,7 +5,13 @@ import {
   sendTaskAssignedEmail,
   sendTaskOverdueEmail,
   sendSubtaskAssignedEmail,
+  sendDoneInReviewEmail,
 } from "../utils/emailUtils.js";
+import {
+  sendDoneInReviewWA,
+  sendDueSoonWA,
+  sendOverdueWA,
+} from "../utils/taskWhatsAppService.js";
 import User from "../models/User.js";
 
 export async function createTaskDueSoonNotification({
@@ -54,9 +60,10 @@ export async function createTaskDueSoonNotification({
       await Notification.insertMany(notifications);
 
       User.find({ _id: { $in: recipients } })
-        .select("email")
+        .select("email noHp")
         .then((users) => {
           users.forEach((user) => {
+            // Email
             sendTaskDueSoonEmail({
               to: user.email,
               taskName,
@@ -68,9 +75,24 @@ export async function createTaskDueSoonNotification({
             }).catch((err) =>
               console.error(`Failed to send email to ${user.email}:`, err),
             );
+
+            // WhatsApp
+            if (user.noHp) {
+              sendDueSoonWA({
+                noHp: user.noHp,
+                taskName,
+                projectName,
+                workspaceName,
+                dueDate,
+                status,
+                daysRemaining,
+              }).catch((err) =>
+                console.error(`Failed to send WA to ${user.noHp}:`, err),
+              );
+            }
           });
         })
-        .catch((err) => console.error("Error fetching users for email:", err));
+        .catch((err) => console.error("Error fetching users for due soon notif:", err));
     }
 
     return notifications;
@@ -92,6 +114,9 @@ export async function createTaskStatusNotification({
   recipients,
   oldStatus,
   newStatus,
+  // Untuk Done-In Review: informasi tambahan
+  subtaskName = null,
+  itemType = "Task",
 }) {
   try {
     const notifications = recipients
@@ -100,8 +125,12 @@ export async function createTaskStatusNotification({
         recipient: recipientId,
         sender: senderId,
         type: "TASK_STATUS_CHANGED",
-        title: "Task status updated",
-        message: `${senderName} changed the status of the task "${taskName}" from ${oldStatus} to ${newStatus}`,
+        title: newStatus === "Done-In review"
+          ? `${itemType} Needs Review`
+          : "Task status updated",
+        message: newStatus === "Done-In review"
+          ? `${senderName} telah menandai ${itemType.toLowerCase()} "${subtaskName || taskName}" sebagai Done-In Review. Mohon lakukan review.`
+          : `${senderName} changed the status of the task "${taskName}" from ${oldStatus} to ${newStatus}`,
         task: taskId,
         workspace: workspaceId,
         project: projectId,
@@ -109,36 +138,59 @@ export async function createTaskStatusNotification({
           oldStatus,
           newStatus,
           taskName,
+          subtaskName,
+          itemType,
           projectName,
           workspaceName,
         },
       }));
 
-    // if (notifications.length > 0) {
-    //   await Notification.insertMany(notifications);
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
 
-    //   const recipientIds = recipients.filter(
-    //     (id) => id.toString() !== senderId.toString()
-    //   );
-    //   User.find({ _id: { $in: recipientIds } })
-    //     .select("email")
-    //     .then((users) => {
-    //       users.forEach((user) => {
-    //         sendTaskStatusChangedEmail({
-    //           to: user.email,
-    //           taskName,
-    //           projectName,
-    //           workspaceName,
-    //           senderName,
-    //           oldStatus,
-    //           newStatus,
-    //         }).catch((err) =>
-    //           console.error(`Failed to send email to ${user.email}:`, err)
-    //         );
-    //       });
-    //     })
-    //     .catch((err) => console.error("Error fetching users for email:", err));
-    // }
+      // Kirim Email + WA untuk status Done-In Review
+      if (newStatus === "Done-In review") {
+        const recipientIds = recipients.filter(
+          (id) => id.toString() !== senderId.toString(),
+        );
+
+        User.find({ _id: { $in: recipientIds } })
+          .select("email noHp")
+          .then((users) => {
+            users.forEach((user) => {
+              // Email
+              sendDoneInReviewEmail({
+                to: user.email,
+                taskName,
+                subtaskName,
+                projectName,
+                workspaceName,
+                changerName: senderName,
+                itemType,
+              }).catch((err) =>
+                console.error(`[Done-In Review] Email error to ${user.email}:`, err),
+              );
+
+              // WhatsApp
+              if (user.noHp) {
+                sendDoneInReviewWA({
+                  noHp: user.noHp,
+                  taskName,
+                  subtaskName,
+                  projectName,
+                  workspaceName,
+                  changerName: senderName,
+                }).catch((err) =>
+                  console.error(`[Done-In Review] WA error to ${user.noHp}:`, err),
+                );
+              }
+            });
+          })
+          .catch((err) =>
+            console.error("[Done-In Review] Error fetching users:", err),
+          );
+      }
+    }
 
     return notifications;
   } catch (error) {
@@ -296,10 +348,11 @@ export async function createTaskOverdueNotification({
       );
 
       User.find({ _id: { $in: recipients } })
-        .select("email")
+        .select("email noHp")
         .then((users) => {
-          console.log(`Sending overdue emails to ${users.length} users`);
+          console.log(`Sending overdue emails+WA to ${users.length} users`);
           users.forEach((user) => {
+            // Email
             sendTaskOverdueEmail({
               to: user.email,
               taskName,
@@ -314,10 +367,25 @@ export async function createTaskOverdueNotification({
                 err,
               ),
             );
+
+            // WhatsApp
+            if (user.noHp) {
+              sendOverdueWA({
+                noHp: user.noHp,
+                taskName,
+                projectName,
+                workspaceName,
+                dueDate,
+                status,
+                daysOverdue,
+              }).catch((err) =>
+                console.error(`Failed to send overdue WA to ${user.noHp}:`, err),
+              );
+            }
           });
         })
         .catch((err) =>
-          console.error("Error fetching users for overdue email:", err),
+          console.error("Error fetching users for overdue notif:", err),
         );
     }
 

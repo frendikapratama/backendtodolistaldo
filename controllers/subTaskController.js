@@ -12,7 +12,7 @@ import { findOrCreateUser } from "../utils/userUtils.js";
 import { sendSubtaskPicInvitationEmail } from "../utils/emailUtils.js";
 import Workspace from "../models/Workspace.js";
 import { createActivity } from "../helpers/activityhelper.js";
-import { createSubtaskAssignmentNotification } from "../helpers/notificationHelper.js";
+import { createSubtaskAssignmentNotification, createTaskStatusNotification } from "../helpers/notificationHelper.js";
 import { emitNotificationToUser } from "../sockets/socketHandler.js";
 import {
   calculateFibonacciScore,
@@ -94,6 +94,11 @@ export async function updateSubTask(req, res) {
         .status(404)
         .json({ success: false, message: "Subtask not found" });
     }
+
+    // Track apakah status berubah
+    const isStatusChanged =
+      updateData.status && updateData.status !== oldSubTask.status;
+    const newStatus = updateData.status;
 
     const effectiveStartDate =
       updateData.start_date !== undefined
