@@ -12,7 +12,7 @@ const router = express.Router();
 
 router.get("/", authenticate, get);
 router.post("/", authenticate, requireSystemAdmin, create);
-router.get("/:KuarterId", getById);
+router.get("/:KuarterId", authenticate, getById);
 router.put("/:KuarterId", authenticate, requireSystemAdmin, edit);
 router.delete("/:KuarterId", authenticate, requireSystemAdmin, deleteKuarter);
 

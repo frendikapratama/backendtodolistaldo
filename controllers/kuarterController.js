@@ -139,6 +139,23 @@ export async function getById(req, res) {
       "workspace",
       "nama"
     );
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: "Kuarter tidak ditemukan",
+      });
+    }
+
+    const userDepartment = String(req.user?.departemen || "")
+      .trim()
+      .toUpperCase();
+    if (userDepartment !== "OFFICE" && String(data.departemen || "").trim().toUpperCase() !== userDepartment) {
+      return res.status(403).json({
+        success: false,
+        message: "Anda hanya dapat melihat kuarter department sendiri",
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: "kuarter berhasil ambil",
