@@ -10,7 +10,7 @@ import { emitNotificationToUser } from "../sockets/socketHandler.js";
 export function startTaskDueNotificationJob(io) {
   // Jalankan setiap hari jam 08:00
   // Format: "menit jam * * *"
-  cron.schedule("27 11 * * *", async () => {
+  cron.schedule("00 08 * * *", async () => {
     try {
       console.log("Running task due date notification check...");
 
@@ -88,7 +88,7 @@ export function startTaskDueNotificationJob(io) {
     }
   });
 
-  console.log("Task due notification job scheduled (runs daily at 14:08)");
+  console.log("Task due notification job scheduled (runs daily at 08:00)");
 }
 
 export function startTaskOverdueNotificationJob(io) {

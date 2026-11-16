@@ -64,17 +64,17 @@ export async function createTaskDueSoonNotification({
         .then((users) => {
           users.forEach((user) => {
             // Email
-            sendTaskDueSoonEmail({
-              to: user.email,
-              taskName,
-              projectName,
-              workspaceName,
-              dueDate,
-              status,
-              daysRemaining,
-            }).catch((err) =>
-              console.error(`Failed to send email to ${user.email}:`, err),
-            );
+            // sendTaskDueSoonEmail({
+            //   to: user.email,
+            //   taskName,
+            //   projectName,
+            //   workspaceName,
+            //   dueDate,
+            //   status,
+            //   daysRemaining,
+            // }).catch((err) =>
+            //   console.error(`Failed to send email to ${user.email}:`, err),
+            // );
 
             // WhatsApp
             if (user.noHp) {
@@ -92,7 +92,9 @@ export async function createTaskDueSoonNotification({
             }
           });
         })
-        .catch((err) => console.error("Error fetching users for due soon notif:", err));
+        .catch((err) =>
+          console.error("Error fetching users for due soon notif:", err),
+        );
     }
 
     return notifications;
@@ -125,12 +127,14 @@ export async function createTaskStatusNotification({
         recipient: recipientId,
         sender: senderId,
         type: "TASK_STATUS_CHANGED",
-        title: newStatus === "Done-In review"
-          ? `${itemType} Needs Review`
-          : "Task status updated",
-        message: newStatus === "Done-In review"
-          ? `${senderName} telah menandai ${itemType.toLowerCase()} "${subtaskName || taskName}" sebagai Done-In Review. Mohon lakukan review.`
-          : `${senderName} changed the status of the task "${taskName}" from ${oldStatus} to ${newStatus}`,
+        title:
+          newStatus === "Done-In review"
+            ? `${itemType} Needs Review`
+            : "Task status updated",
+        message:
+          newStatus === "Done-In review"
+            ? `${senderName} telah menandai ${itemType.toLowerCase()} "${subtaskName || taskName}" sebagai Done-In Review. Mohon lakukan review.`
+            : `${senderName} changed the status of the task "${taskName}" from ${oldStatus} to ${newStatus}`,
         task: taskId,
         workspace: workspaceId,
         project: projectId,
@@ -159,17 +163,20 @@ export async function createTaskStatusNotification({
           .then((users) => {
             users.forEach((user) => {
               // Email
-              sendDoneInReviewEmail({
-                to: user.email,
-                taskName,
-                subtaskName,
-                projectName,
-                workspaceName,
-                changerName: senderName,
-                itemType,
-              }).catch((err) =>
-                console.error(`[Done-In Review] Email error to ${user.email}:`, err),
-              );
+              // sendDoneInReviewEmail({
+              //   to: user.email,
+              //   taskName,
+              //   subtaskName,
+              //   projectName,
+              //   workspaceName,
+              //   changerName: senderName,
+              //   itemType,
+              // }).catch((err) =>
+              //   console.error(
+              //     `[Done-In Review] Email error to ${user.email}:`,
+              //     err,
+              //   ),
+              // );
 
               // WhatsApp
               if (user.noHp) {
@@ -181,7 +188,10 @@ export async function createTaskStatusNotification({
                   workspaceName,
                   changerName: senderName,
                 }).catch((err) =>
-                  console.error(`[Done-In Review] WA error to ${user.noHp}:`, err),
+                  console.error(
+                    `[Done-In Review] WA error to ${user.noHp}:`,
+                    err,
+                  ),
                 );
               }
             });
@@ -353,20 +363,20 @@ export async function createTaskOverdueNotification({
           console.log(`Sending overdue emails+WA to ${users.length} users`);
           users.forEach((user) => {
             // Email
-            sendTaskOverdueEmail({
-              to: user.email,
-              taskName,
-              projectName,
-              workspaceName,
-              dueDate,
-              status,
-              daysOverdue,
-            }).catch((err) =>
-              console.error(
-                `Failed to send overdue email to ${user.email}:`,
-                err,
-              ),
-            );
+            // sendTaskOverdueEmail({
+            //   to: user.email,
+            //   taskName,
+            //   projectName,
+            //   workspaceName,
+            //   dueDate,
+            //   status,
+            //   daysOverdue,
+            // }).catch((err) =>
+            //   console.error(
+            //     `Failed to send overdue email to ${user.email}:`,
+            //     err,
+            //   ),
+            // );
 
             // WhatsApp
             if (user.noHp) {
@@ -379,7 +389,10 @@ export async function createTaskOverdueNotification({
                 status,
                 daysOverdue,
               }).catch((err) =>
-                console.error(`Failed to send overdue WA to ${user.noHp}:`, err),
+                console.error(
+                  `Failed to send overdue WA to ${user.noHp}:`,
+                  err,
+                ),
               );
             }
           });
