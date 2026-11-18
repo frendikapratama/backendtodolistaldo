@@ -2,8 +2,12 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import {
+  checkIn,
+  getAttendanceOptions,
+  getAttendanceRecap,
+} from "../controllers/meetingAttendanceController.js";
 import { authenticate } from "../middleware/auth.js";
-import { checkIn, getAttendanceRecap } from "../controllers/meetingAttendanceController.js";
 
 const uploadDir = path.join(process.cwd(), "uploads", "meeting-attendance");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -17,6 +21,7 @@ const upload = multer({
 });
 
 const router = express.Router();
-router.post("/:meetingId", authenticate, upload.single("photo"), checkIn);
+router.get("/:meetingId/options", getAttendanceOptions);
+router.post("/:meetingId", upload.single("photo"), checkIn);
 router.get("/:meetingId/recap", authenticate, getAttendanceRecap);
 export default router;
